@@ -34,6 +34,19 @@ describe("retreat attack resolution", () => {
       "hp.changed",
       "mode.changed",
     ]);
+    expect(result.events[0]?.event).toMatchObject({
+      eventType: "hp.changed",
+      eventVersion: 2,
+      payload: {
+        source: { kind: "retreat_attack", enemyId: "enemy-a", attackOrder: 1 },
+        formulaVersion: "fable.damage.v1",
+        rawDamage: 100,
+        defense: 20,
+        multiplier: 1,
+        finalDamage: 84,
+      },
+    });
+    expect(result.events[0]?.event.actorId).toBe("enemy-a");
     expect(result.events.some(({ event }) => String(event.eventType).startsWith("status."))).toBe(false);
     expect(result.events.at(-1)?.event).toMatchObject({
       eventType: "mode.changed",

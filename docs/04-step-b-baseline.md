@@ -95,7 +95,7 @@ Rule IDs: `TIME-001`, `TIME-002`, `INTENT-003`, `RESOURCE-002`, `RESOURCE-003`, 
 | `protocolVersion` | `fable.protocol.v1` | transport/envelope and handshake |
 | envelope `schemaVersion` | `1` | shape of current command/event envelope |
 | `commandVersion` | `1` per command name | payload semantics of one command |
-| `eventVersion` | `1` per canonical event | payload semantics of one event |
+| `eventVersion` | version per canonical event payload | payload semantics of one event; damage uses `hp.changed` v2, while v1 remains replay-only |
 | `snapshotSchema` | `fable.snapshot.scene.v1` | filtered scene snapshot shape |
 | projection schema | `fable.projection.tv.v1`, `fable.projection.player.v1`, `fable.projection.gm.v1` | role-specific DTO shape |
 | `contextVersion` | `fable.context.v1` | AI allow-listed packet shape |
@@ -168,7 +168,9 @@ Rule IDs: `DECK-001`—`DECK-006`, `INTENT-001`—`INTENT-005`, `STATUS-001`.
 
 Canonical first-slice journal events:
 
-`scene.created`, `scene.entity_moved`, `card.drawn`, `card.played`, `card.discarded`, `stamina.changed`, `hp.changed`, `status.applied`, `status.refreshed`, `status.expired`, `mode.changed`, `intent.started`, `intent.cancelled`, `intent.resolved`, `intent.target_selected`, `hint.sent`, `scene.ended`, `expedition.ended`, `checkpoint.created`, `checkpoint.restored` (audit/internal alias only), `rollback.applied`, `scene.transferred`, `scene.pause_changed`.
+`scene.created`, `scene.entity_moved`, `scene.entity_removed`, `card.drawn`, `card.played`, `card.discarded`, `stamina.changed`, `hp.changed`, `status.applied`, `status.refreshed`, `status.expired`, `mode.changed`, `intent.started`, `intent.cancelled`, `intent.resolved`, `intent.target_selected`, `hint.sent`, `scene.ended`, `expedition.ended`, `checkpoint.created`, `checkpoint.restored` (audit/internal alias only), `rollback.applied`, `scene.transferred`, `scene.pause_changed`.
+
+Step C Increment 4 defines `hp.changed` v2 for new damage events and keeps v1 readable by replay. `scene.entity_removed` v1 records enemy cleanup and cell release; `intent.cancelled` reason `owner_removed` precedes removal when applicable. See [DR-C-004](./18-step-c-hp-damage-resolution.md).
 
 `command.accepted` и `command.rejected` — transport results, not domain events. `scene.spawn_accent` — UI-only derived notification. `scene.spawn_applied` — excluded until future scope decision.
 

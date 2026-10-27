@@ -10,6 +10,7 @@ import { activateScene, resolveDueIntents } from "../intents/intentSystem.js";
 import { groupEvents, type PendingJournalEvent } from "../intents/events.js";
 import { detectContactTransitions, modeChangedEvent } from "../combat/heroModes.js";
 import { resolveRetreat } from "../combat/retreatResolution.js";
+import { cleanupDeadEnemies } from "./cleanup.js";
 import { assertRuntimeInvariants } from "./invariants.js";
 import { cloneRuntimeState, createRuntimeState, snapshotState } from "./createRuntimeState.js";
 import type {
@@ -138,6 +139,8 @@ export class HeadlessSimulationEngine implements SimulationEngine {
       }
       // Environment has no active effects in this increment; its phase remains explicit and ordered.
     }
+
+    pending.push(...cleanupDeadEnemies(this.runtime, this.runtime.serverTick));
 
     const committed = groupEvents(this.runtime, pending);
     this.journal.appendBatch(committed.events, committed.auditByEventId);

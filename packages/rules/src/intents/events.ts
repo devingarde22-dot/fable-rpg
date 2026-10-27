@@ -48,6 +48,13 @@ export function eventBase(state: RuntimeState, serverTick: number, actorId: stri
   };
 }
 
+export function eventBaseV2(state: RuntimeState, serverTick: number, actorId: string | null, causedByRequestId: string | null) {
+  return {
+    ...eventBase(state, serverTick, actorId, causedByRequestId),
+    eventVersion: 2 as const,
+  };
+}
+
 export function groupEvents(
   state: RuntimeState,
   pending: readonly PendingJournalEvent[],

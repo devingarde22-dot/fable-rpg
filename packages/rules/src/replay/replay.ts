@@ -2,7 +2,15 @@ import { cloneRuntimeState, snapshotState } from "../engine/createRuntimeState.j
 import { assertRuntimeInvariants } from "../engine/invariants.js";
 import { cellIndex, isInBounds } from "../grid/Grid.js";
 import { checkMovementDestination } from "../grid/collision.js";
-import type { DomainEvent, JournalRecord, RuntimeSnapshot, RuntimeState, RngAuditRecord } from "../engine/types.js";
+import { calculateDamage } from "../combat/damage.js";
+import {
+  DAMAGE_FORMULA_VERSION,
+  type DomainEvent,
+  type JournalRecord,
+  type RuntimeSnapshot,
+  type RuntimeState,
+  type RngAuditRecord,
+} from "../engine/types.js";
 import { cloneEvent } from "../journal/EventJournal.js";
 import { modeFromEvent } from "../combat/heroModes.js";
 
@@ -68,7 +76,8 @@ function createReplayProgress(state: RuntimeState): ReplayProgress {
 }
 
 function applyReplayEvent(state: RuntimeState, event: DomainEvent, progress: ReplayProgress): void {
-  if (event.protocolVersion !== "fable.protocol.v1" || event.schemaVersion !== 1 || event.eventVersion !== 1) {
+  if (event.protocolVersion !== "fable.protocol.v1" || event.schemaVersion !== 1 ||
+    (event.eventVersion !== 1 && !(event.eventType === "hp.changed" && event.eventVersion === 2))) {
     throw new Error("Unsupported or invalid event contract");
   }
   if (event.serverSequence !== progress.previousSequence + 1) throw new Error("Replay sequence is not consecutive");
@@ -90,6 +99,9 @@ function applyReplayEvent(state: RuntimeState, event: DomainEvent, progress: Rep
   switch (event.eventType) {
     case "scene.entity_moved":
       applyMovement(state, event);
+      break;
+    case "scene.entity_removed":
+      applyEntityRemoved(state, event);
       break;
     case "intent.started":
       applyIntentStarted(state, event);
@@ -221,8 +233,53 @@ function applyHpChanged(state: RuntimeState, event: Extract<DomainEvent, { event
     event.payload.current < 0 || event.payload.current > event.payload.maximum) {
     throw new Error("Replay hp.changed payload is inconsistent");
   }
+  if (event.eventVersion === 2) {
+    const { payload } = event;
+    if (payload.formulaVersion !== DAMAGE_FORMULA_VERSION || payload.kind !== "damage" ||
+      payload.defense !== entity.defense) {
+      throw new Error("Replay hp.changed v2 formula/source payload is inconsistent");
+    }
+    const calculation = calculateDamage({ rawDamage: payload.rawDamage, defense: payload.defense, multiplier: payload.multiplier });
+    const expectedCurrent = Math.max(0, Math.min(entity.hp.max, entity.hp.current - calculation.finalDamage));
+    if (payload.finalDamage !== calculation.finalDamage || payload.current !== expectedCurrent ||
+      (payload.publicAmount !== undefined && payload.publicAmount !== calculation.finalDamage)) {
+      throw new Error("Replay hp.changed v2 damage calculation does not match the prior state");
+    }
+    validateDamageEventSource(state, payload.source, payload.multiplier);
+  }
   entity.hp.current = event.payload.current;
   if (entity.kind === "hero" && entity.hp.current === 0) entity.aliveState = "critically_injured";
+}
+
+function applyEntityRemoved(state: RuntimeState, event: Extract<DomainEvent, { eventType: "scene.entity_removed" }>): void {
+  const enemy = state.entities.get(event.payload.entityId);
+  const position = event.payload.cell;
+  if (!enemy || enemy.kind !== "enemy" || enemy.hp.current !== 0 || enemy.aliveState === "removed" ||
+    enemy.position.x !== position.x || enemy.position.y !== position.y || enemy.activeIntentId !== null ||
+    event.payload.reason !== "hp_depleted") {
+    throw new Error("Replay scene.entity_removed payload is inconsistent");
+  }
+  const cell = state.scene.cells[cellIndex(position)];
+  if (!cell || cell.occupantId !== enemy.id) throw new Error("Replay removed entity cell occupancy is inconsistent");
+  cell.occupantId = null;
+  enemy.aliveState = "removed";
+}
+
+function validateDamageEventSource(
+  state: RuntimeState,
+  source: Extract<DomainEvent, { eventType: "hp.changed"; eventVersion: 2 }>['payload']['source'],
+  multiplier: number,
+): void {
+  const enemy = state.entities.get(source.enemyId);
+  if (!enemy || enemy.kind !== "enemy" || enemy.aliveState !== "active" || enemy.hp.current === 0) {
+    throw new Error("Replay damage source does not reference a living active enemy");
+  }
+  if (source.kind === "enemy_intent" && multiplier !== 1) {
+    throw new Error("Replay enemy intent damage must use multiplier 1");
+  }
+  if (source.kind === "retreat_attack" && multiplier !== 1 / source.attackOrder) {
+    throw new Error("Replay retreat damage multiplier does not match attack order");
+  }
 }
 
 function applyModeChanged(state: RuntimeState, event: Extract<DomainEvent, { eventType: "mode.changed" }>): void {

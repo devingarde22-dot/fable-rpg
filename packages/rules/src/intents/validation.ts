@@ -14,6 +14,9 @@ export function validateIntent(
   intentId: string,
   currentTargetId: string | null = null,
 ): IntentValidation {
+  if (enemy.kind !== "enemy" || enemy.aliveState !== "active" || enemy.hp.current === 0) {
+    return { ok: false, reason: "no_longer_possible" };
+  }
   if (!ACTIVE_INTENT_HANDLERS.has(template.effect.handler)) return { ok: false, reason: "no_longer_possible" };
   if (template.effect.handler === "hold_position") return { ok: true, target: null };
 

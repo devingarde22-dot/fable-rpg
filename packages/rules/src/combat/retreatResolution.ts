@@ -1,5 +1,6 @@
 import type { HeroRuntime, RuntimeState } from "../engine/types.js";
-import { eventBase, type PendingJournalEvent } from "../intents/events.js";
+import type { PendingJournalEvent } from "../intents/events.js";
+import { applyDamage } from "./damage.js";
 import { contactingEnemies, modeChangedEvent } from "./heroModes.js";
 
 export type RetreatAttackResult = {
@@ -41,26 +42,27 @@ export function resolveRetreat(
     const attackOrder = index + 1;
     const coefficient = 1 / attackOrder;
     const rawDamage = template.basicAttack.rawDamage;
-    const mitigation = 100 / (100 + hero.defense);
-    const mitigatedDamage = Math.ceil(rawDamage * mitigation);
-    const finalDamage = Math.ceil(mitigatedDamage * coefficient);
-    const hpBefore = hero.hp.current;
-    const hpAfter = Math.max(0, hpBefore - finalDamage);
+    const result = applyDamage(state, {
+      target: hero,
+      source: { kind: "retreat_attack", enemyId, attackOrder },
+      rawDamage,
+      multiplier: coefficient,
+      serverTick,
+      causedByRequestId: requestId,
+    });
 
-    attacks.push({ enemyId, attackOrder, coefficient, rawDamage, mitigation, mitigatedDamage, finalDamage, hpBefore, hpAfter });
-    hero.hp.current = hpAfter;
-    if (hpAfter === 0) hero.aliveState = "critically_injured";
-
-    if (hpAfter !== hpBefore) {
-      events.push({
-        event: {
-          ...eventBase(state, serverTick, enemy.id, requestId),
-          eventType: "hp.changed",
-          payload: { entityId: hero.id, current: hpAfter, maximum: hero.hp.max, kind: "damage", publicAmount: finalDamage },
-          replay: null,
-        },
-      });
-    }
+    attacks.push({
+      enemyId,
+      attackOrder,
+      coefficient,
+      rawDamage,
+      mitigation: result.calculation.mitigation,
+      mitigatedDamage: result.calculation.mitigatedDamage,
+      finalDamage: result.calculation.finalDamage,
+      hpBefore: result.hpBefore,
+      hpAfter: result.hpAfter,
+    });
+    if (result.event) events.push(result.event);
   });
 
   state.scene.contactImmunityUntilTick.set(hero.id, serverTick + 300);

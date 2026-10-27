@@ -100,7 +100,7 @@
     {
       "protocolVersion": "fable.protocol.v1",
       "schemaVersion": 1,
-      "eventVersion": 1,
+      "eventVersion": 2,
       "campaignId": "campaign-test",
       "sessionId": "session-test",
       "sceneId": "scene-test",
@@ -113,7 +113,18 @@
         "current": 908,
         "maximum": 1000,
         "kind": "damage",
-        "publicAmount": 92
+        "publicAmount": 92,
+        "source": {
+          "kind": "enemy_intent",
+          "enemyId": "shooter-1",
+          "activeIntentId": "scene-test:shooter-1:0:ranged_shot",
+          "handler": "ranged_shot"
+        },
+        "formulaVersion": "fable.damage.v1",
+        "rawDamage": 110,
+        "defense": 20,
+        "multiplier": 1,
+        "finalDamage": 92
       },
       "replay": null,
       "eventId": "evt-4",

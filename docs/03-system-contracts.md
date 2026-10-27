@@ -151,6 +151,7 @@ type CommandResult =
 ```text
 scene.created
 scene.entity_moved
+scene.entity_removed
 card.drawn
 card.played
 card.discarded
@@ -176,6 +177,8 @@ scene.transferred
 Каждое событие содержит `eventVersion`, `sceneRevision`, `serverTick`, `serverSequence` и `causedByRequestId`.
 
 Для retreat: accepted command creates one event group and increments `sceneRevision` once; attack/HP events resolve by ascending `enemyId`; emit `hp.changed` only on actual HP change. Contact checks occur after hero movement, enemy movement, scene activation when available, and mode transition. Replay reconstructs mode/HP/immunity/group/hash from events or deterministic tick; see [DR-C-003](./16-step-c-retreat-resolution.md).
+
+New damage is recorded as `hp.changed` v2 with source and `fable.damage.v1` inputs/results; v1 remains replay-compatible. Enemy removal uses `scene.entity_removed` after HP reaches 0 and cleanup runs. If its active intent exists, order is `hp.changed` → `intent.cancelled(owner_removed)` → `scene.entity_removed`. Events from one damage batch share one `sceneRevision` and `eventGroupId`; formula/source details are GM/audit-only.
 ## 5. Детерминированный scheduler
 
 ```text

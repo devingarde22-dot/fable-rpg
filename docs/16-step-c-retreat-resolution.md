@@ -10,6 +10,8 @@ An accepted transition from melee to movement performs one immediate basic attac
 
 For each attack: `mitigation = 100/(100+heroDefense)`; `mitigatedDamage = ceil(rawDamage*mitigation)`; `finalDamage = ceil(mitigatedDamage*coefficient)`. HP floors at 0. There are no crits, misses, statuses, or stuns. Resolve all eligible attacks even if hero HP reaches 0, and set `critically_injured`. Emit `hp.changed` only when HP actually changes.
 
+Increment 4 routes this calculation through the shared `fable.damage.v1` pipeline. New damage events use `hp.changed` v2; retreat event order remains ordered `hp.changed` events followed by `mode.changed`. See [DR-C-004](./18-step-c-hp-damage-resolution.md).
+
 The enemy templates carry immediate basic attack data, not timed intents:
 
 | Template | `basicAttack` |

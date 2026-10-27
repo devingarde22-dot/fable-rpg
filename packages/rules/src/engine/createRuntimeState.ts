@@ -65,7 +65,7 @@ export function createRuntimeState(config: SimulationEngineConfig): RuntimeState
 
   const initialIntentEntries = config.initialIntentByEnemyId === undefined
     ? [...entities.values()]
-      .filter((entity): entity is Extract<EntityRuntime, { kind: "enemy" }> => entity.kind === "enemy" && entity.aliveState === "active")
+      .filter((entity): entity is Extract<EntityRuntime, { kind: "enemy" }> => entity.kind === "enemy" && entity.aliveState === "active" && entity.hp.current > 0)
       .flatMap((entity) => {
         const initialIntentKey = enemyTemplates.get(entity.templateKey)?.initialIntentKey;
         return initialIntentKey ? [[entity.id, initialIntentKey] as const] : [];
@@ -76,7 +76,7 @@ export function createRuntimeState(config: SimulationEngineConfig): RuntimeState
     const entity = entities.get(enemyId);
     const enemyTemplate = entity?.kind === "enemy" ? enemyTemplates.get(entity.templateKey) : undefined;
     const intentTemplate = intentTemplates.get(intentKey);
-    if (!entity || entity.kind !== "enemy" || entity.aliveState !== "active" || !enemyTemplate || !intentTemplate) {
+    if (!entity || entity.kind !== "enemy" || entity.aliveState !== "active" || entity.hp.current === 0 || !enemyTemplate || !intentTemplate) {
       throw new Error(`Invalid initial intent ${intentKey} for enemy ${enemyId}`);
     }
     if (!enemyTemplate.intentKeys.includes(intentKey)) {
