@@ -1,7 +1,7 @@
 # Fable — журнал разработки и handoff для AI
 
-**Обновлено:** 2026-10-27 (Increment 6 committed; PR #4 открыт)
-**Статус:** Step C, Increment 1–4 приняты и слиты в `fable-rpg/main`; Increment 5 (DR-C-005) реализован в feature branch `step-c-increment-5-stamina`, commit `d237616`, и открыт в PR [#3](https://github.com/devingarde22-dot/fable-rpg/pull/3). Increment 6 (DR-C-006) закоммичен как `946b557` в ветке `step-c-increment-6-card-play` и открыт в stacked PR [#4](https://github.com/devingarde22-dot/fable-rpg/pull/4) против ветки Increment 5. PR [#1](https://github.com/devingarde22-dot/fable-rpg/pull/1) содержал increments 1–3; PR [#2](https://github.com/devingarde22-dot/fable-rpg/pull/2) с Increment 4 слит 2026-10-27 (merge commit `9e0d0f8`).
+**Обновлено:** 2026-10-27 (Increment 7 implemented and verified; uncommitted)
+**Статус:** Step C, Increment 1–4 приняты и слиты в `fable-rpg/main`; Increment 5 (DR-C-005) реализован в feature branch `step-c-increment-5-stamina`, commit `d237616`, и открыт в PR [#3](https://github.com/devingarde22-dot/fable-rpg/pull/3). Increment 6 (DR-C-006) закоммичен как `946b557` в ветке `step-c-increment-6-card-play` и открыт в stacked PR [#4](https://github.com/devingarde22-dot/fable-rpg/pull/4) против ветки Increment 5. Increment 7 (DR-C-007) реализован в feature branch `step-c-increment-7-deck-cycle`; `pnpm check`, `pnpm build` и `git diff --check` проходят. Commit/push/PR пока не выполнялись. PR [#1](https://github.com/devingarde22-dot/fable-rpg/pull/1) содержал increments 1–3; PR [#2](https://github.com/devingarde22-dot/fable-rpg/pull/2) с Increment 4 слит 2026-10-27 (merge commit `9e0d0f8`).
 
 Этот документ — краткая карта проекта для продолжения работы другой нейросетью. Он не заменяет нормативные документы и не вводит новых игровых правил. При любом расхождении приоритет имеют подтверждённые документы `docs/` и машинно-читаемые контракты.
 
@@ -14,6 +14,7 @@
 - Increment 4 (HP & Damage Resolution) закоммичен как `4d26a18` (`feat(rules): add HP and damage resolution`) в ветке `step-c-increment-4-hp-damage`; PR #2 слит в `main` 2026-10-27. Merge commit: `9e0d0f8` (`9e0d0f8996816f7d00c4521bbf6ad30382bfb74e`).
 - Increment 5 (Stamina & Resource Regeneration) реализован commit `d237616` в ветке `step-c-increment-5-stamina`; PR [#3](https://github.com/devingarde22-dot/fable-rpg/pull/3) открыт и ждёт review/merge.
 - Increment 6 (Minimal Card Play) реализован в commit `946b557` на ветке `step-c-increment-6-card-play`; PR [#4](https://github.com/devingarde22-dot/fable-rpg/pull/4) открыт как stacked PR поверх PR #3. Текущий scope и правила — [DR-C-006](./20-step-c-card-play.md).
+- Increment 7 (Mode-filtered Deck & Timed Hand Rotation) реализован и проверен без commit на ветке `step-c-increment-7-deck-cycle`. Подтверждённые правила — [DR-C-007](./21-step-c-deck-cycle.md).
 
 ### Маршрутизация репозиториев
 
@@ -65,7 +66,7 @@ PR [#1](https://github.com/devingarde22-dot/fable-rpg/pull/1) включал Inc
 - `packages/contracts` — canonical JSON Schemas; не добавлять дублирующие wire fields без Decision Record.
 - Engine не зависит от UI, WebSocket/Colyseus, базы данных или сети.
 - Grid — 9×9; logical clock — 20 Hz, один tick = 50 ms; input window — 5 ticks = 250 ms.
-- Batch phase order: `players → enemies → environment → resources`; stamina regeneration runs in the resource phase before cleanup.
+- Batch phase order: `players → enemies → environment → resources → cards`; stamina regeneration runs in the resource phase before cleanup, and due deck rotations run after mode transitions.
 - Только authoritative engine меняет runtime state. Rejected command не меняет gameplay state, `sceneRevision` или domain journal; tick/window bookkeeping может продвинуться. Duplicate `requestId` не создаёт повторную gameplay mutation/event.
 - Одинаковые initial state, content/rules versions, command sequence и seed должны давать одинаковые события и `stateHash`. В gameplay logic запрещены `Math.random()` и wall-clock API вроде `Date.now()`.
 - Replay должен давать точное состояние и тот же `stateHash`, а не приблизительное восстановление.
@@ -123,7 +124,14 @@ PR [#1](https://github.com/devingarde22-dot/fable-rpg/pull/1) включал Inc
 - Positive cost списывает stamina и задаёт `nextRegenAtTick = serverTick + 300`; cost `0` разрешён при `0` stamina и не создаёт `stamina.changed` только за cost. Rejected play не создаёт игровых событий/мутаций.
 - Replay проверяет последовательность `card.played` → optional `stamina.changed(card_cost)` → card-source `hp.changed` v2 → `card.discarded`; canonical hash включает card containers/revision.
 - Используются исключительно fixtures `TEST_ONLY / NON_BALANCE`; production catalog не создавался. `card.discarded` event schema добавлена, command schema не менялась.
-- Draw, reshuffle, defense slot/full deck lifecycle, statuses, UI, WebSocket, PostgreSQL и AI не входят в scope.
+- Mode-entry draw и timer-driven reshuffle реализованы в Increment 7; defense slot, production card catalog/balance, statuses, UI, WebSocket, PostgreSQL и AI не входят в scope.
+
+### Increment 7 — Mode-filtered Deck & Timed Hand Rotation (DR-C-007; uncommitted)
+
+- Каждый вход/переход в `melee`/`ranged` заново фильтрует все card instances по `allowedModes`, сортирует вход и детерминированно shuffle/deal до пяти карт; mode-neutral fixtures допустимы в обоих режимах. Используются только `TEST_ONLY / NON_BALANCE` templates.
+- Rotation timer задаётся при боевом входе на `entryTick + 300`, сохраняется на `melee ↔ ranged`, очищается при выходе в movement. Каждые 300 ticks карта справа у полной руки идёт в discard, новая карта приходит слева; короткая рука не сбрасывается. Play не вызывает immediate draw.
+- Discard reshuffle делается только когда draw pile пуст; при полной руке только что сброшенная карта уже участвует в shuffle. Пустой пул даёт replayable no-card outcome и двигает deadline.
+- События `deck.shuffled`, `card.drawn`, `card.discarded(timer_rotation)` и `deck.rotation_resolved` валидируются replay reducer-ом; RNG audit, card containers, revision и rotation deadline участвуют в replay/stateHash parity.
 
 ## 6. Decision Records
 
@@ -133,6 +141,7 @@ PR [#1](https://github.com/devingarde22-dot/fable-rpg/pull/1) включал Inc
 - **DR-C-004 — CONFIRMED:** единый HP/damage pipeline, формула `fable.damage.v1`, `hp.changed` v2, enemy removal event, event ordering и replay описаны в `docs/18-step-c-hp-damage-resolution.md`.
 - **DR-C-005 — CONFIRMED:** стартовый stamina, `max` из preset, 300-tick regen, cap/inactive timer behavior, affordability, event/replay/hash и excluded scope описаны в `docs/19-step-c-stamina-regeneration.md`.
 - **DR-C-006 — CONFIRMED:** минимальная card play команда, один прямой урон, стоимость stamina, discard, replay и excluded scope описаны в `docs/20-step-c-card-play.md`.
+- **DR-C-007 — CONFIRMED:** mode-filtered mode-entry shuffle/deal, 300-tick hand rotation, empty draw pile reshuffle, event order и replay описаны в `docs/21-step-c-deck-cycle.md`.
 - Canonical RNG name: `xoshiro128**`; `algorithmVersion = fable.rng.v1`. `xoshiro128ss` — только внутренний shorthand. Seed encoding — UTF-8; fork seed — SHA-256 компактной canonical JSON array из `rootSeed`, `campaignId`, `sceneId`, `serverTick`, `activeIntentId`, `purpose`. Retreat order не использует RNG; активные purposes включают `target_selection`, `fallback_selection`, `deck_shuffle`.
 
 ## 7. Последние проверки
@@ -164,9 +173,16 @@ PR [#1](https://github.com/devingarde22-dot/fable-rpg/pull/1) включал Inc
 - Все 5 canonical JSON Schemas проходят Ajv 2020 compilation; card schema integration tests и `git diff --check` проходят.
 - В runtime входят только минимальные `hand`/`discard`/revision и TEST_ONLY / NON_BALANCE fixtures; draw, reshuffle, defense slot, full deck lifecycle, production catalog и UI/network/database/AI не добавлены.
 
+Для Increment 7 / DR-C-007 (2026-10-27; ветка `step-c-increment-7-deck-cycle`, uncommitted):
+
+- `pnpm check` — PASS: typecheck, lint и полный workspace suite; **122 теста прошли** (5 в `content`, 117 в `rules`), 27 test files суммарно.
+- `pnpm build` — PASS: `@fable/content` и `@fable/rules`; `git diff --check` — PASS.
+- Schema integration tests прошли, включая Ajv 2020 compilation canonical event schemas и новые card/deck event payloads. Replay tests проверяют event order, deterministic shuffle validation и stateHash parity.
+- Использованы только явно помеченные `TEST_ONLY / NON_BALANCE` card fixtures; production catalog, defense slot, UI/network/database/AI не добавлены.
+
 ## 8. Что ещё не реализовано / ограничения scope
 
-Не считать готовыми или не начинать без отдельного плана и подтверждения: draw/reshuffle, defense slot и полная deck lifecycle, production card catalog/balance, scene pause runtime (pause schemas alone do not imply engine support), statuses, UI (TV/Player/GM), WebSocket/Colyseus networking, PostgreSQL/persistence, authentication, deployment, AI Copilot, полный combat system и новые карты/сцены.
+Не считать готовыми или не начинать без отдельного плана и подтверждения: defense slot, production card catalog/balance и расширенный card gameplay, scene pause runtime (pause schemas alone do not imply engine support), statuses, UI (TV/Player/GM), WebSocket/Colyseus networking, PostgreSQL/persistence, authentication, deployment, AI Copilot, полный combat system и новые карты/сцены. Mode-filtered deal, timed hand rotation и empty-pile reshuffle реализованы Increment 7 в рамках DR-C-007.
 
 В частности, `extinguisher` ещё не активен в runtime; `bind`, `ally_guard` и `reposition` не реализованы как active handlers. Не расширять scope молча.
 

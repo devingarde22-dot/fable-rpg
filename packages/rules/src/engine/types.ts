@@ -29,7 +29,16 @@ export type CardTemplate = {
   effect: { kind: "direct_damage"; rawDamage: number; multiplier: number };
 };
 export type CardInstance = { instanceId: string; templateKey: string };
-export type HeroCardsRuntime = { hand: CardInstance[]; discard: CardInstance[]; revision: number };
+export const CARD_HAND_LIMIT = 5 as const;
+export const CARD_ROTATION_INTERVAL_TICKS = 300 as const;
+export type HeroCardsRuntime = {
+  drawPile: CardInstance[];
+  hand: CardInstance[];
+  discard: CardInstance[];
+  excludedForMode: CardInstance[];
+  revision: number;
+  nextHandRotationAtTick: number | null;
+};
 
 export type TargetPolicy =
   | "none"
@@ -274,7 +283,36 @@ export type DomainEvent =
     })
   | (EventBase & {
       eventType: "card.discarded";
-      payload: { heroId: EntityId; cardInstanceId: string; reason: "played"; discardRevision: number };
+      payload: { heroId: EntityId; cardInstanceId: string; reason: "played" | "timer_rotation"; discardRevision: number };
+    })
+  | (EventBase & {
+      eventType: "card.drawn";
+      payload: { heroId: EntityId; cardInstanceId: string; destination: "hand"; reason: "mode_entry" | "timer_rotation"; cardRevision: number };
+    })
+  | (EventBase & {
+      eventType: "deck.shuffled";
+      payload: {
+        heroId: EntityId;
+        mode: Exclude<HeroMode, "movement">;
+        reason: "mode_entry" | "discard_exhausted";
+        sourceCardInstanceIds: string[];
+        eligibleCardInstanceIds: string[];
+        excludedCardInstanceIds: string[];
+        orderedCardInstanceIds: string[];
+        operationId: string;
+        cardRevision: number;
+      };
+    })
+  | (EventBase & {
+      eventType: "deck.rotation_resolved";
+      payload: {
+        heroId: EntityId;
+        dueAtTick: number;
+        nextHandRotationAtTick: number;
+        discardedCardInstanceId: string | null;
+        drawnCardInstanceId: string | null;
+        cardRevision: number;
+      };
     })
   | (EventBase & {
       eventType: "mode.changed";

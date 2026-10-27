@@ -61,6 +61,7 @@ export function applyDamage(state: RuntimeState, input: ApplyDamageInput): Apply
   if (input.target.kind === "hero" && hpAfter === 0) {
     input.target.aliveState = "critically_injured";
     input.target.stamina.nextRegenAtTick = null;
+    input.target.cards.nextHandRotationAtTick = null;
   }
 
   const event: PendingJournalEvent | null = appliedDamage === 0

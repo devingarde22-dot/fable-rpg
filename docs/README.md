@@ -26,7 +26,8 @@
 20. [DR-C-004 — HP & Damage Resolution](./18-step-c-hp-damage-resolution.md) — единый урон, HP=0, removal events, версии hp.changed и replay.
 21. [DR-C-005 — Stamina & Resource Regeneration](./19-step-c-stamina-regeneration.md) — стартовый ресурс, tick-based regeneration, cap behavior, replay и scope.
 22. [DR-C-006 — Minimal Card Play](./20-step-c-card-play.md) — одиночный direct-damage play, стоимость stamina, hand→discard и replay.
-23. [Журнал разработки и AI handoff](./17-development-log-and-handoff.md) — repository routing, выполненные инкременты, DR, тесты и правила продолжения.
+23. [DR-C-007 — Mode-filtered Deck & Timed Hand Rotation](./21-step-c-deck-cycle.md) — mode-specific deal, deterministic shuffle, 15-second hand rotation, reshuffle и replay.
+24. [Журнал разработки и AI handoff](./17-development-log-and-handoff.md) — repository routing, выполненные инкременты, DR, тесты и правила продолжения.
 
 ## Правило использования
 
@@ -69,7 +70,7 @@ docs/03-system-contracts.md
 docs/05-vertical-slice.md
 ```
 
-Step C increments 1–4 приняты и слиты; PR [#1](https://github.com/devingarde22-dot/fable-rpg/pull/1) и PR [#2](https://github.com/devingarde22-dot/fable-rpg/pull/2), merge commit PR #2 — `9e0d0f8`. Increment 5 / DR-C-005 реализован в commit `d237616` и открыт в PR [#3](https://github.com/devingarde22-dot/fable-rpg/pull/3). Increment 6 / DR-C-006 реализован в commit `946b557` и открыт в stacked PR [#4](https://github.com/devingarde22-dot/fable-rpg/pull/4) against `step-c-increment-5-stamina`. См. [журнал разработки и AI handoff](./17-development-log-and-handoff.md).
+Step C increments 1–4 приняты и слиты; PR [#1](https://github.com/devingarde22-dot/fable-rpg/pull/1) и PR [#2](https://github.com/devingarde22-dot/fable-rpg/pull/2), merge commit PR #2 — `9e0d0f8`. Increment 5 / DR-C-005 реализован в commit `d237616` и открыт в PR [#3](https://github.com/devingarde22-dot/fable-rpg/pull/3). Increment 6 / DR-C-006 реализован в commit `946b557` и открыт в stacked PR [#4](https://github.com/devingarde22-dot/fable-rpg/pull/4) against `step-c-increment-5-stamina`. Increment 7 / DR-C-007 реализован в локальной feature branch `step-c-increment-7-deck-cycle`; commit/push/PR пока не выполнялись. См. [журнал разработки и AI handoff](./17-development-log-and-handoff.md).
 
 ## Machine-readable contracts
 

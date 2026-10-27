@@ -129,7 +129,7 @@ export function hero(
   mode: "movement" | "melee" | "ranged" | null = "movement",
   canEnterRangedMode = false,
   maxStamina = 3,
-  cards: HeroCardsRuntime = { hand: [], discard: [], revision: 0 },
+  cards: Partial<HeroCardsRuntime> = {},
 ): EntityRuntime {
   return {
     id,
@@ -140,9 +140,12 @@ export function hero(
     hp: { current: 1_000, max: 1_000 },
     stamina: { current: 3, max: maxStamina, nextRegenAtTick: null },
     cards: {
-      hand: cards.hand.map((card) => ({ ...card })),
-      discard: cards.discard.map((card) => ({ ...card })),
-      revision: cards.revision,
+      drawPile: (cards.drawPile ?? []).map((card) => ({ ...card })),
+      hand: (cards.hand ?? []).map((card) => ({ ...card })),
+      discard: (cards.discard ?? []).map((card) => ({ ...card })),
+      excludedForMode: (cards.excludedForMode ?? []).map((card) => ({ ...card })),
+      revision: cards.revision ?? 0,
+      nextHandRotationAtTick: cards.nextHandRotationAtTick ?? null,
     },
     defense: 20,
     threat: 0,

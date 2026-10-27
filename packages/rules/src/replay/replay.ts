@@ -5,7 +5,10 @@ import { checkMovementDestination } from "../grid/collision.js";
 import { chebyshevDistance, hasLineOfSight } from "../intents/geometry.js";
 import { canAffordStamina } from "../resources/stamina.js";
 import { calculateDamage } from "../combat/damage.js";
+import { shuffleCardInstances } from "../cards/deckLifecycle.js";
 import {
+  CARD_HAND_LIMIT,
+  CARD_ROTATION_INTERVAL_TICKS,
   DAMAGE_FORMULA_VERSION,
   STAMINA_REGEN_INTERVAL_TICKS,
   type DomainEvent,
@@ -22,7 +25,7 @@ export function replayEvents(initialState: RuntimeState, events: readonly Domain
   state.phase = "active";
   const progress = createReplayProgress(state);
   for (const sourceEvent of events) applyReplayEvent(state, cloneEvent(sourceEvent), progress);
-  if (progress.pendingCardPlay) throw new Error("Replay ended before the card play transaction completed");
+  assertReplayTransactionsComplete(progress);
   return snapshotState(state);
 }
 
@@ -35,7 +38,7 @@ export function replayJournalRecords(initialState: RuntimeState, records: readon
   for (const record of records) {
     if (record.kind === "event") {
       validateRngAudit(record.event, record.rngAudit);
-      applyReplayEvent(state, cloneEvent(record.event), progress);
+      applyReplayEvent(state, cloneEvent(record.event), progress, record.rngAudit);
       continue;
     }
     if (record.kind === "input_window") {
@@ -58,7 +61,7 @@ export function replayJournalRecords(initialState: RuntimeState, records: readon
     lastTickMark = record.serverTick;
     assertRuntimeInvariants(state);
   }
-  if (progress.pendingCardPlay) throw new Error("Replay ended before the card play transaction completed");
+  assertReplayTransactionsComplete(progress);
   return snapshotState(state);
 }
 
@@ -84,6 +87,16 @@ type ReplayProgress = {
   expectedEventIndex: number;
   currentGroupRevision: number;
   pendingCardPlay: PendingCardPlay | null;
+  pendingModeEntry: { heroId: string; mode: "melee" | "ranged"; serverTick: number; eventGroupId: string; sceneRevision: number } | null;
+  pendingModeDeal: { heroId: string; expectedCardIds: string[]; serverTick: number; eventGroupId: string; sceneRevision: number } | null;
+  pendingRotation: {
+    heroId: string;
+    dueAtTick: number;
+    discardedCardInstanceId: string | null;
+    drawnCardInstanceId: string | null;
+    eventGroupId: string;
+    sceneRevision: number;
+  } | null;
 };
 
 function createReplayProgress(state: RuntimeState): ReplayProgress {
@@ -94,10 +107,24 @@ function createReplayProgress(state: RuntimeState): ReplayProgress {
     expectedEventIndex: 0,
     currentGroupRevision: -1,
     pendingCardPlay: null,
+    pendingModeEntry: null,
+    pendingModeDeal: null,
+    pendingRotation: null,
   };
 }
 
-function applyReplayEvent(state: RuntimeState, event: DomainEvent, progress: ReplayProgress): void {
+function assertReplayTransactionsComplete(progress: ReplayProgress): void {
+  if (progress.pendingCardPlay) throw new Error("Replay ended before the card play transaction completed");
+  if (progress.pendingModeEntry || progress.pendingModeDeal) throw new Error("Replay ended before the mode-entry deck deal completed");
+  if (progress.pendingRotation) throw new Error("Replay ended before the timed hand rotation completed");
+}
+
+function applyReplayEvent(
+  state: RuntimeState,
+  event: DomainEvent,
+  progress: ReplayProgress,
+  rngAudit: readonly RngAuditRecord[] = [],
+): void {
   if (event.protocolVersion !== "fable.protocol.v1" || event.schemaVersion !== 1 ||
     (event.eventVersion !== 1 && !(event.eventType === "hp.changed" && event.eventVersion === 2))) {
     throw new Error("Unsupported or invalid event contract");
@@ -125,6 +152,15 @@ function applyReplayEvent(state: RuntimeState, event: DomainEvent, progress: Rep
       throw new Error("Replay card-play event sequence is incomplete or inconsistent");
     }
   }
+  if (progress.pendingModeEntry && (event.eventType !== "deck.shuffled" || event.eventGroupId !== progress.pendingModeEntry.eventGroupId)) {
+    throw new Error("Replay mode entry must be followed by its deck.shuffled event");
+  }
+  if (progress.pendingModeDeal && (event.eventType !== "card.drawn" || event.eventGroupId !== progress.pendingModeDeal.eventGroupId)) {
+    throw new Error("Replay mode-entry deal is incomplete or interleaved");
+  }
+  if (progress.pendingRotation && event.eventGroupId !== progress.pendingRotation.eventGroupId) {
+    throw new Error("Replay hand rotation transaction crossed an event-group boundary");
+  }
   if (event.eventGroupId !== progress.currentGroup || event.sceneRevision !== progress.currentGroupRevision || event.eventIndex !== progress.expectedEventIndex) {
     throw new Error("Replay event group, revision, or eventIndex is inconsistent");
   }
@@ -139,6 +175,15 @@ function applyReplayEvent(state: RuntimeState, event: DomainEvent, progress: Rep
       break;
     case "card.discarded":
       applyCardDiscarded(state, event, progress);
+      break;
+    case "card.drawn":
+      applyCardDrawn(state, event, progress);
+      break;
+    case "deck.shuffled":
+      applyDeckShuffled(state, event, progress, rngAudit);
+      break;
+    case "deck.rotation_resolved":
+      applyDeckRotationResolved(state, event, progress);
       break;
     case "scene.entity_removed":
       applyEntityRemoved(state, event);
@@ -162,7 +207,7 @@ function applyReplayEvent(state: RuntimeState, event: DomainEvent, progress: Rep
       applyStaminaChanged(state, event, progress);
       break;
     case "mode.changed":
-      applyModeChanged(state, event);
+      applyModeChanged(state, event, progress);
       break;
   }
 
@@ -348,6 +393,7 @@ function applyHpChanged(
   if (entity.kind === "hero" && entity.hp.current === 0) {
     entity.aliveState = "critically_injured";
     entity.stamina.nextRegenAtTick = null;
+    entity.cards.nextHandRotationAtTick = null;
   }
   if (progress.pendingCardPlay) progress.pendingCardPlay.stage = "discard";
 }
@@ -390,21 +436,233 @@ function applyCardDiscarded(
   event: Extract<DomainEvent, { eventType: "card.discarded" }>,
   progress: ReplayProgress,
 ): void {
-  const pending = progress.pendingCardPlay;
   const hero = state.entities.get(event.payload.heroId);
-  const cardIndex = hero?.kind === "hero"
-    ? hero.cards.hand.findIndex((instance) => instance.instanceId === event.payload.cardInstanceId)
-    : -1;
-  const card = hero?.kind === "hero" && cardIndex >= 0 ? hero.cards.hand[cardIndex] : undefined;
-  if (!pending || pending.stage !== "discard" || !hero || hero.kind !== "hero" || !card ||
-    pending.heroId !== hero.id || pending.cardInstanceId !== card.instanceId || event.payload.reason !== "played" ||
-    event.payload.discardRevision !== hero.cards.revision + 1 || card.templateKey !== pending.cardTemplateKey) {
-    throw new Error("Replay card.discarded does not match the completed card play");
+  if (!hero || hero.kind !== "hero" || event.payload.discardRevision !== hero.cards.revision + 1) {
+    throw new Error("Replay card.discarded references an invalid hero or revision");
   }
-  hero.cards.hand.splice(cardIndex, 1);
-  hero.cards.discard.push({ ...card });
+  if (event.payload.reason === "played") {
+    const pending = progress.pendingCardPlay;
+    const cardIndex = hero.cards.hand.findIndex((instance) => instance.instanceId === event.payload.cardInstanceId);
+    const card = cardIndex >= 0 ? hero.cards.hand[cardIndex] : undefined;
+    if (!pending || pending.stage !== "discard" || !card || pending.heroId !== hero.id ||
+      pending.cardInstanceId !== card.instanceId || card.templateKey !== pending.cardTemplateKey) {
+      throw new Error("Replay card.discarded does not match the completed card play");
+    }
+    hero.cards.hand.splice(cardIndex, 1);
+    hero.cards.discard.push({ ...card });
+    hero.cards.revision = event.payload.discardRevision;
+    progress.pendingCardPlay = null;
+    return;
+  }
+
+  if ((hero.mode !== "melee" && hero.mode !== "ranged") || hero.aliveState !== "active" ||
+    hero.cards.nextHandRotationAtTick !== event.serverTick || hero.cards.hand.length !== CARD_HAND_LIMIT) {
+    throw new Error("Replay timer discard is not due for a full active combat hand");
+  }
+  const rightmost = hero.cards.hand.at(-1);
+  if (!rightmost || rightmost.instanceId !== event.payload.cardInstanceId || progress.pendingCardPlay) {
+    throw new Error("Replay timer discard does not reference the rightmost card");
+  }
+  hero.cards.hand.pop();
+  hero.cards.discard.push({ ...rightmost });
   hero.cards.revision = event.payload.discardRevision;
-  progress.pendingCardPlay = null;
+  progress.pendingRotation = progress.pendingRotation ?? {
+    heroId: hero.id,
+    dueAtTick: event.serverTick,
+    discardedCardInstanceId: null,
+    drawnCardInstanceId: null,
+    eventGroupId: event.eventGroupId,
+    sceneRevision: event.sceneRevision,
+  };
+  if (progress.pendingRotation.heroId !== hero.id || progress.pendingRotation.dueAtTick !== event.serverTick ||
+    progress.pendingRotation.discardedCardInstanceId !== null) {
+    throw new Error("Replay has conflicting timer-discard events");
+  }
+  progress.pendingRotation.discardedCardInstanceId = rightmost.instanceId;
+}
+
+function applyCardDrawn(
+  state: RuntimeState,
+  event: Extract<DomainEvent, { eventType: "card.drawn" }>,
+  progress: ReplayProgress,
+): void {
+  const { heroId, cardInstanceId, reason, destination, cardRevision } = event.payload;
+  const hero = state.entities.get(heroId);
+  if (!hero || hero.kind !== "hero" || destination !== "hand" || cardRevision !== hero.cards.revision + 1 ||
+    hero.cards.hand.length >= CARD_HAND_LIMIT) {
+    throw new Error("Replay card.drawn references an invalid hero, destination, hand or revision");
+  }
+  if (reason === "mode_entry") {
+    const pending = progress.pendingModeDeal;
+    if (!pending || pending.heroId !== hero.id || pending.serverTick !== event.serverTick ||
+      pending.eventGroupId !== event.eventGroupId || pending.sceneRevision !== event.sceneRevision ||
+      pending.expectedCardIds.shift() !== cardInstanceId) {
+      throw new Error("Replay mode-entry card.drawn is not the next shuffled card");
+    }
+  } else {
+    if ((hero.mode !== "melee" && hero.mode !== "ranged") || hero.aliveState !== "active" ||
+      hero.cards.nextHandRotationAtTick !== event.serverTick || progress.pendingModeDeal) {
+      throw new Error("Replay timer card.drawn is not due for an active combat hero");
+    }
+    progress.pendingRotation = progress.pendingRotation ?? {
+      heroId: hero.id,
+      dueAtTick: event.serverTick,
+      discardedCardInstanceId: null,
+      drawnCardInstanceId: null,
+      eventGroupId: event.eventGroupId,
+      sceneRevision: event.sceneRevision,
+    };
+    if (progress.pendingRotation.heroId !== hero.id || progress.pendingRotation.dueAtTick !== event.serverTick ||
+      progress.pendingRotation.drawnCardInstanceId !== null) {
+      throw new Error("Replay has conflicting timer draw events");
+    }
+  }
+
+  const card = hero.cards.drawPile[0];
+  if (!card || card.instanceId !== cardInstanceId) throw new Error("Replay card.drawn is not the top card of drawPile");
+  hero.cards.drawPile.shift();
+  hero.cards.hand.unshift({ ...card });
+  hero.cards.revision = cardRevision;
+  if (reason === "mode_entry") {
+    if (progress.pendingModeDeal?.expectedCardIds.length === 0) progress.pendingModeDeal = null;
+  } else if (progress.pendingRotation) {
+    progress.pendingRotation.drawnCardInstanceId = cardInstanceId;
+  }
+}
+
+function applyDeckShuffled(
+  state: RuntimeState,
+  event: Extract<DomainEvent, { eventType: "deck.shuffled" }>,
+  progress: ReplayProgress,
+  rngAudit: readonly RngAuditRecord[],
+): void {
+  const payload = event.payload;
+  const hero = state.entities.get(payload.heroId);
+  if (!hero || hero.kind !== "hero" || hero.mode !== payload.mode || hero.aliveState !== "active" ||
+    payload.cardRevision !== hero.cards.revision + 1 || !event.replay) {
+    throw new Error("Replay deck.shuffled references an invalid hero, mode, revision or seed");
+  }
+
+  const allCards = [...hero.cards.drawPile, ...hero.cards.hand, ...hero.cards.discard, ...hero.cards.excludedForMode]
+    .sort((a, b) => compareText(a.instanceId, b.instanceId));
+  let expectedSource: typeof allCards;
+  let expectedEligible: typeof allCards;
+  let expectedExcluded: typeof allCards;
+  if (payload.reason === "mode_entry") {
+    const entry = progress.pendingModeEntry;
+    if (!entry || entry.heroId !== hero.id || entry.mode !== payload.mode || entry.serverTick !== event.serverTick ||
+      entry.eventGroupId !== event.eventGroupId || entry.sceneRevision !== event.sceneRevision) {
+      throw new Error("Replay mode-entry shuffle is not immediately linked to mode.changed");
+    }
+    expectedSource = allCards;
+    expectedEligible = allCards.filter((card) => state.cardTemplates.get(card.templateKey)?.allowedModes.includes(payload.mode));
+    expectedExcluded = allCards.filter((card) => !state.cardTemplates.get(card.templateKey)?.allowedModes.includes(payload.mode));
+  } else {
+    if (progress.pendingModeEntry || hero.cards.drawPile.length !== 0 || hero.cards.nextHandRotationAtTick !== event.serverTick) {
+      throw new Error("Replay discard shuffle is not due after draw-pile exhaustion");
+    }
+    expectedSource = [...hero.cards.discard].sort((a, b) => compareText(a.instanceId, b.instanceId));
+    expectedEligible = expectedSource;
+    expectedExcluded = [];
+    progress.pendingRotation = progress.pendingRotation ?? {
+      heroId: hero.id,
+      dueAtTick: event.serverTick,
+      discardedCardInstanceId: null,
+      drawnCardInstanceId: null,
+      eventGroupId: event.eventGroupId,
+      sceneRevision: event.sceneRevision,
+    };
+    if (progress.pendingRotation.heroId !== hero.id || progress.pendingRotation.dueAtTick !== event.serverTick) {
+      throw new Error("Replay discard shuffle conflicts with another rotation");
+    }
+  }
+
+  const sourceIds = expectedSource.map((card) => card.instanceId);
+  const eligibleIds = expectedEligible.map((card) => card.instanceId);
+  const excludedIds = expectedExcluded.map((card) => card.instanceId);
+  if (!sameIds(payload.sourceCardInstanceIds, sourceIds) || !sameIds(payload.eligibleCardInstanceIds, eligibleIds) ||
+    !sameIds(payload.excludedCardInstanceIds, excludedIds)) {
+    throw new Error("Replay deck.shuffled source or mode-filter partition is invalid");
+  }
+
+  const expectedOperationId = payload.reason === "mode_entry"
+    ? `deck:${hero.id}:${payload.mode}:mode_entry:${hero.cards.revision + 1}`
+    : `deck:${hero.id}:${payload.mode}:discard_exhausted:${hero.cards.revision + 1}`;
+  if (payload.operationId !== expectedOperationId) throw new Error("Replay deck shuffle operation ID is not canonical");
+  const forkInput = {
+    rootSeed: state.rootSeed,
+    campaignId: state.campaignId,
+    sceneId: state.scene.id,
+    serverTick: event.serverTick,
+    activeIntentId: expectedOperationId,
+    purpose: "deck_shuffle" as const,
+  };
+  const shuffled = shuffleCardInstances(expectedEligible, forkInput);
+  const shuffledIds = shuffled.cards.map((card) => card.instanceId);
+  if (!sameIds(payload.orderedCardInstanceIds, shuffledIds) || event.replay.seedRef !== shuffled.audit.seedRef) {
+    throw new Error("Replay deck shuffle order or seedRef does not match deterministic RNG");
+  }
+  if (rngAudit.length > 0 && (rngAudit.length !== 1 || JSON.stringify(rngAudit[0]) !== JSON.stringify(shuffled.audit))) {
+    throw new Error("Replay deck shuffle RNG audit state does not match recomputed shuffle");
+  }
+
+  if (payload.reason === "mode_entry") {
+    hero.cards.drawPile = shuffled.cards;
+    hero.cards.hand = [];
+    hero.cards.discard = [];
+    hero.cards.excludedForMode = expectedExcluded.map((card) => ({ ...card }));
+    progress.pendingModeEntry = null;
+    const drawCount = Math.min(CARD_HAND_LIMIT, shuffled.cards.length);
+    progress.pendingModeDeal = drawCount === 0 ? null : {
+      heroId: hero.id,
+      expectedCardIds: shuffledIds.slice(0, drawCount),
+      serverTick: event.serverTick,
+      eventGroupId: event.eventGroupId,
+      sceneRevision: event.sceneRevision,
+    };
+  } else {
+    hero.cards.drawPile = shuffled.cards;
+    hero.cards.discard = [];
+  }
+  hero.cards.revision = payload.cardRevision;
+}
+
+function applyDeckRotationResolved(
+  state: RuntimeState,
+  event: Extract<DomainEvent, { eventType: "deck.rotation_resolved" }>,
+  progress: ReplayProgress,
+): void {
+  const payload = event.payload;
+  const hero = state.entities.get(payload.heroId);
+  if (!hero || hero.kind !== "hero" || hero.aliveState !== "active" ||
+    (hero.mode !== "melee" && hero.mode !== "ranged") || hero.cards.nextHandRotationAtTick !== payload.dueAtTick ||
+    event.serverTick !== payload.dueAtTick || payload.nextHandRotationAtTick !== payload.dueAtTick + CARD_ROTATION_INTERVAL_TICKS ||
+    payload.cardRevision !== hero.cards.revision) {
+    throw new Error("Replay deck.rotation_resolved is not the exact due timer transition");
+  }
+  const pending = progress.pendingRotation;
+  if (pending && (pending.heroId !== hero.id || pending.dueAtTick !== payload.dueAtTick ||
+    pending.eventGroupId !== event.eventGroupId || pending.sceneRevision !== event.sceneRevision ||
+    pending.discardedCardInstanceId !== payload.discardedCardInstanceId ||
+    pending.drawnCardInstanceId !== payload.drawnCardInstanceId)) {
+    throw new Error("Replay rotation outcome does not match preceding discard/draw events");
+  }
+  if (!pending && (payload.discardedCardInstanceId !== null || payload.drawnCardInstanceId !== null)) {
+    throw new Error("Replay rotation outcome names an unrecorded card mutation");
+  }
+  if (payload.discardedCardInstanceId !== null && payload.drawnCardInstanceId === null) {
+    throw new Error("A full-hand rotation must draw after moving the rightmost card to discard");
+  }
+  if (payload.drawnCardInstanceId === null &&
+    (hero.cards.drawPile.length > 0 || hero.cards.discard.length > 0 || hero.cards.hand.length >= CARD_HAND_LIMIT)) {
+    throw new Error("Replay omitted a draw or required discard reshuffle during rotation");
+  }
+  hero.cards.nextHandRotationAtTick = payload.nextHandRotationAtTick;
+  progress.pendingRotation = null;
+}
+
+function sameIds(actual: readonly string[], expected: readonly string[]): boolean {
+  return actual.length === expected.length && actual.every((id, index) => id === expected[index]);
 }
 
 function applyEntityRemoved(state: RuntimeState, event: Extract<DomainEvent, { eventType: "scene.entity_removed" }>): void {
@@ -455,7 +713,11 @@ function validateDamageEventSource(
   }
 }
 
-function applyModeChanged(state: RuntimeState, event: Extract<DomainEvent, { eventType: "mode.changed" }>): void {
+function applyModeChanged(
+  state: RuntimeState,
+  event: Extract<DomainEvent, { eventType: "mode.changed" }>,
+  progress: ReplayProgress,
+): void {
   const hero = state.entities.get(event.payload.heroId);
   if (!hero || hero.kind !== "hero") throw new Error("Replay mode.changed references a missing hero");
   const currentMode = hero.mode ?? "out_of_combat";
@@ -466,7 +728,24 @@ function applyModeChanged(state: RuntimeState, event: Extract<DomainEvent, { eve
     }
     state.scene.contactImmunityUntilTick.set(hero.id, event.serverTick + 300);
   }
-  hero.mode = modeFromEvent(event.payload.to);
+  const nextMode = modeFromEvent(event.payload.to);
+  if (nextMode === "melee" || nextMode === "ranged") {
+    if (hero.mode === null || hero.mode === "movement") {
+      hero.cards.nextHandRotationAtTick = event.serverTick + CARD_ROTATION_INTERVAL_TICKS;
+    } else if (hero.cards.nextHandRotationAtTick === null) {
+      throw new Error("Replay combat mode switch has no continuous hand rotation timer");
+    }
+    progress.pendingModeEntry = {
+      heroId: hero.id,
+      mode: nextMode,
+      serverTick: event.serverTick,
+      eventGroupId: event.eventGroupId,
+      sceneRevision: event.sceneRevision,
+    };
+  } else {
+    hero.cards.nextHandRotationAtTick = null;
+  }
+  hero.mode = nextMode;
 }
 
 function validateRngAudit(event: DomainEvent, auditRecords: readonly RngAuditRecord[]): void {
@@ -476,11 +755,15 @@ function validateRngAudit(event: DomainEvent, auditRecords: readonly RngAuditRec
       !record.rngStateBefore.every(isUint32) || !record.rngStateAfter.every(isUint32)) {
       throw new Error("Replay RNG audit record is invalid");
     }
-    const payload = event.payload as { activeIntentId?: string; seedRef?: string; reason?: string };
+    const payload = event.payload as { activeIntentId?: string; operationId?: string; seedRef?: string; reason?: string };
     if (record.forkInput.serverTick !== event.serverTick || record.forkInput.campaignId !== event.campaignId ||
       record.forkInput.sceneId !== event.sceneId || (payload.activeIntentId && record.forkInput.activeIntentId !== payload.activeIntentId) ||
+      (payload.operationId && record.forkInput.activeIntentId !== payload.operationId) ||
       (payload.seedRef && payload.seedRef !== record.seedRef) || (event.replay && event.replay.seedRef !== record.seedRef)) {
       throw new Error("Replay RNG audit does not match its event");
+    }
+    if (event.eventType === "deck.shuffled" && record.forkInput.purpose !== "deck_shuffle") {
+      throw new Error("Deck shuffle audit uses the wrong RNG purpose");
     }
     if (event.eventType === "intent.target_selected" && record.forkInput.purpose !== "target_selection") {
       throw new Error("Target selection audit uses the wrong RNG purpose");
@@ -498,10 +781,17 @@ function validateRngAudit(event: DomainEvent, auditRecords: readonly RngAuditRec
   if (event.eventType === "intent.cancelled" && auditRecords.length !== 1) {
     throw new Error("intent.cancelled must have exactly one fallback RNG audit record");
   }
+  if (event.eventType === "deck.shuffled" && auditRecords.length !== 1) {
+    throw new Error("deck.shuffled must have exactly one deck_shuffle audit record");
+  }
 }
 
 function isUint32(value: number): boolean {
   return Number.isInteger(value) && value >= 0 && value <= 0xffff_ffff;
+}
+
+function compareText(a: string, b: string): number {
+  return a < b ? -1 : a > b ? 1 : 0;
 }
 
 function cloneInputWindow(inputWindow: RuntimeState["scene"]["inputWindow"]): RuntimeState["scene"]["inputWindow"] {

@@ -42,9 +42,12 @@ export function canonicalizeSnapshot(snapshot: RuntimeSnapshot): string {
               nextRegenAtTick: entity.stamina.nextRegenAtTick,
             },
             cards: {
+              drawPile: entity.cards.drawPile.map((card) => ({ instanceId: card.instanceId, templateKey: card.templateKey })),
               hand: entity.cards.hand.map((card) => ({ instanceId: card.instanceId, templateKey: card.templateKey })),
               discard: entity.cards.discard.map((card) => ({ instanceId: card.instanceId, templateKey: card.templateKey })),
+              excludedForMode: entity.cards.excludedForMode.map((card) => ({ instanceId: card.instanceId, templateKey: card.templateKey })),
               revision: entity.cards.revision,
+              nextHandRotationAtTick: entity.cards.nextHandRotationAtTick,
             },
           }
         : entity),

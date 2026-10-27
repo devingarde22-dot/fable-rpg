@@ -1,5 +1,5 @@
 import { cellIndex, isInBounds } from "../grid/Grid.js";
-import { GRID_HEIGHT, GRID_WIDTH, type RuntimeState } from "./types.js";
+import { CARD_HAND_LIMIT, GRID_HEIGHT, GRID_WIDTH, type RuntimeState } from "./types.js";
 
 export function assertRuntimeInvariants(state: RuntimeState): void {
   if (state.serverTick < 0 || state.sceneRevision < 0 || state.nextServerSequence < 1) {
@@ -40,11 +40,21 @@ export function assertRuntimeInvariants(state: RuntimeState): void {
       if (!Number.isInteger(entity.cards.revision) || entity.cards.revision < 0) {
         throw new Error(`Hero ${entity.id} has an invalid card revision`);
       }
-      for (const card of [...entity.cards.hand, ...entity.cards.discard]) {
+      if (entity.cards.hand.length > CARD_HAND_LIMIT) throw new Error(`Hero ${entity.id} exceeds the hand limit`);
+      for (const card of [...entity.cards.drawPile, ...entity.cards.hand, ...entity.cards.discard, ...entity.cards.excludedForMode]) {
         if (!card.instanceId || seenCardInstances.has(card.instanceId) || !state.cardTemplates.has(card.templateKey)) {
           throw new Error(`Hero ${entity.id} has a duplicate or invalid card instance ${card.instanceId}`);
         }
         seenCardInstances.add(card.instanceId);
+      }
+      const inCombatMode = entity.mode === "melee" || entity.mode === "ranged";
+      if (inCombatMode && entity.aliveState === "active" &&
+        (!Number.isInteger(entity.cards.nextHandRotationAtTick) || entity.cards.nextHandRotationAtTick === null ||
+          entity.cards.nextHandRotationAtTick < state.serverTick)) {
+        throw new Error(`Hero ${entity.id} has an invalid hand rotation timer`);
+      }
+      if ((!inCombatMode || entity.aliveState !== "active") && entity.cards.nextHandRotationAtTick !== null) {
+        throw new Error(`Hero ${entity.id} has a hand rotation timer outside active combat`);
       }
       if (!Number.isInteger(entity.stamina.current) || !Number.isInteger(entity.stamina.max) ||
         entity.stamina.max < 3 || entity.stamina.current < 0 || entity.stamina.current > entity.stamina.max) {

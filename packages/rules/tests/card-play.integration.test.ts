@@ -146,6 +146,9 @@ describe("player.play_card integration", () => {
       "stamina.changed",
       "hp.changed",
       "card.discarded",
+      "deck.shuffled",
+      "card.drawn",
+      "deck.rotation_resolved",
     ]);
     expect(result?.events.filter((event) => event.eventType === "stamina.changed").map((event) => event.payload.reason))
       .toEqual(["card_cost"]);

@@ -36,8 +36,20 @@ export const testFreeRangedStrike = {
   fixtureClassification: TEST_ONLY_NON_BALANCE,
 } as const satisfies CardTemplate & { fixtureClassification: typeof TEST_ONLY_NON_BALANCE };
 
+export const testModeNeutralStrike = {
+  key: "test-only-neutral-strike",
+  version: 1,
+  allowedModes: ["melee", "ranged"],
+  staminaCost: 0,
+  range: { minInclusive: 1, maxInclusive: 5 },
+  lineOfSight: "required",
+  effect: { kind: "direct_damage", rawDamage: 29, multiplier: 1 },
+  fixtureClassification: TEST_ONLY_NON_BALANCE,
+} as const satisfies CardTemplate & { fixtureClassification: typeof TEST_ONLY_NON_BALANCE };
+
 export const testCardTemplates: readonly CardTemplate[] = [
   testCostedRangedStrike,
   testFreeMeleeStrike,
   testFreeRangedStrike,
+  testModeNeutralStrike,
 ];

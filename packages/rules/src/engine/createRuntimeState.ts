@@ -1,6 +1,7 @@
 import { createGrid, cellIndex, isInBounds } from "../grid/Grid.js";
 import { cloneIntentTemplate, buildEnemyRegistry, buildIntentRegistry } from "../intents/registry.js";
 import {
+  CARD_ROTATION_INTERVAL_TICKS,
   GRID_HEIGHT,
   GRID_WIDTH,
   INITIAL_STAMINA,
@@ -55,9 +56,15 @@ export function createRuntimeState(config: SimulationEngineConfig): RuntimeState
             : null,
         },
         cards: {
+          drawPile: cloneAndValidateCardInstances(source.cards.drawPile, cardTemplates, seenCardInstances, source.id),
           hand: cloneAndValidateCardInstances(source.cards.hand, cardTemplates, seenCardInstances, source.id),
           discard: cloneAndValidateCardInstances(source.cards.discard, cardTemplates, seenCardInstances, source.id),
+          excludedForMode: cloneAndValidateCardInstances(source.cards.excludedForMode, cardTemplates, seenCardInstances, source.id),
           revision: source.cards.revision,
+          nextHandRotationAtTick: source.cards.nextHandRotationAtTick ??
+            (source.aliveState === "active" && (source.mode === "melee" || source.mode === "ranged")
+              ? initialServerTick + CARD_ROTATION_INTERVAL_TICKS
+              : null),
         },
         statuses: [...source.statuses],
         position: { ...source.position },
@@ -199,9 +206,12 @@ export function cloneEntity(entity: EntityRuntime): EntityRuntime {
       hp: { ...entity.hp },
       stamina: { ...entity.stamina },
       cards: {
+        drawPile: entity.cards.drawPile.map((card) => ({ ...card })),
         hand: entity.cards.hand.map((card) => ({ ...card })),
         discard: entity.cards.discard.map((card) => ({ ...card })),
+        excludedForMode: entity.cards.excludedForMode.map((card) => ({ ...card })),
         revision: entity.cards.revision,
+        nextHandRotationAtTick: entity.cards.nextHandRotationAtTick,
       },
       statuses: [...entity.statuses],
     };

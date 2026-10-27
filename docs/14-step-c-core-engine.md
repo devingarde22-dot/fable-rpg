@@ -214,14 +214,14 @@ export type StaminaRuntime = {
 export type DeckRuntime = {
   drawPile: CardInstanceId[];
   hand: CardInstanceId[];       // максимум 5
-  defenseSlot: CardInstanceId | null;
-  discardPile: CardInstanceId[];
-  excludedForMode: CardInstanceId[]; // логически не теряются; возвращаются при reshuffle
+  discard: CardInstanceId[];
+  excludedForMode: CardInstanceId[]; // карта другого режима не теряется
   revision: number;
+  nextHandRotationAtTick: number | null;
 };
 ```
 
-Карта всегда находится ровно в одном контейнере. Сыгранная карта переходит в discard. Новая карта занимает левое место, правая карта hand уходит в discard. При входе в battle mode engine выдаёт 5 hand cards и 1 defense card. Вне боя hand не показывается player projection.
+Каждый instance находится ровно в одном из четырёх контейнеров. В Increment 7 при каждом входе/переключении в `melee` или `ranged` server собирает все instances, фильтрует по `allowedModes`, детерминированно перемешивает eligible pool и выдаёт до пяти карт; не подходящие для текущего режима идут в `excludedForMode`. Успешный play переносит карту из hand в `discard` без немедленного добора. Defense slot и production card catalog пока не реализованы. Канонические правила ротации, empty piles, RNG и replay заданы [DR-C-007](./21-step-c-deck-cycle.md).
 
 ---
 

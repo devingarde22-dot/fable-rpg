@@ -12,6 +12,7 @@ import { detectContactTransitions, modeChangedEvent } from "../combat/heroModes.
 import { resolveRetreat } from "../combat/retreatResolution.js";
 import { resolveStaminaRegeneration } from "../resources/stamina.js";
 import { resolvePlayCard } from "../cards/playCard.js";
+import { resolveDueHandRotations, resolveModeEntryDeck, stopHandRotation } from "../cards/deckLifecycle.js";
 import { cleanupDeadEnemies } from "./cleanup.js";
 import { assertRuntimeInvariants } from "./invariants.js";
 import { cloneRuntimeState, createRuntimeState, snapshotState } from "./createRuntimeState.js";
@@ -68,7 +69,7 @@ export class HeadlessSimulationEngine implements SimulationEngine {
     this.options = options;
 
     const initialPending = activateScene(this.runtime);
-    initialPending.push(...detectContactTransitions(this.runtime, this.runtime.serverTick));
+    initialPending.push(...withDeckModeTransitions(this.runtime, detectContactTransitions(this.runtime, this.runtime.serverTick)));
     const initialBatch = groupEvents(this.runtime, initialPending);
     this.journal.appendBatch(initialBatch.events, initialBatch.auditByEventId);
     this.journal.appendTick(this.runtime.serverTick, this.runtime.sceneRevision, this.runtime.scene.inputWindow);
@@ -139,10 +140,12 @@ export class HeadlessSimulationEngine implements SimulationEngine {
         const enemyEvents = resolveDueIntents(this.runtime, this.runtime.serverTick);
         pending.push(...enemyEvents);
         if (enemyEvents.some(({ event }) => event.eventType === "scene.entity_moved")) {
-          pending.push(...detectContactTransitions(this.runtime, this.runtime.serverTick));
+          pending.push(...withDeckModeTransitions(this.runtime, detectContactTransitions(this.runtime, this.runtime.serverTick)));
         }
       } else if (phase === "resources") {
         pending.push(...resolveStaminaRegeneration(this.runtime, this.runtime.serverTick));
+      } else if (phase === "cards") {
+        pending.push(...resolveDueHandRotations(this.runtime, this.runtime.serverTick));
       }
       // Environment has no active effects in this increment; its phase remains explicit and ordered.
     }
@@ -237,10 +240,10 @@ export class HeadlessSimulationEngine implements SimulationEngine {
         payload: { entityId: hero.id, from, to: { ...validated.destination } },
       },
     }];
-    pendingEvents.push(...detectContactTransitions(this.runtime, this.runtime.serverTick, {
+    pendingEvents.push(...withDeckModeTransitions(this.runtime, detectContactTransitions(this.runtime, this.runtime.serverTick, {
       requestId: command.requestId,
       actorId: command.actorId,
-    }));
+    })));
     return {
       result: { requestId: command.requestId, status: "accepted", eventIds: [], sceneRevision: this.runtime.sceneRevision + 1 },
       pendingEvents,
@@ -272,16 +275,17 @@ export class HeadlessSimulationEngine implements SimulationEngine {
         pendingEvents.push(...detectContactTransitions(this.runtime, this.runtime.serverTick, cause));
       }
     } else {
-      if (hero.mode !== null && hero.mode !== "movement") return reject("INVALID_MODE");
+      if (hero.mode !== null && hero.mode !== "movement" && hero.mode !== "melee") return reject("INVALID_MODE");
       if (!hero.canEnterRangedMode) return reject("CARD_NOT_AVAILABLE");
       const previousMode = hero.mode;
       hero.mode = "ranged";
       pendingEvents.push(modeChangedEvent(this.runtime, hero, previousMode, hero.mode, "command", this.runtime.serverTick, cause));
       pendingEvents.push(...detectContactTransitions(this.runtime, this.runtime.serverTick, cause));
     }
+    const transitionedEvents = withDeckModeTransitions(this.runtime, pendingEvents);
     return {
       result: { requestId: command.requestId, status: "accepted", eventIds: [], sceneRevision: this.runtime.sceneRevision + 1 },
-      pendingEvents,
+      pendingEvents: transitionedEvents,
     };
   }
 
@@ -331,4 +335,29 @@ export function createSimulationEngine(config: SimulationEngineConfig, options?:
 
 function cloneCommand(command: InternalCommand): InternalCommand {
   return structuredClone(command);
+}
+
+function withDeckModeTransitions(state: RuntimeState, events: readonly PendingJournalEvent[]): PendingJournalEvent[] {
+  const result: PendingJournalEvent[] = [];
+  for (const pending of events) {
+    result.push(pending);
+    if (pending.event.eventType !== "mode.changed") continue;
+    const hero = state.entities.get(pending.event.payload.heroId);
+    if (!hero || hero.kind !== "hero") throw new Error("mode.changed references a missing hero during deck transition");
+    const from = pending.event.payload.from === "out_of_combat" ? null : pending.event.payload.from;
+    const to = pending.event.payload.to;
+    if (to === "melee" || to === "ranged") {
+      result.push(...resolveModeEntryDeck(
+        state,
+        hero,
+        to,
+        from,
+        pending.event.serverTick,
+        { requestId: pending.event.causedByRequestId, actorId: pending.event.actorId },
+      ));
+    } else {
+      stopHandRotation(hero);
+    }
+  }
+  return result;
 }

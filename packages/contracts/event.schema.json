@@ -517,7 +517,10 @@
               "minLength": 1
             },
             "reason": {
-              "const": "played"
+              "enum": [
+                "played",
+                "timer_rotation"
+              ]
             },
             "discardRevision": {
               "type": "integer",
@@ -2613,6 +2616,470 @@
               "minimum": 0
             },
             "restoredRevision": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocolVersion",
+        "schemaVersion",
+        "eventId",
+        "eventVersion",
+        "campaignId",
+        "sessionId",
+        "sceneId",
+        "sceneRevision",
+        "serverTick",
+        "serverSequence",
+        "eventGroupId",
+        "eventIndex",
+        "causedByRequestId",
+        "actorId",
+        "replay",
+        "eventType",
+        "payload"
+      ],
+      "properties": {
+        "protocolVersion": {
+          "const": "fable.protocol.v1"
+        },
+        "schemaVersion": {
+          "const": 1
+        },
+        "eventId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "eventVersion": {
+          "const": 1
+        },
+        "campaignId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sessionId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sceneId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sceneRevision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "serverTick": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "serverSequence": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "eventGroupId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "eventIndex": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "causedByRequestId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "actorId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "replay": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "required": [
+            "seedRef"
+          ],
+          "properties": {
+            "seedRef": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "eventType": {
+          "const": "card.drawn"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "heroId",
+            "cardInstanceId",
+            "destination",
+            "reason",
+            "cardRevision"
+          ],
+          "properties": {
+            "heroId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "cardInstanceId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "destination": {
+              "const": "hand"
+            },
+            "reason": {
+              "enum": [
+                "mode_entry",
+                "timer_rotation"
+              ]
+            },
+            "cardRevision": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocolVersion",
+        "schemaVersion",
+        "eventId",
+        "eventVersion",
+        "campaignId",
+        "sessionId",
+        "sceneId",
+        "sceneRevision",
+        "serverTick",
+        "serverSequence",
+        "eventGroupId",
+        "eventIndex",
+        "causedByRequestId",
+        "actorId",
+        "replay",
+        "eventType",
+        "payload"
+      ],
+      "properties": {
+        "protocolVersion": {
+          "const": "fable.protocol.v1"
+        },
+        "schemaVersion": {
+          "const": 1
+        },
+        "eventId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "eventVersion": {
+          "const": 1
+        },
+        "campaignId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sessionId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sceneId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sceneRevision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "serverTick": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "serverSequence": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "eventGroupId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "eventIndex": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "causedByRequestId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "actorId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "replay": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "required": [
+            "seedRef"
+          ],
+          "properties": {
+            "seedRef": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "eventType": {
+          "const": "deck.shuffled"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "heroId",
+            "mode",
+            "reason",
+            "sourceCardInstanceIds",
+            "eligibleCardInstanceIds",
+            "excludedCardInstanceIds",
+            "orderedCardInstanceIds",
+            "operationId",
+            "cardRevision"
+          ],
+          "properties": {
+            "heroId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "mode": {
+              "enum": [
+                "melee",
+                "ranged"
+              ]
+            },
+            "reason": {
+              "enum": [
+                "mode_entry",
+                "discard_exhausted"
+              ]
+            },
+            "sourceCardInstanceIds": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "uniqueItems": true
+            },
+            "eligibleCardInstanceIds": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "uniqueItems": true
+            },
+            "excludedCardInstanceIds": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "uniqueItems": true
+            },
+            "orderedCardInstanceIds": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "uniqueItems": true
+            },
+            "operationId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "cardRevision": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocolVersion",
+        "schemaVersion",
+        "eventId",
+        "eventVersion",
+        "campaignId",
+        "sessionId",
+        "sceneId",
+        "sceneRevision",
+        "serverTick",
+        "serverSequence",
+        "eventGroupId",
+        "eventIndex",
+        "causedByRequestId",
+        "actorId",
+        "replay",
+        "eventType",
+        "payload"
+      ],
+      "properties": {
+        "protocolVersion": {
+          "const": "fable.protocol.v1"
+        },
+        "schemaVersion": {
+          "const": 1
+        },
+        "eventId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "eventVersion": {
+          "const": 1
+        },
+        "campaignId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sessionId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sceneId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sceneRevision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "serverTick": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "serverSequence": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "eventGroupId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "eventIndex": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "causedByRequestId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "actorId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "replay": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "required": [
+            "seedRef"
+          ],
+          "properties": {
+            "seedRef": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "eventType": {
+          "const": "deck.rotation_resolved"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "heroId",
+            "dueAtTick",
+            "nextHandRotationAtTick",
+            "discardedCardInstanceId",
+            "drawnCardInstanceId",
+            "cardRevision"
+          ],
+          "properties": {
+            "heroId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "dueAtTick": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "nextHandRotationAtTick": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "discardedCardInstanceId": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "drawnCardInstanceId": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "cardRevision": {
               "type": "integer",
               "minimum": 0
             }

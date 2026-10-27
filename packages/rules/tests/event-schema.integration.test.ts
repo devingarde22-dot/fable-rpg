@@ -118,4 +118,34 @@ describe("canonical event contract", () => {
     delete (invalidSource.payload.source as unknown as Record<string, unknown>).cardTemplateKey;
     expect(validateEvent(invalidSource)).toBe(false);
   });
+
+  it("validates mode-entry and timed deck lifecycle events and rejects invalid shuffle data", () => {
+    const engine = createSimulationEngine(testConfig({
+      entities: [
+        hero("hero-deck", 1, 1, "movement", true, 3, {
+          drawPile: [{ instanceId: "deck-card", templateKey: testCostedRangedStrike.key }],
+        }),
+        enemy("enemy-deck", 7, 7),
+      ],
+      heroIdByActorId: { "actor-1": "hero-deck" },
+    }));
+    engine.submit({
+      requestId: "deck-enter", sessionId: "session-test", actorId: "actor-1", role: "player",
+      command: "player.enter_ranged_mode", payload: {}, clientRevision: 0, serverReceiveSequence: 1,
+    });
+    engine.advanceTicks(305);
+    const deckEvents = engine.events().filter((event) => [
+      "deck.shuffled", "card.drawn", "deck.rotation_resolved",
+    ].includes(event.eventType));
+    expect(deckEvents.map((event) => event.eventType)).toEqual([
+      "deck.shuffled", "card.drawn", "deck.rotation_resolved",
+    ]);
+    for (const event of deckEvents) expect(validateEvent(event), JSON.stringify(validateEvent.errors)).toBe(true);
+
+    const shuffle = deckEvents.find((event) => event.eventType === "deck.shuffled");
+    if (!shuffle || shuffle.eventType !== "deck.shuffled") throw new Error("expected deck.shuffled");
+    const invalidShuffle = structuredClone(shuffle);
+    invalidShuffle.payload.orderedCardInstanceIds.push("deck-card");
+    expect(validateEvent(invalidShuffle)).toBe(false);
+  });
 });
