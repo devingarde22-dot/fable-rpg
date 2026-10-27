@@ -1,6 +1,6 @@
 # DR-C-005 — Stamina & Resource Regeneration
 
-**Статус:** CONFIRMED; implementation prepared on branch `step-c-increment-5-stamina`, not yet merged.
+**Статус:** CONFIRMED; implemented in commit `d237616` on branch `step-c-increment-5-stamina`, not yet merged.
 **Дата:** 2026-10-27
 **Область:** headless rules runtime, deterministic stamina regeneration, replay and tests.
 

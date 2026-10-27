@@ -1,7 +1,7 @@
 # Fable — журнал разработки и handoff для AI
 
-**Обновлено:** 2026-10-27 (после merge PR #2)
-**Статус:** Step C, Increment 1–4 приняты и слиты в `fable-rpg/main`. PR [#1](https://github.com/devingarde22-dot/fable-rpg/pull/1) содержал increments 1–3; PR [#2](https://github.com/devingarde22-dot/fable-rpg/pull/2) с Increment 4 (DR-C-004) слит 2026-10-27. Merge commit: `9e0d0f8`.
+**Обновлено:** 2026-10-27 (Increment 5 реализован)
+**Статус:** Step C, Increment 1–4 приняты и слиты в `fable-rpg/main`; Increment 5 (DR-C-005) реализован в feature branch `step-c-increment-5-stamina`, commit `d237616`, но ещё не слит. PR [#1](https://github.com/devingarde22-dot/fable-rpg/pull/1) содержал increments 1–3; PR [#2](https://github.com/devingarde22-dot/fable-rpg/pull/2) с Increment 4 (DR-C-004) слит 2026-10-27. Merge commit: `9e0d0f8`.
 
 Этот документ — краткая карта проекта для продолжения работы другой нейросетью. Он не заменяет нормативные документы и не вводит новых игровых правил. При любом расхождении приоритет имеют подтверждённые документы `docs/` и машинно-читаемые контракты.
 
@@ -12,7 +12,7 @@
 - Step C Increment 1 (grid/movement), Increment 2 (enemy registry/intents) и Increment 3 (hero modes/contact/retreat) завершены и приняты. PR #1 слит 2026-10-27.
 - Текущая ветка `step-c-headless-core` уже вошла в `fable-rpg/main`. Merge commit PR #1: `a9b07d6aeca48e26993b8b02b13e3520b934a41e`.
 - Increment 4 (HP & Damage Resolution) закоммичен как `4d26a18` (`feat(rules): add HP and damage resolution`) в ветке `step-c-increment-4-hp-damage`; PR #2 слит в `main` 2026-10-27. Merge commit: `9e0d0f8` (`9e0d0f8996816f7d00c4521bbf6ad30382bfb74e`).
-- Increment 4 принят. Не начинать Increment 5 или иные новые gameplay changes без отдельного запроса пользователя; для новой игровой задачи сначала подготовить PLAN и дождаться явного одобрения.
+- Increment 5 (Stamina & Resource Regeneration) реализован commit `d237616` в ветке `step-c-increment-5-stamina`; PR не открыт, merge в `main` не выполнен. Не начинать следующий increment без отдельного запроса пользователя; для новой игровой задачи сначала подготовить PLAN и дождаться явного одобрения.
 
 ### Маршрутизация репозиториев
 
@@ -37,7 +37,7 @@
 10. `docs/12-step-a-repository-and-monorepo.md`
 11. `packages/contracts/*.json`
 
-Для текущей реализации дополнительно прочитать `docs/15-step-c-intent-simulation.md`, `docs/16-step-c-retreat-resolution.md`, `docs/18-step-c-hp-damage-resolution.md` и этот handoff. Не переносить устаревшие инструкции из `docs/13-ai-task-starter.md` как текущий план: он описывает starter для раннего Step A.
+Для текущей реализации дополнительно прочитать `docs/15-step-c-intent-simulation.md`, `docs/16-step-c-retreat-resolution.md`, `docs/18-step-c-hp-damage-resolution.md`, `docs/19-step-c-stamina-regeneration.md` и этот handoff. Не переносить устаревшие инструкции из `docs/13-ai-task-starter.md` как текущий план: он описывает starter для раннего Step A.
 
 **Правило:** не изобретать gameplay rules. Если подтверждённые документы противоречат друг другу или коду, остановиться, указать Rule ID и файлы и вынести вопрос пользователю/в Decision Record.
 
@@ -52,6 +52,7 @@
 | `85745e5` — `merge: connect fable-rpg main history` | Технический merge commit для соединения feature branch с первоначальной историей `fable-rpg/main`, в которой был только `LICENSE`; игрового кода не меняет. |
 | `a9b07d6` — GitHub merge commit PR #1 | PR #1 слит в `fable-rpg/main`. |
 | `4d26a18` — `feat(rules): add HP and damage resolution` | Increment 4: единый `fable.damage.v1` pipeline; `hp.changed` v2 и replay-совместимость с v1; enemy cleanup/removal; регрессии и DR-C-004. Слито в `main` через PR [#2](https://github.com/devingarde22-dot/fable-rpg/pull/2) 2026-10-27; merge commit `9e0d0f8`. |
+| `d237616` — `feat(rules): add stamina regeneration` | Increment 5: max из config/preset, start=3, tick timer/300, timer stop at cap, `stamina.changed`, resource phase, pure affordability helper, replay/stateHash и DR-C-005. Реализован в `step-c-increment-5-stamina`; ожидает отдельного PR/merge. |
 
 PR [#1](https://github.com/devingarde22-dot/fable-rpg/pull/1) включал Increment 1–3 и DR-C-001–003; PR [#2](https://github.com/devingarde22-dot/fable-rpg/pull/2) включал Increment 4 и DR-C-004. Оба PR слиты в `main`.
 
@@ -63,7 +64,7 @@ PR [#1](https://github.com/devingarde22-dot/fable-rpg/pull/1) включал Inc
 - `packages/contracts` — canonical JSON Schemas; не добавлять дублирующие wire fields без Decision Record.
 - Engine не зависит от UI, WebSocket/Colyseus, базы данных или сети.
 - Grid — 9×9; logical clock — 20 Hz, один tick = 50 ms; input window — 5 ticks = 250 ms.
-- Batch phase order: `players → enemies → environment`.
+- Batch phase order: `players → enemies → environment → resources`; stamina regeneration runs in the resource phase before cleanup.
 - Только authoritative engine меняет runtime state. Rejected command не меняет gameplay state, `sceneRevision` или domain journal; tick/window bookkeeping может продвинуться. Duplicate `requestId` не создаёт повторную gameplay mutation/event.
 - Одинаковые initial state, content/rules versions, command sequence и seed должны давать одинаковые события и `stateHash`. В gameplay logic запрещены `Math.random()` и wall-clock API вроде `Date.now()`.
 - Replay должен давать точное состояние и тот же `stateHash`, а не приблизительное восстановление.
@@ -106,12 +107,22 @@ PR [#1](https://github.com/devingarde22-dot/fable-rpg/pull/1) включал Inc
 - Новые damage events — `hp.changed` v2 с source/formula inputs/result; v1 остаётся replay-compatible. `scene.entity_removed` v1 и `intent.cancelled(owner_removed)` воспроизводят enemy cleanup.
 - Проверяется одна revision/event group на damage batch и полный live/replay snapshot + stateHash parity.
 
+### Increment 5 — Stamina & Resource Regeneration (DR-C-005; commit `d237616`, not merged)
+
+- Hero начинает с 3 stamina; `stamina.max` передаётся через config/preset и должен быть не меньше 3. Fixtures используют max 3.
+- Регенерация +1 каждые 300 authoritative ticks. Timer хранит `nextRegenAtTick`, становится `null` при полном запасе и для неактивного героя; пропущенные восстановления не копятся.
+- Movement/melee/ranged modes не блокируют регенерацию. Переход к HP=0/`critically_injured` останавливает timer; stamina не меняет HP.
+- `stamina.changed` создаётся только при фактическом восстановлении; heroes обрабатываются по ID в ресурсной фазе после environment. Replay валидирует due tick и +1; `stateHash` включает текущий ресурс и timer.
+- `canAffordStamina` покрывает нулевую стоимость при нуле и отказ при нехватке; расходующие actions/cards не реализуются.
+- Scene pause не реализуется, хотя pause JSON Schemas существуют; pause runtime остаётся отдельной задачей.
+
 ## 6. Decision Records
 
 - **DR-C-001 — CONFIRMED:** Step C engine располагается в `packages/rules`. Причина — согласованный scope и меньшая сложность vertical slice. `packages/simulation` может быть будущей опцией, но перенос сейчас запрещён.
 - **DR-C-002 — CONFIRMED:** схема intents, active roster, timer semantics, target/fallback behavior и deterministic RNG описаны в `docs/15-step-c-intent-simulation.md`.
 - **DR-C-003 — CONFIRMED:** retreat coefficient, attack order, damage rounding, immunity, event ordering и replay описаны в `docs/16-step-c-retreat-resolution.md`.
 - **DR-C-004 — CONFIRMED:** единый HP/damage pipeline, формула `fable.damage.v1`, `hp.changed` v2, enemy removal event, event ordering и replay описаны в `docs/18-step-c-hp-damage-resolution.md`.
+- **DR-C-005 — CONFIRMED:** стартовый stamina, `max` из preset, 300-tick regen, cap/inactive timer behavior, affordability, event/replay/hash и excluded scope описаны в `docs/19-step-c-stamina-regeneration.md`.
 - Canonical RNG name: `xoshiro128**`; `algorithmVersion = fable.rng.v1`. `xoshiro128ss` — только внутренний shorthand. Seed encoding — UTF-8; fork seed — SHA-256 компактной canonical JSON array из `rootSeed`, `campaignId`, `sceneId`, `serverTick`, `activeIntentId`, `purpose`. Retreat order не использует RNG; активные purposes включают `target_selection`, `fallback_selection`, `deck_shuffle`.
 
 ## 7. Последние проверки
@@ -125,11 +136,19 @@ PR [#1](https://github.com/devingarde22-dot/fable-rpg/pull/1) включал Inc
 - В новой damage/cleanup gameplay logic нет `Math.random()`/`Date.now()`; HP mutations находятся в damage pipeline и replay reducer.
 - `pnpm install --frozen-lockfile` был проверен в предыдущем Step C acceptance; повторять при изменении lockfile/dependencies.
 
-При любом новом изменении повторно запустить как минимум `pnpm check` и `pnpm build`, затем сообщить точные результаты. Increment 4 принят и слит через PR #2; не начинать следующий increment без отдельного запроса пользователя и предварительно одобренного плана.
+При любом новом изменении повторно запустить как минимум `pnpm check` и `pnpm build`, затем сообщить точные результаты. Increment 5 реализован, но ещё не слит; не начинать следующий increment без отдельного запроса пользователя и предварительно одобренного плана.
+
+Для Increment 5 (`d237616`; 2026-10-27; ветка `step-c-increment-5-stamina`, PR не открыт):
+
+- `pnpm check` — PASS: typecheck, lint и полный workspace suite.
+- `pnpm build` — PASS: `@fable/content` и `@fable/rules`.
+- Тесты: **91 passed** — 5 в `content` и 86 в `rules`, 21 test file суммарно.
+- Все 5 canonical JSON Schemas скомпилированы Ajv 2020; schema test проверяет `stamina.changed` и `maximum >= 3`; `git diff --check` проходит.
+- Scene pause, cards/decks и расходующие stamina actions не добавлены.
 
 ## 8. Что ещё не реализовано / ограничения scope
 
-Не считать готовыми или не начинать без отдельного плана и подтверждения: cards/card play, stamina, UI (TV/Player/GM), WebSocket/Colyseus networking, PostgreSQL/persistence, authentication, deployment, AI Copilot, полный combat system, новые карты/сцены и остальные статусы.
+Не считать готовыми или не начинать без отдельного плана и подтверждения: cards/card play, stamina-spending gameplay actions, scene pause runtime (pause schemas alone do not imply engine support), UI (TV/Player/GM), WebSocket/Colyseus networking, PostgreSQL/persistence, authentication, deployment, AI Copilot, полный combat system, новые карты/сцены и остальные статусы.
 
 В частности, `extinguisher` ещё не активен в runtime; `bind`, `ally_guard` и `reposition` не реализованы как active handlers. Не расширять scope молча.
 
