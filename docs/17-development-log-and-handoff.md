@@ -1,7 +1,7 @@
 # Fable — журнал разработки и handoff для AI
 
-**Обновлено:** 2026-10-27 (Increment 6 реализован; локальные quality gates пройдены)
-**Статус:** Step C, Increment 1–4 приняты и слиты в `fable-rpg/main`; Increment 5 (DR-C-005) реализован в feature branch `step-c-increment-5-stamina`, commit `d237616`, и открыт в PR [#3](https://github.com/devingarde22-dot/fable-rpg/pull/3). Increment 6 (DR-C-006) реализован в локальной ветке `step-c-increment-6-card-play`, quality gates пройдены, но изменения пока не закоммичены и не опубликованы. PR [#1](https://github.com/devingarde22-dot/fable-rpg/pull/1) содержал increments 1–3; PR [#2](https://github.com/devingarde22-dot/fable-rpg/pull/2) с Increment 4 слит 2026-10-27 (merge commit `9e0d0f8`).
+**Обновлено:** 2026-10-27 (Increment 6 committed; PR #4 открыт)
+**Статус:** Step C, Increment 1–4 приняты и слиты в `fable-rpg/main`; Increment 5 (DR-C-005) реализован в feature branch `step-c-increment-5-stamina`, commit `d237616`, и открыт в PR [#3](https://github.com/devingarde22-dot/fable-rpg/pull/3). Increment 6 (DR-C-006) закоммичен как `946b557` в ветке `step-c-increment-6-card-play` и открыт в stacked PR [#4](https://github.com/devingarde22-dot/fable-rpg/pull/4) против ветки Increment 5. PR [#1](https://github.com/devingarde22-dot/fable-rpg/pull/1) содержал increments 1–3; PR [#2](https://github.com/devingarde22-dot/fable-rpg/pull/2) с Increment 4 слит 2026-10-27 (merge commit `9e0d0f8`).
 
 Этот документ — краткая карта проекта для продолжения работы другой нейросетью. Он не заменяет нормативные документы и не вводит новых игровых правил. При любом расхождении приоритет имеют подтверждённые документы `docs/` и машинно-читаемые контракты.
 
@@ -13,7 +13,7 @@
 - Текущая ветка `step-c-headless-core` уже вошла в `fable-rpg/main`. Merge commit PR #1: `a9b07d6aeca48e26993b8b02b13e3520b934a41e`.
 - Increment 4 (HP & Damage Resolution) закоммичен как `4d26a18` (`feat(rules): add HP and damage resolution`) в ветке `step-c-increment-4-hp-damage`; PR #2 слит в `main` 2026-10-27. Merge commit: `9e0d0f8` (`9e0d0f8996816f7d00c4521bbf6ad30382bfb74e`).
 - Increment 5 (Stamina & Resource Regeneration) реализован commit `d237616` в ветке `step-c-increment-5-stamina`; PR [#3](https://github.com/devingarde22-dot/fable-rpg/pull/3) открыт и ждёт review/merge.
-- Increment 6 (Minimal Card Play) реализован на текущей локальной ветке `step-c-increment-6-card-play` после явного подтверждения плана; commit/PR пока отсутствуют. Текущий scope и правила — [DR-C-006](./20-step-c-card-play.md).
+- Increment 6 (Minimal Card Play) реализован в commit `946b557` на ветке `step-c-increment-6-card-play`; PR [#4](https://github.com/devingarde22-dot/fable-rpg/pull/4) открыт как stacked PR поверх PR #3. Текущий scope и правила — [DR-C-006](./20-step-c-card-play.md).
 
 ### Маршрутизация репозиториев
 
@@ -117,7 +117,7 @@ PR [#1](https://github.com/devingarde22-dot/fable-rpg/pull/1) включал Inc
 - `canAffordStamina` покрывает нулевую стоимость при нуле и отказ при нехватке; расходующие actions/cards не реализуются.
 - Scene pause не реализуется, хотя pause JSON Schemas существуют; pause runtime остаётся отдельной задачей.
 
-### Increment 6 — Minimal Card Play (DR-C-006; local working tree)
+### Increment 6 — Minimal Card Play (DR-C-006; commit `946b557`; PR #4 open)
 
 - Реализован только `player.play_card` для instance, уже находящегося в hand: проверки активного героя/HP, card revision, режима, цели/HP, range/LoS и affordability; один прямой урон через `fable.damage.v1`; hand→discard и увеличение card revision.
 - Positive cost списывает stamina и задаёт `nextRegenAtTick = serverTick + 300`; cost `0` разрешён при `0` stamina и не создаёт `stamina.changed` только за cost. Rejected play не создаёт игровых событий/мутаций.
@@ -146,7 +146,7 @@ PR [#1](https://github.com/devingarde22-dot/fable-rpg/pull/1) включал Inc
 - В новой damage/cleanup gameplay logic нет `Math.random()`/`Date.now()`; HP mutations находятся в damage pipeline и replay reducer.
 - `pnpm install --frozen-lockfile` был проверен в предыдущем Step C acceptance; повторять при изменении lockfile/dependencies.
 
-При любом новом изменении повторно запустить как минимум `pnpm check` и `pnpm build`, затем сообщить точные результаты. Increment 5 реализован, но PR #3 ещё открыт; Increment 6 реализован локально и пока не закоммичен/не опубликован. Следующий increment не начинать без отдельного запроса пользователя и предварительно одобренного плана.
+При любом новом изменении повторно запустить как минимум `pnpm check` и `pnpm build`, затем сообщить точные результаты. PR #3 (Increment 5) и stacked PR #4 (Increment 6) открыты. Следующий increment не начинать без отдельного запроса пользователя и предварительно одобренного плана.
 
 Для Increment 5 (`d237616`; 2026-10-27; ветка `step-c-increment-5-stamina`, PR #3 открыт):
 
@@ -156,7 +156,7 @@ PR [#1](https://github.com/devingarde22-dot/fable-rpg/pull/1) включал Inc
 - Все 5 canonical JSON Schemas скомпилированы Ajv 2020; schema test проверяет `stamina.changed` и `maximum >= 3`; `git diff --check` проходит.
 - Scene pause, draw/reshuffle, defense slot/full deck lifecycle, production card catalog и иные stamina-spending actions не добавлены.
 
-Для Increment 6 / DR-C-006 (2026-10-27; локальная ветка `step-c-increment-6-card-play`, без commit/PR):
+Для Increment 6 / DR-C-006 (2026-10-27; commit `946b557`, branch `step-c-increment-6-card-play`, PR #4 открыт against PR #3 branch):
 
 - `pnpm check` — PASS: typecheck, lint и полный workspace suite.
 - `pnpm build` — PASS: `@fable/content` и `@fable/rules`.

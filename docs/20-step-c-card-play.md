@@ -1,6 +1,6 @@
 # DR-C-006 — Minimal Card Play (Increment 6)
 
-**Статус:** CONFIRMED; implementation находится в локальной ветке `step-c-increment-6-card-play`, не закоммичен и не опубликован.
+**Статус:** CONFIRMED; implementation — commit `946b557` в ветке `step-c-increment-6-card-play`, открыт stacked PR [#4](https://github.com/devingarde22-dot/fable-rpg/pull/4) against `step-c-increment-5-stamina`.
 **Область:** один `player.play_card` для карты, уже находящейся в руке героя.
 **Предпосылки:** DR-C-004 (HP/damage) и DR-C-005 (stamina/regeneration).
 
