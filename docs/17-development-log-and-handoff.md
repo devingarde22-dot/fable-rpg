@@ -1,7 +1,7 @@
 # Fable — журнал разработки и handoff для AI
 
-**Обновлено:** 2026-10-27 (Increment 9 implemented and verified locally; not committed or opened as PR)
-**Статус:** Increment 1–8 находятся в `fable-rpg/main` (merge commit PR #6: `4b9336c`). PR #3–#5 для increments 5–7 остаются открытыми, хотя их commits вошли в main через PR #6. Increment 9 / DR-C-009 реализован в feature branch `step-c-increment-9-ally-guard`; `pnpm check` и `pnpm build` прошли, изменения ещё не закоммичены и PR не открыт. PR #1–#2 — исторические merges; актуальные детали приведены ниже.
+**Обновлено:** 2026-10-28 (Increment 9 committed and published in PR #7 targeting `main`)
+**Статус:** Increment 1–8 находятся в `fable-rpg/main` (merge commit PR #6: `4b9336c`). PR #3–#5 для increments 5–7 остаются открытыми, хотя их commits вошли в main через PR #6. Increment 9 / DR-C-009 зафиксирован коммитом `226f654` в `step-c-increment-9-ally-guard` и опубликован в PR [#7](https://github.com/devingarde22-dot/fable-rpg/pull/7), направленном в `main`; `pnpm check` и `pnpm build` прошли. PR #1–#2 — исторические merges; актуальные детали приведены ниже.
 
 Этот документ — краткая карта проекта для продолжения работы другой нейросетью. Он не заменяет нормативные документы и не вводит новых игровых правил. При любом расхождении приоритет имеют подтверждённые документы `docs/` и машинно-читаемые контракты.
 
@@ -16,7 +16,7 @@
 - Increment 6 (Minimal Card Play) реализован в commit `946b557` на ветке `step-c-increment-6-card-play`; PR [#4](https://github.com/devingarde22-dot/fable-rpg/pull/4) открыт как stacked PR поверх PR #3. Текущий scope и правила — [DR-C-006](./20-step-c-card-play.md).
 - Increment 7 (Mode-filtered Deck & Timed Hand Rotation) реализован в commit `f175a1b` и опубликован в PR [#5](https://github.com/devingarde22-dot/fable-rpg/pull/5). Подтверждённые правила — [DR-C-007](./21-step-c-deck-cycle.md).
 - Increment 8 (Status Layers & Immobilized) реализован в commit `24ca60e` и опубликован в PR [#6](https://github.com/devingarde22-dot/fable-rpg/pull/6) в `main`; PR включает ancestry increments 5–7. Правила и typed-layer contracts — [DR-C-008](./22-step-c-status-immobilized.md).
-- Increment 9 (Ally Guard Runtime) реализован локально в `step-c-increment-9-ally-guard`; `pnpm check` и `pnpm build` проходят. Изменения пока не закоммичены и не опубликованы; правила — [DR-C-009](./23-step-c-ally-guard.md).
+- Increment 9 (Ally Guard Runtime) реализован в commit `226f654` на `step-c-increment-9-ally-guard` и опубликован в PR [#7](https://github.com/devingarde22-dot/fable-rpg/pull/7), направленном в `main`; правила — [DR-C-009](./23-step-c-ally-guard.md).
 
 ### Маршрутизация репозиториев
 
@@ -60,9 +60,9 @@
 | `946b557` — `feat(rules): implement minimal card play` | Increment 6 / DR-C-006; PR [#4](https://github.com/devingarde22-dot/fable-rpg/pull/4) открыт как stacked PR. |
 | `f175a1b` — `feat(rules): add mode-filtered deck cycle` | Increment 7 / DR-C-007; PR [#5](https://github.com/devingarde22-dot/fable-rpg/pull/5) открыт. |
 | `24ca60e` — `feat(rules): implement immobilized status lifecycle` | Increment 8 / DR-C-008: typed status layers, test-backed bind/immobilized, refresh/expiry/replay; опубликован в PR [#6](https://github.com/devingarde22-dot/fable-rpg/pull/6) в `main`. |
-| — (локально, без commit) | Increment 9 / DR-C-009: Ally Guard, активный Extinguisher handler, replay/schema/golden transcript; `pnpm check` и `pnpm build` прошли на ветке `step-c-increment-9-ally-guard`. |
+| `226f654` — `feat(rules): implement ally guard runtime` | Increment 9 / DR-C-009: Ally Guard, активный Extinguisher handler, replay/schema/golden transcript; опубликован в PR [#7](https://github.com/devingarde22-dot/fable-rpg/pull/7) в `main`. |
 
-PR [#1](https://github.com/devingarde22-dot/fable-rpg/pull/1) включал Increment 1–3 и DR-C-001–003; PR [#2](https://github.com/devingarde22-dot/fable-rpg/pull/2) включал Increment 4 и DR-C-004 и слит в `main`; PR [#6](https://github.com/devingarde22-dot/fable-rpg/pull/6) также слит в `main` и содержит ancestry increments 5–7. PR [#3](https://github.com/devingarde22-dot/fable-rpg/pull/3), [#4](https://github.com/devingarde22-dot/fable-rpg/pull/4) и [#5](https://github.com/devingarde22-dot/fable-rpg/pull/5) остаются открытыми, хотя их commits включены в main через PR #6. Для Increment 9 commit/PR пока не создавались.
+PR [#1](https://github.com/devingarde22-dot/fable-rpg/pull/1) включал Increment 1–3 и DR-C-001–003; PR [#2](https://github.com/devingarde22-dot/fable-rpg/pull/2) включал Increment 4 и DR-C-004 и слит в `main`; PR [#6](https://github.com/devingarde22-dot/fable-rpg/pull/6) также слит в `main` и содержит ancestry increments 5–7. PR [#3](https://github.com/devingarde22-dot/fable-rpg/pull/3), [#4](https://github.com/devingarde22-dot/fable-rpg/pull/4) и [#5](https://github.com/devingarde22-dot/fable-rpg/pull/5) остаются открытыми, хотя их commits включены в main через PR #6. Increment 9 опубликован в PR [#7](https://github.com/devingarde22-dot/fable-rpg/pull/7).
 
 ## 4. Архитектура и инварианты
 
@@ -211,7 +211,7 @@ PR [#1](https://github.com/devingarde22-dot/fable-rpg/pull/1) включал Inc
 - 15 status lifecycle/schema tests проверяют typed layer copy/validation, refresh/exact expiry, movement lock before/on expiry, movement resume after refreshed expiry, event/journal replay parity, tampered-log movement rejection и Ajv schema constraints.
 - Только `TEST_ONLY / NON_BALANCE` bind/enemy fixtures; production catalog, other statuses, UI/network/database/AI не добавлены.
 
-Для Increment 9 / DR-C-009 (2026-10-27; ветка `step-c-increment-9-ally-guard`, локально без commit/PR):
+Для Increment 9 / DR-C-009 (2026-10-28; commit `226f654`, PR [#7](https://github.com/devingarde22-dot/fable-rpg/pull/7) targeting `main`):
 
 - `pnpm check` — PASS: typecheck, lint и полный workspace suite; **147 тестов прошли** (5 в `content`, 142 в `rules`), 33 rules test files.
 - `pnpm build` — PASS для `@fable/content` и `@fable/rules`; final focused Ally Guard/replay/schema regressions — 12 passed; `git diff --check` и JSON Schema syntax — PASS.

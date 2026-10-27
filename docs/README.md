@@ -72,7 +72,7 @@ docs/03-system-contracts.md
 docs/05-vertical-slice.md
 ```
 
-Step C increments 1–8 слиты в `main`; PR [#1](https://github.com/devingarde22-dot/fable-rpg/pull/1)–[#6](https://github.com/devingarde22-dot/fable-rpg/pull/6), merge commit PR #6 — `4b9336c`. PR #3–#5 остаются открытыми, хотя их commits содержатся в `main`. Increment 9 / DR-C-009 реализован и проверен локально в `step-c-increment-9-ally-guard`, основанной на `main`; commit и PR пока не создавались. См. [журнал разработки и AI handoff](./17-development-log-and-handoff.md).
+Step C increments 1–8 слиты в `main`; PR [#1](https://github.com/devingarde22-dot/fable-rpg/pull/1)–[#6](https://github.com/devingarde22-dot/fable-rpg/pull/6), merge commit PR #6 — `4b9336c`. PR #3–#5 остаются открытыми, хотя их commits содержатся в `main`. Increment 9 / DR-C-009 реализован в commit `226f654` в ветке `step-c-increment-9-ally-guard` и опубликован в PR [#7](https://github.com/devingarde22-dot/fable-rpg/pull/7), направленном в `main`. См. [журнал разработки и AI handoff](./17-development-log-and-handoff.md).
 
 ## Machine-readable contracts
 
