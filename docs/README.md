@@ -67,7 +67,7 @@ docs/03-system-contracts.md
 docs/05-vertical-slice.md
 ```
 
-Step C increments 1–3 реализованы и приняты; PR [#1](https://github.com/devingarde22-dot/fable-rpg/pull/1) слит в `main`. Increment 4 (DR-C-004) реализован локально и ожидает acceptance; изменения ещё не опубликованы. Не начинать следующий increment без отдельного запроса пользователя. См. [журнал разработки и AI handoff](./17-development-log-and-handoff.md).
+Step C increments 1–3 реализованы и приняты; PR [#1](https://github.com/devingarde22-dot/fable-rpg/pull/1) слит в `main`. Increment 4 (DR-C-004) реализован и опубликован в открытом PR [#2](https://github.com/devingarde22-dot/fable-rpg/pull/2), который ожидает review/merge. Не начинать следующий increment до принятия PR и отдельного запроса пользователя. См. [журнал разработки и AI handoff](./17-development-log-and-handoff.md).
 
 ## Machine-readable contracts
 

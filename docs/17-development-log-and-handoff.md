@@ -1,7 +1,7 @@
 # Fable — журнал разработки и handoff для AI
 
 **Обновлено:** 2026-10-27
-**Статус:** Step C, Increment 1–3 приняты и слиты в `main`; Increment 4 реализован локально, проверки пройдены, ожидает acceptance. PR [#1](https://github.com/devingarde22-dot/fable-rpg/pull/1) слит в `main` репозитория `fable-rpg`.
+**Статус:** Step C, Increment 1–3 приняты и слиты в `main`; Increment 4 реализован и отправлен в PR [#2](https://github.com/devingarde22-dot/fable-rpg/pull/2), который открыт и ожидает review/merge. PR [#1](https://github.com/devingarde22-dot/fable-rpg/pull/1) слит в `main` репозитория `fable-rpg`.
 
 Этот документ — краткая карта проекта для продолжения работы другой нейросетью. Он не заменяет нормативные документы и не вводит новых игровых правил. При любом расхождении приоритет имеют подтверждённые документы `docs/` и машинно-читаемые контракты.
 
@@ -11,7 +11,7 @@
 - Репозиторий `fable-context` — отдельный публичный context pack для передачи Markdown-документов и проектного контекста, не целевой репозиторий для изменений кода.
 - Step C Increment 1 (grid/movement), Increment 2 (enemy registry/intents) и Increment 3 (hero modes/contact/retreat) завершены и приняты. PR #1 слит 2026-10-27.
 - Текущая ветка `step-c-headless-core` уже вошла в `fable-rpg/main`. Merge commit PR #1: `a9b07d6aeca48e26993b8b02b13e3520b934a41e`.
-- Increment 4 (HP & Damage Resolution) реализован локально в `step-c-increment-4-hp-damage`, основанной на `fable-rpg/main`. Изменения не закоммичены, не отправлены и не оформлены PR; ждут review/acceptance пользователя.
+- Increment 4 (HP & Damage Resolution) закоммичен как `4d26a18` (`feat(rules): add HP and damage resolution`) и опубликован в ветке `step-c-increment-4-hp-damage`; PR #2 в `main` открыт и ждёт review/merge.
 - Не начинать Increment 5 или иные новые gameplay changes до acceptance Increment 4 и отдельного запроса пользователя. Следующий план не придумывать самостоятельно.
 
 ### Маршрутизация репозиториев
@@ -19,7 +19,7 @@
 - Все изменения исходного кода и PR направлять в `fable-rpg`.
 - `fable-context` использовать как context pack, а не как code remote.
 - Из-за прежней ошибки маршрутизации в `fable-context` осталась одноимённая ветка `step-c-headless-core` на commit `e866c6f`. Это дубликат; она не является целевой веткой разработки. Не обновлять и не удалять её без отдельного указания пользователя.
-- Текущая локальная feature branch: `step-c-increment-4-hp-damage`, upstream `fable-rpg/main`; незакоммиченный diff содержит только Increment 4 implementation, contracts, tests и связанные docs.
+- Текущая локальная feature branch: `step-c-increment-4-hp-damage`, upstream `fable-rpg/step-c-increment-4-hp-damage`; PR #2 — целевое review для Increment 4. Все изменения кода и docs направлять в `fable-rpg`, не в `fable-context`.
 
 ## 2. Порядок чтения источников истины
 
@@ -51,9 +51,9 @@
 | `e866c6f` — `feat(rules): add hero modes and retreat resolution` | Increment 3: hero modes, contact detection, contact immunity, retreat attacks и точный replay. |
 | `85745e5` — `merge: connect fable-rpg main history` | Технический merge commit для соединения feature branch с первоначальной историей `fable-rpg/main`, в которой был только `LICENSE`; игрового кода не меняет. |
 | `a9b07d6` — GitHub merge commit PR #1 | PR #1 слит в `fable-rpg/main`. |
-| — (локально, не закоммичено) | Increment 4: unified `fable.damage.v1` HP pipeline, `hp.changed` v2, enemy cleanup/removal event, replay compatibility and regression coverage; ждёт acceptance. |
+| `4d26a18` — `feat(rules): add HP and damage resolution` | Increment 4: единый `fable.damage.v1` pipeline; `hp.changed` v2 и replay-совместимость с v1; enemy cleanup/removal; регрессии и DR-C-004. PR [#2](https://github.com/devingarde22-dot/fable-rpg/pull/2) открыт, ждёт review/merge. |
 
-Публичная ссылка на закрытый PR: [fable-rpg#1](https://github.com/devingarde22-dot/fable-rpg/pull/1). PR включал три инкремента Step C и Decision Records DR-C-001–003.
+PR [#1](https://github.com/devingarde22-dot/fable-rpg/pull/1) включал Increment 1–3 и DR-C-001–003; PR [#2](https://github.com/devingarde22-dot/fable-rpg/pull/2) содержит Increment 4 и DR-C-004 и пока открыт.
 
 ## 4. Архитектура и инварианты
 
@@ -98,7 +98,7 @@
 - Retreat batch — одна event group и один `sceneRevision`; same-tick enemy intents продолжаются через обычный scheduler/preconditions. Replay восстанавливает mode, HP, immunity, event group и hash.
 - Basic attacks: `quarantine_chaser` 140 raw damage; `slag_shooter` 100; `extinguisher` 100.
 
-### Increment 4 — HP & Damage Resolution (DR-C-004; local, pending acceptance)
+### Increment 4 — HP & Damage Resolution (DR-C-004; PR #2 open)
 
 - Общий `fable.damage.v1` formula: `mitigation = 100/(100+defense)`, `mitigatedDamage = ceil(rawDamage*mitigation)`, `finalDamage = ceil(mitigatedDamage*multiplier)`; multiplier не округляется.
 - `melee_strike`, `ranged_shot` и retreat basic attacks используют один `applyDamage` pipeline; карты/колоды не добавлены.
@@ -116,7 +116,7 @@
 
 ## 7. Последние проверки
 
-На Increment 4 (2026-10-27; local branch, pending user acceptance):
+Для Increment 4 (2026-10-27; ветка `step-c-increment-4-hp-damage`, PR #2 открыт):
 
 - `pnpm check` — PASS: typecheck, lint и полный workspace suite.
 - `pnpm build` — PASS: `@fable/content` и `@fable/rules`.
@@ -125,7 +125,7 @@
 - В новой damage/cleanup gameplay logic нет `Math.random()`/`Date.now()`; HP mutations находятся в damage pipeline и replay reducer.
 - `pnpm install --frozen-lockfile` был проверен в предыдущем Step C acceptance; повторять при изменении lockfile/dependencies.
 
-При любом новом изменении повторно запустить как минимум `pnpm check` и `pnpm build`, затем сообщить точные результаты. Increment 4 пока не принят пользователем и не опубликован.
+При любом новом изменении повторно запустить как минимум `pnpm check` и `pnpm build`, затем сообщить точные результаты. Increment 4 опубликован в PR #2, но ещё не слит/принят; не начинать следующий increment до принятия PR и отдельного запроса пользователя.
 
 ## 8. Что ещё не реализовано / ограничения scope
 
