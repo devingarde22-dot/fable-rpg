@@ -20,15 +20,24 @@ Read in this order:
 12. `docs/15-step-c-intent-simulation.md`
 13. `docs/16-step-c-retreat-resolution.md`
 14. `docs/18-step-c-hp-damage-resolution.md`
-15. `docs/17-development-log-and-handoff.md`
+15. `docs/19-step-c-stamina-regeneration.md`
+16. `docs/20-step-c-card-play.md`
+17. `docs/21-step-c-deck-cycle.md`
+18. `docs/22-step-c-status-immobilized.md`
+19. `docs/23-step-c-ally-guard.md`
+20. `docs/17-development-log-and-handoff.md`
 
 Markdown contracts and JSON Schemas are the source of truth. If a document conflicts with a confirmed rule or schema, stop and report the conflict instead of inventing behavior.
 
 ## Current project status
 
-Step C increments 1–4 are implemented and accepted. PR [#1](https://github.com/devingarde22-dot/fable-rpg/pull/1) (increments 1–3) and PR [#2](https://github.com/devingarde22-dot/fable-rpg/pull/2) (Increment 4, HP & Damage Resolution / DR-C-004) have been merged to `main`. PR #2 was merged on 2026-10-27; merge commit: `9e0d0f8`. The current implementation and continuation constraints are summarized in [`docs/17-development-log-and-handoff.md`](docs/17-development-log-and-handoff.md).
+Step C — Core Engine & State Machine increments 1–9 are implemented and merged into `main`. The latest accepted increment is **Increment 9 — Ally Guard Runtime (DR-C-009)**, merged by PR [#7](https://github.com/devingarde22-dot/fable-rpg/pull/7) at commit `6423c19` on 2026-10-27. Increments 5–7 are also present in `main` through PR [#6](https://github.com/devingarde22-dot/fable-rpg/pull/6), which includes their ancestry. Earlier milestones were merged through PR [#1](https://github.com/devingarde22-dot/fable-rpg/pull/1) (increments 1–3) and PR [#2](https://github.com/devingarde22-dot/fable-rpg/pull/2) (Increment 4).
 
-The headless Core Engine lives in `packages/rules` per DR-C-001. Increment 4 is accepted; do not begin Increment 5 or other new gameplay work until the user requests the next step. For any later gameplay work, prepare a PLAN first and wait for explicit approval before implementation.
+The headless Core Engine lives in `packages/rules` per DR-C-001. The current implementation includes deterministic movement, enemy intents, combat and damage resolution, stamina regeneration, card/deck handling, status layers, Ally Guard, event journaling and replay. Increment 9 activates the existing `extinguisher` intents supported by the implemented status handlers; it does not add or rebalance production content.
+
+No Increment 10 scope or Decision Record is currently documented. Do not infer or invent its gameplay behavior. Before starting further gameplay work, prepare a scoped PLAN against the confirmed rules and contracts, and wait for the user's explicit approval before implementation.
+
+The current implementation details, verification results and continuation constraints are summarized in [`docs/17-development-log-and-handoff.md`](docs/17-development-log-and-handoff.md). Note: when handoff text and live GitHub state differ, verify the current branch/PR state; PR #7 has been merged to `main`.
 
 ## Project rules
 
@@ -37,6 +46,7 @@ The headless Core Engine lives in `packages/rules` per DR-C-001. Increment 4 is 
 - Gameplay rules must not be invented without a Decision Record.
 - Visibility is filtered on the backend before serialization.
 - `packages/contracts` contains closed discriminated unions with `additionalProperties: false`.
+- Preserve deterministic simulation and exact replay/state-hash parity.
 - Never commit API keys or secrets.
 
 ## Repository layout
