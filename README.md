@@ -26,9 +26,9 @@ Markdown contracts and JSON Schemas are the source of truth. If a document confl
 
 ## Current project status
 
-Step C increments 1–3 are implemented and accepted. PR [#1](https://github.com/devingarde22-dot/fable-rpg/pull/1) has been merged to `main`. Increment 4 (HP & Damage Resolution, DR-C-004) is committed and published on `step-c-increment-4-hp-damage`; PR [#2](https://github.com/devingarde22-dot/fable-rpg/pull/2) is open and awaits review/merge. The current implementation and continuation constraints are summarized in [`docs/17-development-log-and-handoff.md`](docs/17-development-log-and-handoff.md).
+Step C increments 1–4 are implemented and accepted. PR [#1](https://github.com/devingarde22-dot/fable-rpg/pull/1) (increments 1–3) and PR [#2](https://github.com/devingarde22-dot/fable-rpg/pull/2) (Increment 4, HP & Damage Resolution / DR-C-004) have been merged to `main`. PR #2 was merged on 2026-10-27; merge commit: `9e0d0f8`. The current implementation and continuation constraints are summarized in [`docs/17-development-log-and-handoff.md`](docs/17-development-log-and-handoff.md).
 
-The headless Core Engine lives in `packages/rules` per DR-C-001. Do not begin Increment 5 or other new gameplay work until the user accepts Increment 4 and requests the next step. For any later gameplay work, prepare a PLAN first and wait for explicit approval before implementation.
+The headless Core Engine lives in `packages/rules` per DR-C-001. Increment 4 is accepted; do not begin Increment 5 or other new gameplay work until the user requests the next step. For any later gameplay work, prepare a PLAN first and wait for explicit approval before implementation.
 
 ## Project rules
 
