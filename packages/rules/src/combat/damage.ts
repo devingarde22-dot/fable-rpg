@@ -20,6 +20,7 @@ export type ApplyDamageInput = {
   multiplier: number;
   serverTick: number;
   causedByRequestId: string | null;
+  actorId?: string | null;
 };
 
 export type ApplyDamageResult = {
@@ -46,7 +47,7 @@ export function applyDamage(state: RuntimeState, input: ApplyDamageInput): Apply
   if (!Number.isInteger(input.target.hp.current) || input.target.hp.current < 0 || input.target.hp.current > input.target.hp.max) {
     throw new Error(`Target ${input.target.id} has invalid HP before damage`);
   }
-  validateSource(state, input.source, input.multiplier);
+  validateSource(state, input.source, input.rawDamage, input.multiplier);
 
   const calculation = calculateDamage({
     rawDamage: input.rawDamage,
@@ -57,13 +58,22 @@ export function applyDamage(state: RuntimeState, input: ApplyDamageInput): Apply
   const hpAfter = Math.max(0, Math.min(input.target.hp.max, hpBefore - calculation.finalDamage));
   const appliedDamage = hpBefore - hpAfter;
   input.target.hp.current = hpAfter;
-  if (input.target.kind === "hero" && hpAfter === 0) input.target.aliveState = "critically_injured";
+  if (input.target.kind === "hero" && hpAfter === 0) {
+    input.target.aliveState = "critically_injured";
+    input.target.stamina.nextRegenAtTick = null;
+    input.target.cards.nextHandRotationAtTick = null;
+  }
 
   const event: PendingJournalEvent | null = appliedDamage === 0
     ? null
     : {
         event: {
-          ...eventBaseV2(state, input.serverTick, input.source.enemyId, input.causedByRequestId),
+          ...eventBaseV2(
+            state,
+            input.serverTick,
+            input.actorId ?? (input.source.kind === "card" ? input.source.heroId : input.source.enemyId),
+            input.causedByRequestId,
+          ),
           eventType: "hp.changed",
           payload: {
             entityId: input.target.id,
@@ -85,7 +95,21 @@ export function applyDamage(state: RuntimeState, input: ApplyDamageInput): Apply
   return { calculation, hpBefore, hpAfter, appliedDamage, event };
 }
 
-function validateSource(state: RuntimeState, source: DamageSource, multiplier: number): void {
+function validateSource(state: RuntimeState, source: DamageSource, rawDamage: number, multiplier: number): void {
+  if (source.kind === "card") {
+    const hero = state.entities.get(source.heroId);
+    const card = hero?.kind === "hero"
+      ? hero.cards.hand.find((instance) => instance.instanceId === source.cardInstanceId)
+      : undefined;
+    const template = state.cardTemplates.get(source.cardTemplateKey);
+    if (!hero || hero.kind !== "hero" || hero.aliveState !== "active" || hero.hp.current === 0 ||
+      !card || card.templateKey !== source.cardTemplateKey || !template ||
+      template.effect.kind !== "direct_damage" || rawDamage !== template.effect.rawDamage ||
+      multiplier !== template.effect.multiplier) {
+      throw new Error("Card damage source must reference the active hero's card in hand and its configured effect");
+    }
+    return;
+  }
   if (!source.enemyId) throw new Error("Damage source must identify its enemy");
   const sourceEntity = state.entities.get(source.enemyId);
   if (!sourceEntity || sourceEntity.kind !== "enemy" || sourceEntity.aliveState !== "active" || sourceEntity.hp.current === 0) {

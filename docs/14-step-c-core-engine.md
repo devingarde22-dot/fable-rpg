@@ -202,9 +202,7 @@ export type ResourceValue = { current: number; max: number };
 export type StaminaRuntime = {
   current: number;
   max: number;
-  regenEveryTicks: number;
   nextRegenAtTick: number | null;
-  pausedByMovement: boolean;
 };
 ```
 
@@ -216,14 +214,14 @@ export type StaminaRuntime = {
 export type DeckRuntime = {
   drawPile: CardInstanceId[];
   hand: CardInstanceId[];       // максимум 5
-  defenseSlot: CardInstanceId | null;
-  discardPile: CardInstanceId[];
-  excludedForMode: CardInstanceId[]; // логически не теряются; возвращаются при reshuffle
+  discard: CardInstanceId[];
+  excludedForMode: CardInstanceId[]; // карта другого режима не теряется
   revision: number;
+  nextHandRotationAtTick: number | null;
 };
 ```
 
-Карта всегда находится ровно в одном контейнере. Сыгранная карта переходит в discard. Новая карта занимает левое место, правая карта hand уходит в discard. При входе в battle mode engine выдаёт 5 hand cards и 1 defense card. Вне боя hand не показывается player projection.
+Каждый instance находится ровно в одном из четырёх контейнеров. В Increment 7 при каждом входе/переключении в `melee` или `ranged` server собирает все instances, фильтрует по `allowedModes`, детерминированно перемешивает eligible pool и выдаёт до пяти карт; не подходящие для текущего режима идут в `excludedForMode`. Успешный play переносит карту из hand в `discard` без немедленного добора. Defense slot и production card catalog пока не реализованы. Канонические правила ротации, empty piles, RNG и replay заданы [DR-C-007](./21-step-c-deck-cycle.md).
 
 ---
 
@@ -357,23 +355,17 @@ requestId ASC
 
 ### 6.7 RESOURCE_REGEN
 
-Stamina regen проверяется по tick. Базовый regen — 1 единица каждые 300 ticks (15 секунд), если герой не находится в состоянии, блокирующем regen. Во время movement stamina может восстанавливаться согласно confirmed rule; `pausedByMovement` используется только если конкретный ruleset preset это включает. Step C default: movement **не блокирует** regen.
+Stamina regen использует только authoritative ticks: 1 единица каждые 300 ticks (15 секунд). Новый hero начинает с 3 stamina; `max` задаётся config/preset и должен быть не меньше 3. Если `current < max` и герой активен, первый due tick равен `initialServerTick + 300`.
 
-Если regen timer догнал текущий tick:
+На due tick активный герой получает ровно 1 единицу. Если он всё ещё ниже максимума, следующий due tick сдвигается на 300 ticks. При достижении max timer становится `null`: полный запас не накапливает восстановления. Будущее успешное списание должно запускать новый полный интервал от tick списания, а не выдавать catch-up. Регенерация не выполняется при `aliveState !== "active"`; HP=0/`critically_injured` останавливает timer. Movement, melee и ranged mode не блокируют regen.
 
-```text
-while currentTick >= nextRegenAtTick and stamina < max:
-  stamina += 1
-  nextRegenAtTick += regenEveryTicks
-```
-
-Один tick не может восстановить больше одной единицы, если это явно не задано status effect.
+Ресурсная фаза запускается после players, enemies и environment и до cleanup; heroes обрабатываются по `heroId`. Каждое реальное восстановление выдаёт `stamina.changed`; timer и current входят в replay и `stateHash`. Scene pause engine support не входит в Increment 5; pause contracts остаются будущей отдельной задачей.
 
 ### 6.8 CLEANUP
 
 В фиксированном порядке:
 
-1. удалить expired status layers;
+1. удалить due status layers по `entityId`, затем `layerId`; emit `status.expired` once per layer;
 2. завершить immobilized/unconscious timers;
 3. очистить resolved/cancelled intents;
 4. применить mode transitions, отложенные до конца resolution;
@@ -422,6 +414,7 @@ Rejection не вызывает gameplay-state mutation, не записывае
 SCHEMA_INVALID
 AUTH_FORBIDDEN
 STALE_SCENE_REVISION
+STALE_CARD_REVISION
 DUPLICATE_REQUEST
 STATE_LOCKED
 INVALID_MODE
@@ -579,9 +572,9 @@ intent.cancelled(reason)
 |---|---|---|
 | `quarantine_chaser` | `move_close`, `melee_strike`, `hold_position` | `move_close`, `melee_strike`, `hold_position` |
 | `slag_shooter` | `ranged_shot`, `reposition` (draft/deferred), `hold_position` | `ranged_shot`, `hold_position` |
-| `extinguisher` | `bind`, `ally_guard`, `move_close` | catalog only; not in active runtime fixture |
+| `extinguisher` | `bind`, `ally_guard`, `move_close` | production content remains catalog-only; `bind` is exercised only by TEST_ONLY / NON_BALANCE fixtures |
 
-`reposition`, `bind`, and `ally_guard` remain non-active handlers in this increment. Enemy-specific timers/effects and RNG/version details are defined in DR-C-002.
+`bind` is now an active runtime handler only for the bounded `immobilized` effect specified in [DR-C-008](./22-step-c-status-immobilized.md). Production `extinguisher` catalog behavior remains unchanged. `reposition` and `ally_guard` remain non-active handlers. Enemy-specific timers/effects and RNG/version details are defined in DR-C-002.
 
 ---
 
@@ -672,7 +665,7 @@ Engine хранит `nextRegenAtTick`, а projection строит circular timer
 ```ts
 export type StatusLayer = {
   id: string;
-  templateKey: string;
+  templateKey: "immobilized"; // current implemented status key; see DR-C-008
   sourceEntityId: EntityId | null;
   potency: number;
   stacks: number;
@@ -682,11 +675,16 @@ export type StatusLayer = {
 };
 ```
 
-Минимальная длительность обычного combat status — 15 секунд (`300 ticks`), кроме explicitly configured reaction/animation locks. Повторное наложение может складывать duration, но potency использует template stack policy и не растёт бесконечно.
+Runtime layer shape and creation/clone invariants are specified in [DR-C-008](./22-step-c-status-immobilized.md). The current `StatusTemplateKey` is the closed union `"immobilized"`; the shared `StatusRefreshPolicy` type lists future policy values, but only `"refresh_duration"` is enabled for this status.
 
-Step C statuses:
+`immobilized` lasts 300 ticks. Refresh resets its deadline to the latest successful application tick + 300; it does not add duration, stacks or potency. The existing layer ID and original source are preserved. Status cleanup runs after player/enemy/environment/resource/card phases; the status is effective through gameplay resolution on its due tick and is then removed with `status.expired`. This exact boundary is covered by integration tests.
 
-- `immobilized`: запрещает movement; default 15s;
+Implemented in this Step C increment:
+
+- `immobilized`: blocks `player.move`; 15 seconds / 300 ticks; only test-backed `bind` applies it.
+
+Future, not implemented by Increment 8:
+
 - `unconscious`: запрещает любое действие на configured duration;
 - `last_chance`: +20% all stats while surrounded, if enabled by ruleset;
 - `ally_guard`: +20% defense;
@@ -714,9 +712,11 @@ card.discarded
 intent.started
 intent.target_selected       // if target policy requires explicit target
 intent.resolved
-hp.changed v2 / status.applied  // effects after intent resolution; v1 remains replayable
+hp.changed v2 / status.applied / status.refreshed  // effects after resolution; bind status event immediately follows intent.resolved
 intent.cancelled(owner_removed) → scene.entity_removed  // if a zero-HP enemy owns an active intent
 ```
+
+`status.expired` is emitted in the post-gameplay status cleanup phase. Bind event ordering, fixed timer validation and replay requirements are defined in [DR-C-008](./22-step-c-status-immobilized.md).
 
 Event envelope получает:
 
@@ -856,7 +856,7 @@ Pure formulas (`damage.ts`, `targeting.ts`, `pathing.ts`) должны имет�
 7. Contact starts melee; ranged mode requires authoritative `hero.canEnterRangedMode === true`.
 8. Melee magic halves damage but preserves status potency.
 9. Impossible ranged intent cancels and starts a valid fallback.
-10. Stamina regens exactly at 300 ticks and not during pause.
+10. Stamina regenerates exactly at 300 ticks, stops at max, and is disabled for non-active heroes.
 11. Expired status disappears during cleanup.
 12. Event replay equals live final state and state hash.
 13. `critically_injured` hero remains in scene and cannot act.

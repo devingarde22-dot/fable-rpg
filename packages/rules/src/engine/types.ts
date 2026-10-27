@@ -5,6 +5,8 @@ export const TICK_DURATION_MS = 50 as const;
 export const INPUT_WINDOW_TICKS = 5 as const;
 export const RNG_ALGORITHM_VERSION = "fable.rng.v1" as const;
 export const DAMAGE_FORMULA_VERSION = "fable.damage.v1" as const;
+export const STAMINA_REGEN_INTERVAL_TICKS = 300 as const;
+export const INITIAL_STAMINA = 3 as const;
 
 export type EntityId = string;
 export type Cell = { x: number; y: number };
@@ -14,8 +16,43 @@ export type RuntimeEntityKind = "hero" | "enemy";
 export type RuntimeFaction = "party" | "enemy" | "neutral";
 export type AliveState = "active" | "unconscious" | "critically_injured" | "removed";
 export type ResourceValue = { current: number; max: number };
+export type StaminaRuntime = ResourceValue & { nextRegenAtTick: number | null };
 export type HeroMode = "movement" | "melee" | "ranged";
 export type ModeChangedValue = "out_of_combat" | HeroMode;
+export type StatusTemplateKey = "immobilized";
+export type StatusRefreshPolicy = "refresh_duration" | "add_duration" | "diminishing_potency" | "replace";
+export type StatusLayer = {
+  id: string;
+  templateKey: StatusTemplateKey;
+  sourceEntityId: EntityId | null;
+  potency: number;
+  stacks: number;
+  appliedAtTick: number;
+  expiresAtTick: number;
+  refreshPolicy: StatusRefreshPolicy;
+};
+export const IMMOBILIZED_DURATION_MS = 15_000 as const;
+export const IMMOBILIZED_DURATION_TICKS = IMMOBILIZED_DURATION_MS / TICK_DURATION_MS;
+export type CardTemplate = {
+  key: string;
+  version: number;
+  allowedModes: readonly HeroMode[];
+  staminaCost: number;
+  range: { minInclusive: number; maxInclusive: number };
+  lineOfSight: "required" | "not_required";
+  effect: { kind: "direct_damage"; rawDamage: number; multiplier: number };
+};
+export type CardInstance = { instanceId: string; templateKey: string };
+export const CARD_HAND_LIMIT = 5 as const;
+export const CARD_ROTATION_INTERVAL_TICKS = 300 as const;
+export type HeroCardsRuntime = {
+  drawPile: CardInstance[];
+  hand: CardInstance[];
+  discard: CardInstance[];
+  excludedForMode: CardInstance[];
+  revision: number;
+  nextHandRotationAtTick: number | null;
+};
 
 export type TargetPolicy =
   | "none"
@@ -90,12 +127,14 @@ type RuntimeEntityBase = {
   hp: ResourceValue;
   defense: number;
   threat: number;
-  statuses: string[];
+  statuses: StatusLayer[];
 };
 
 export type HeroRuntime = RuntimeEntityBase & {
   kind: "hero";
   faction: "party";
+  stamina: StaminaRuntime;
+  cards: HeroCardsRuntime;
   mode: HeroMode | null;
   canEnterRangedMode: boolean;
   activeIntentId: null;
@@ -156,7 +195,8 @@ export type RngAuditRecord = {
 
 export type DamageSource =
   | { kind: "enemy_intent"; enemyId: EntityId; activeIntentId: string; handler: "melee_strike" | "ranged_shot" }
-  | { kind: "retreat_attack"; enemyId: EntityId; attackOrder: number };
+  | { kind: "retreat_attack"; enemyId: EntityId; attackOrder: number }
+  | { kind: "card"; heroId: EntityId; cardInstanceId: string; cardTemplateKey: string };
 
 export type InternalPlayerMoveCommand = {
   requestId: string;
@@ -178,7 +218,23 @@ export type InternalModeCommand = {
   clientRevision: number;
   serverReceiveSequence: number;
 };
-export type InternalCommand = InternalPlayerMoveCommand | InternalModeCommand;
+export type InternalPlayCardCommand = {
+  requestId: string;
+  sessionId: string;
+  actorId: string;
+  role: "player";
+  command: "player.play_card";
+  payload: {
+    cardInstanceId: string;
+    targetEntityId?: EntityId;
+    targetCell?: Cell;
+    mode: HeroMode;
+    clientCardRevision: number;
+  };
+  clientRevision: number;
+  serverReceiveSequence: number;
+};
+export type InternalCommand = InternalPlayerMoveCommand | InternalModeCommand | InternalPlayCardCommand;
 
 export type InputWindowRuntime = { windowId: number; commands: InternalCommand[] };
 export type SceneRuntime = {
@@ -199,6 +255,7 @@ export type RuntimeState = {
   scene: SceneRuntime;
   entities: Map<EntityId, EntityRuntime>;
   activeIntents: Map<string, ActiveIntent>;
+  cardTemplates: Map<string, CardTemplate>;
   enemyTemplates: Map<string, EnemyTemplate>;
   intentTemplates: Map<string, IntentTemplate>;
   initialIntentByEnemyId: Map<string, string>;
@@ -235,8 +292,73 @@ type EventBaseV2 = Omit<EventBase, "eventVersion"> & { eventVersion: 2 };
 export type DomainEvent =
   | (EventBase & { eventType: "scene.entity_moved"; payload: { entityId: EntityId; from: Cell; to: Cell } })
   | (EventBase & {
+      eventType: "card.played";
+      payload: { heroId: EntityId; cardInstanceId: string; mode: HeroMode; staminaCost: number; targetEntityId: EntityId; targetCell: Cell };
+    })
+  | (EventBase & {
+      eventType: "card.discarded";
+      payload: { heroId: EntityId; cardInstanceId: string; reason: "played" | "timer_rotation"; discardRevision: number };
+    })
+  | (EventBase & {
+      eventType: "card.drawn";
+      payload: { heroId: EntityId; cardInstanceId: string; destination: "hand"; reason: "mode_entry" | "timer_rotation"; cardRevision: number };
+    })
+  | (EventBase & {
+      eventType: "deck.shuffled";
+      payload: {
+        heroId: EntityId;
+        mode: Exclude<HeroMode, "movement">;
+        reason: "mode_entry" | "discard_exhausted";
+        sourceCardInstanceIds: string[];
+        eligibleCardInstanceIds: string[];
+        excludedCardInstanceIds: string[];
+        orderedCardInstanceIds: string[];
+        operationId: string;
+        cardRevision: number;
+      };
+    })
+  | (EventBase & {
+      eventType: "deck.rotation_resolved";
+      payload: {
+        heroId: EntityId;
+        dueAtTick: number;
+        nextHandRotationAtTick: number;
+        discardedCardInstanceId: string | null;
+        drawnCardInstanceId: string | null;
+        cardRevision: number;
+      };
+    })
+  | (EventBase & {
       eventType: "mode.changed";
       payload: { heroId: EntityId; from: ModeChangedValue; to: ModeChangedValue; reason: "command" | "contact" | "retreat" | "scene_end" | "rollback" };
+    })
+  | (EventBase & {
+      eventType: "stamina.changed";
+      payload: { heroId: EntityId; current: number; maximum: number; reason: "card_cost" | "regeneration" };
+    })
+  | (EventBase & {
+      eventType: "status.applied";
+      payload: {
+        entityId: EntityId;
+        statusKey: StatusTemplateKey;
+        layerId: string;
+        timer: { startedAtTick: number; resolvesAtTick: number; durationMs: number; remainingMs: number; paused: false };
+        publicPotency?: number;
+      };
+    })
+  | (EventBase & {
+      eventType: "status.refreshed";
+      payload: {
+        entityId: EntityId;
+        statusKey: StatusTemplateKey;
+        layerId: string;
+        timer: { startedAtTick: number; resolvesAtTick: number; durationMs: number; remainingMs: number; paused: false };
+        publicPotency?: number;
+      };
+    })
+  | (EventBase & {
+      eventType: "status.expired";
+      payload: { entityId: EntityId; statusKey: StatusTemplateKey; layerId: string };
     })
   | (EventBase & {
       eventType: "intent.started";
@@ -323,6 +445,13 @@ export type EngineErrorCode =
   | "STATE_LOCKED"
   | "INVALID_MODE"
   | "CARD_NOT_AVAILABLE"
+  | "CARD_MODE_MISMATCH"
+  | "STALE_CARD_REVISION"
+  | "INSUFFICIENT_STAMINA"
+  | "TARGET_NOT_VISIBLE"
+  | "TARGET_OUT_OF_RANGE"
+  | "LINE_OF_SIGHT_BLOCKED"
+  | "ENTITY_UNABLE_TO_ACT"
   | "CELL_OUT_OF_BOUNDS"
   | "CELL_BLOCKED"
   | "CELL_OCCUPIED"
@@ -350,6 +479,7 @@ export type SimulationEngineConfig = {
   sessionId: string;
   sceneId: string;
   rootSeed: string;
+  cardTemplates?: readonly CardTemplate[];
   terrain?: readonly { cell: Cell; terrain: Terrain }[];
   entities: readonly EntityRuntime[];
   enemyTemplates: readonly EnemyTemplate[];

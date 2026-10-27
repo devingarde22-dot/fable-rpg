@@ -14,7 +14,7 @@ describe("hero modes and automatic melee contact", () => {
     expect(engine.submit(moveCommand("contact-move", "right")).status).toBe("queued");
     const result = engine.advanceTicks(5).at(-1);
 
-    expect(result?.events.map((event) => event.eventType)).toEqual(["scene.entity_moved", "mode.changed"]);
+    expect(result?.events.map((event) => event.eventType)).toEqual(["scene.entity_moved", "mode.changed", "deck.shuffled"]);
     expect(entityById(engine, "hero-1")).toMatchObject({ position: { x: 2, y: 1 }, mode: "melee" });
     expect(result?.events[1]).toMatchObject({
       eventType: "mode.changed",
@@ -22,6 +22,7 @@ describe("hero modes and automatic melee contact", () => {
       payload: { heroId: "hero-1", from: "movement", to: "melee", reason: "contact" },
     });
     expect(result?.events.map((event) => [event.eventGroupId, event.sceneRevision])).toEqual([
+      [result?.events[0]?.eventGroupId, 1],
       [result?.events[0]?.eventGroupId, 1],
       [result?.events[0]?.eventGroupId, 1],
     ]);
@@ -43,7 +44,7 @@ describe("hero modes and automatic melee contact", () => {
     expect(beforeHash).not.toBe(afterHash);
     expect(available.submit(modeCommand("player.enter_ranged_mode", "enter-ranged")).status).toBe("queued");
     const result = available.advanceTicks(5).at(-1);
-    expect(result?.events.map((event) => event.eventType)).toEqual(["mode.changed"]);
+    expect(result?.events.map((event) => event.eventType)).toEqual(["mode.changed", "deck.shuffled"]);
     expect(entityById(available, "hero-1")).toMatchObject({ mode: "ranged", canEnterRangedMode: true });
     expect(result?.events[0]).toMatchObject({
       eventType: "mode.changed",
@@ -70,8 +71,8 @@ describe("hero modes and automatic melee contact", () => {
 
     engine.submit(modeCommand("player.enter_movement_mode", "leave-ranged", { revision: 2 }));
     const result = engine.advanceTicks(5).at(-1);
-    expect(result?.events.map((event) => event.eventType)).toEqual(["mode.changed", "mode.changed"]);
-    expect(result?.events.map((event) => event.eventType === "mode.changed" ? event.payload.reason : "")).toEqual([
+    expect(result?.events.map((event) => event.eventType)).toEqual(["mode.changed", "mode.changed", "deck.shuffled"]);
+    expect(result?.events.filter((event) => event.eventType === "mode.changed").map((event) => event.payload.reason)).toEqual([
       "command",
       "contact",
     ]);
@@ -93,9 +94,10 @@ describe("hero modes and automatic melee contact", () => {
       "intent.started",
       "intent.target_selected",
       "mode.changed",
+      "deck.shuffled",
     ]);
     expect(entityById(engine, "hero-1")).toMatchObject({ mode: "melee" });
-    expect(result?.events.at(-1)).toMatchObject({
+    expect(result?.events.at(-2)).toMatchObject({
       eventType: "mode.changed",
       payload: { from: "movement", to: "melee", reason: "contact" },
     });
@@ -190,7 +192,7 @@ describe("mode transition entry points", () => {
       entities: [hero("hero-1", 1, 1), enemy("enemy-1", 2, 2)],
     }));
     expect(entityById(engine, "hero-1")).toMatchObject({ mode: "melee" });
-    expect(engine.events()).toHaveLength(1);
+    expect(engine.events().map((event) => event.eventType)).toEqual(["mode.changed", "deck.shuffled"]);
     expect(engine.events()[0]).toMatchObject({
       eventType: "mode.changed",
       sceneRevision: 1,

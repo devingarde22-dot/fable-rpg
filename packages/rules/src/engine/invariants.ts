@@ -1,5 +1,5 @@
 import { cellIndex, isInBounds } from "../grid/Grid.js";
-import { GRID_HEIGHT, GRID_WIDTH, type RuntimeState } from "./types.js";
+import { CARD_HAND_LIMIT, GRID_HEIGHT, GRID_WIDTH, type RuntimeState } from "./types.js";
 
 export function assertRuntimeInvariants(state: RuntimeState): void {
   if (state.serverTick < 0 || state.sceneRevision < 0 || state.nextServerSequence < 1) {
@@ -9,6 +9,7 @@ export function assertRuntimeInvariants(state: RuntimeState): void {
     throw new Error("Scene grid must contain exactly 81 cells");
   }
   const seenOccupants = new Set<string>();
+  const seenCardInstances = new Set<string>();
   for (let index = 0; index < state.scene.cells.length; index += 1) {
     const cell = state.scene.cells[index];
     if (!cell || cell.x !== index % GRID_WIDTH || cell.y !== Math.floor(index / GRID_WIDTH)) {
@@ -34,8 +35,51 @@ export function assertRuntimeInvariants(state: RuntimeState): void {
     if (!Number.isFinite(entity.defense) || entity.defense < 0 || !Number.isFinite(entity.threat)) {
       throw new Error(`Entity ${entity.id} has invalid combat values`);
     }
+    const statusIds = new Set<string>();
+    for (const status of entity.statuses) {
+      if (!status.id || statusIds.has(status.id) || status.templateKey !== "immobilized" ||
+        (status.sourceEntityId !== null && !state.entities.has(status.sourceEntityId)) ||
+        !Number.isFinite(status.potency) || status.potency <= 0 || status.stacks !== 1 ||
+        !Number.isInteger(status.appliedAtTick) || status.appliedAtTick < 0 ||
+        !Number.isInteger(status.expiresAtTick) || status.expiresAtTick <= status.appliedAtTick ||
+        status.expiresAtTick < state.serverTick || status.refreshPolicy !== "refresh_duration") {
+        throw new Error(`Entity ${entity.id} has an invalid status layer ${status.id}`);
+      }
+      statusIds.add(status.id);
+    }
     if (entity.kind === "hero") {
       if (typeof entity.canEnterRangedMode !== "boolean") throw new Error(`Hero ${entity.id} has invalid ranged-mode capability`);
+      if (!Number.isInteger(entity.cards.revision) || entity.cards.revision < 0) {
+        throw new Error(`Hero ${entity.id} has an invalid card revision`);
+      }
+      if (entity.cards.hand.length > CARD_HAND_LIMIT) throw new Error(`Hero ${entity.id} exceeds the hand limit`);
+      for (const card of [...entity.cards.drawPile, ...entity.cards.hand, ...entity.cards.discard, ...entity.cards.excludedForMode]) {
+        if (!card.instanceId || seenCardInstances.has(card.instanceId) || !state.cardTemplates.has(card.templateKey)) {
+          throw new Error(`Hero ${entity.id} has a duplicate or invalid card instance ${card.instanceId}`);
+        }
+        seenCardInstances.add(card.instanceId);
+      }
+      const inCombatMode = entity.mode === "melee" || entity.mode === "ranged";
+      if (inCombatMode && entity.aliveState === "active" &&
+        (!Number.isInteger(entity.cards.nextHandRotationAtTick) || entity.cards.nextHandRotationAtTick === null ||
+          entity.cards.nextHandRotationAtTick < state.serverTick)) {
+        throw new Error(`Hero ${entity.id} has an invalid hand rotation timer`);
+      }
+      if ((!inCombatMode || entity.aliveState !== "active") && entity.cards.nextHandRotationAtTick !== null) {
+        throw new Error(`Hero ${entity.id} has a hand rotation timer outside active combat`);
+      }
+      if (!Number.isInteger(entity.stamina.current) || !Number.isInteger(entity.stamina.max) ||
+        entity.stamina.max < 3 || entity.stamina.current < 0 || entity.stamina.current > entity.stamina.max) {
+        throw new Error(`Hero ${entity.id} has invalid stamina`);
+      }
+      const staminaTimerMustBeStopped = entity.aliveState !== "active" || entity.stamina.current === entity.stamina.max;
+      if (staminaTimerMustBeStopped && entity.stamina.nextRegenAtTick !== null) {
+        throw new Error(`Hero ${entity.id} has an unexpected stamina regeneration timer`);
+      }
+      if (!staminaTimerMustBeStopped && (!Number.isInteger(entity.stamina.nextRegenAtTick) ||
+        entity.stamina.nextRegenAtTick === null || entity.stamina.nextRegenAtTick < state.serverTick)) {
+        throw new Error(`Hero ${entity.id} has an invalid stamina regeneration timer`);
+      }
       if (entity.hp.current === 0 && entity.aliveState !== "critically_injured") {
         throw new Error(`Hero ${entity.id} with 0 HP must be critically injured`);
       }

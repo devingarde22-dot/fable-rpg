@@ -14,6 +14,7 @@ import { eventBase, type EventDefinition, type PendingDomainEvent, type PendingJ
 import { nextGreedyPathCell } from "./geometry.js";
 import { selectIntentTarget } from "./targeting.js";
 import { isIntentStillValid, validateIntent } from "./validation.js";
+import { applyImmobilized } from "../statuses/statusSystem.js";
 
 export function activateScene(state: RuntimeState): PendingJournalEvent[] {
   if (state.phase !== "loading") throw new Error("Scene can only activate from loading");
@@ -277,8 +278,12 @@ function applyEffect(
     }
     case "hold_position":
       return;
+    case "bind": {
+      if (!target) throw new Error(`Bind intent ${activeIntentId} resolved without a target`);
+      pending.push(applyImmobilized(state, target, enemy, activeIntentId, serverTick));
+      return;
+    }
     case "reposition":
-    case "bind":
     case "ally_guard":
       return;
   }

@@ -24,7 +24,11 @@
 18. [DR-C-002 — Enemy Registry + Deterministic Intent Simulation](./15-step-c-intent-simulation.md) — подтверждённая схема intent, активный enemy roster, timers, RNG, fallback и golden replay requirements.
 19. [DR-C-003 — Deterministic Retreat Resolution](./16-step-c-retreat-resolution.md) — retreat attacks, mode/contact transitions and replay.
 20. [DR-C-004 — HP & Damage Resolution](./18-step-c-hp-damage-resolution.md) — единый урон, HP=0, removal events, версии hp.changed и replay.
-21. [Журнал разработки и AI handoff](./17-development-log-and-handoff.md) — repository routing, выполненные инкременты, DR, тесты и правила продолжения.
+21. [DR-C-005 — Stamina & Resource Regeneration](./19-step-c-stamina-regeneration.md) — стартовый ресурс, tick-based regeneration, cap behavior, replay и scope.
+22. [DR-C-006 — Minimal Card Play](./20-step-c-card-play.md) — одиночный direct-damage play, стоимость stamina, hand→discard и replay.
+23. [DR-C-007 — Mode-filtered Deck & Timed Hand Rotation](./21-step-c-deck-cycle.md) — mode-specific deal, deterministic shuffle, 15-second hand rotation, reshuffle и replay.
+24. [DR-C-008 — Status Layers & Immobilized](./22-step-c-status-immobilized.md) — typed status layers, `bind`, `refresh_duration`, expiry cleanup и replay.
+25. [Журнал разработки и AI handoff](./17-development-log-and-handoff.md) — repository routing, выполненные инкременты, DR, тесты и правила продолжения.
 
 ## Правило использования
 
@@ -67,7 +71,7 @@ docs/03-system-contracts.md
 docs/05-vertical-slice.md
 ```
 
-Step C increments 1–3 реализованы и приняты; PR [#1](https://github.com/devingarde22-dot/fable-rpg/pull/1) слит в `main`. Increment 4 (DR-C-004) реализован и опубликован в открытом PR [#2](https://github.com/devingarde22-dot/fable-rpg/pull/2), который ожидает review/merge. Не начинать следующий increment до принятия PR и отдельного запроса пользователя. См. [журнал разработки и AI handoff](./17-development-log-and-handoff.md).
+Step C increments 1–4 приняты и слиты; PR [#1](https://github.com/devingarde22-dot/fable-rpg/pull/1) и PR [#2](https://github.com/devingarde22-dot/fable-rpg/pull/2), merge commit PR #2 — `9e0d0f8`. Increment 5 / DR-C-005 реализован в commit `d237616` и открыт в PR [#3](https://github.com/devingarde22-dot/fable-rpg/pull/3). Increment 6 / DR-C-006 реализован в commit `946b557` и открыт в stacked PR [#4](https://github.com/devingarde22-dot/fable-rpg/pull/4) against `step-c-increment-5-stamina`. Increment 7 / DR-C-007 реализован в commit `f175a1b` и опубликован в PR [#5](https://github.com/devingarde22-dot/fable-rpg/pull/5). Increment 8 / DR-C-008 реализован в commit `24ca60e` и опубликован в PR [#6](https://github.com/devingarde22-dot/fable-rpg/pull/6) с base `main`; PR включает ancestry increments 5–7. См. [журнал разработки и AI handoff](./17-development-log-and-handoff.md).
 
 ## Machine-readable contracts
 

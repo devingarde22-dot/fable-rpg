@@ -1,4 +1,5 @@
 import type { EntityId, HeroMode, HeroRuntime, ModeChangedValue, RuntimeState } from "../engine/types.js";
+import { CARD_ROTATION_INTERVAL_TICKS } from "../engine/types.js";
 import { eventBase, type PendingJournalEvent } from "../intents/events.js";
 
 export type EventCause = { requestId: string | null; actorId: string | null };
@@ -35,6 +36,9 @@ export function detectContactTransitions(
 
     const previousMode = hero.mode;
     hero.mode = "melee";
+    if (previousMode === null || previousMode === "movement") {
+      hero.cards.nextHandRotationAtTick = serverTick + CARD_ROTATION_INTERVAL_TICKS;
+    }
     pending.push(modeChangedEvent(state, hero, previousMode, "melee", "contact", serverTick, cause));
   }
   return pending;

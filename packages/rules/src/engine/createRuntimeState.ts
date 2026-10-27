@@ -1,23 +1,31 @@
 import { createGrid, cellIndex, isInBounds } from "../grid/Grid.js";
 import { cloneIntentTemplate, buildEnemyRegistry, buildIntentRegistry } from "../intents/registry.js";
 import {
+  CARD_ROTATION_INTERVAL_TICKS,
   GRID_HEIGHT,
   GRID_WIDTH,
+  INITIAL_STAMINA,
+  STAMINA_REGEN_INTERVAL_TICKS,
   type ActiveIntent,
+  type CardTemplate,
   type EntityRuntime,
   type RuntimeState,
   type RuntimeSnapshot,
   type SimulationEngineConfig,
+  type StatusLayer,
 } from "./types.js";
 import { assertRuntimeInvariants } from "./invariants.js";
 
 export function createRuntimeState(config: SimulationEngineConfig): RuntimeState {
   const intentTemplates = buildIntentRegistry(config.intentTemplates);
   const enemyTemplates = buildEnemyRegistry(config.enemyTemplates, intentTemplates);
+  const cardTemplates = buildCardTemplateRegistry(config.cardTemplates ?? []);
   const entities = new Map<string, EntityRuntime>();
   const cells = createGrid(config.terrain);
+  const initialServerTick = config.initialServerTick ?? 0;
   const playerEntityIds: string[] = [];
   const enemyEntityIds: string[] = [];
+  const seenCardInstances = new Set<string>();
 
   for (const source of config.entities) {
     if (entities.has(source.id)) throw new Error(`Duplicate entity id: ${source.id}`);
@@ -31,15 +39,35 @@ export function createRuntimeState(config: SimulationEngineConfig): RuntimeState
         hp: { current: template.hp, max: template.hp },
         defense: template.defense,
         threat: source.threat,
-        statuses: [...source.statuses],
+        statuses: cloneAndValidateStatusLayers(source.statuses, source.id),
         position: { ...source.position },
         activeIntentId: null,
       };
     } else {
+      if (source.stamina.current !== INITIAL_STAMINA || source.stamina.max < INITIAL_STAMINA) {
+        throw new Error(`Hero ${source.id} must start with ${INITIAL_STAMINA} stamina and a sufficient maximum`);
+      }
       entity = {
         ...source,
         hp: { ...source.hp },
-        statuses: [...source.statuses],
+        stamina: {
+          ...source.stamina,
+          nextRegenAtTick: source.aliveState === "active" && source.stamina.current < source.stamina.max
+            ? initialServerTick + STAMINA_REGEN_INTERVAL_TICKS
+            : null,
+        },
+        cards: {
+          drawPile: cloneAndValidateCardInstances(source.cards.drawPile, cardTemplates, seenCardInstances, source.id),
+          hand: cloneAndValidateCardInstances(source.cards.hand, cardTemplates, seenCardInstances, source.id),
+          discard: cloneAndValidateCardInstances(source.cards.discard, cardTemplates, seenCardInstances, source.id),
+          excludedForMode: cloneAndValidateCardInstances(source.cards.excludedForMode, cardTemplates, seenCardInstances, source.id),
+          revision: source.cards.revision,
+          nextHandRotationAtTick: source.cards.nextHandRotationAtTick ??
+            (source.aliveState === "active" && (source.mode === "melee" || source.mode === "ranged")
+              ? initialServerTick + CARD_ROTATION_INTERVAL_TICKS
+              : null),
+        },
+        statuses: cloneAndValidateStatusLayers(source.statuses, source.id),
         position: { ...source.position },
         activeIntentId: null,
       };
@@ -88,7 +116,6 @@ export function createRuntimeState(config: SimulationEngineConfig): RuntimeState
     }
   }
 
-  const initialServerTick = config.initialServerTick ?? 0;
   if (initialIntentByEnemyId.size > 0 && initialServerTick !== 0) {
     throw new Error("Initial intents can only start during the loading-to-active transition at serverTick 0");
   }
@@ -108,6 +135,7 @@ export function createRuntimeState(config: SimulationEngineConfig): RuntimeState
     },
     entities,
     activeIntents: new Map(),
+    cardTemplates,
     enemyTemplates,
     intentTemplates,
     initialIntentByEnemyId,
@@ -140,6 +168,7 @@ export function cloneRuntimeState(state: RuntimeState): RuntimeState {
     },
     entities: new Map([...state.entities].map(([id, entity]) => [id, cloneEntity(entity)])),
     activeIntents: new Map([...state.activeIntents].map(([id, intent]) => [id, cloneActiveIntent(intent)])),
+    cardTemplates: new Map([...state.cardTemplates].map(([key, template]) => [key, cloneCardTemplate(template)])),
     enemyTemplates: new Map([...state.enemyTemplates].map(([key, template]) => [key, {
       ...template,
       basicAttack: { ...template.basicAttack },
@@ -171,11 +200,28 @@ export function snapshotState(state: RuntimeState): RuntimeSnapshot {
 }
 
 export function cloneEntity(entity: EntityRuntime): EntityRuntime {
+  if (entity.kind === "hero") {
+    return {
+      ...entity,
+      position: { ...entity.position },
+      hp: { ...entity.hp },
+      stamina: { ...entity.stamina },
+      cards: {
+        drawPile: entity.cards.drawPile.map((card) => ({ ...card })),
+        hand: entity.cards.hand.map((card) => ({ ...card })),
+        discard: entity.cards.discard.map((card) => ({ ...card })),
+        excludedForMode: entity.cards.excludedForMode.map((card) => ({ ...card })),
+        revision: entity.cards.revision,
+        nextHandRotationAtTick: entity.cards.nextHandRotationAtTick,
+      },
+      statuses: entity.statuses.map(cloneStatusLayer),
+    };
+  }
   return {
     ...entity,
     position: { ...entity.position },
     hp: { ...entity.hp },
-    statuses: [...entity.statuses],
+    statuses: entity.statuses.map(cloneStatusLayer),
   };
 }
 
@@ -188,7 +234,72 @@ export function cloneActiveIntent(intent: ActiveIntent): ActiveIntent {
 }
 
 function isRuntimeHandler(handler: string): boolean {
-  return handler === "move_close" || handler === "melee_strike" || handler === "ranged_shot" || handler === "hold_position";
+  return handler === "move_close" || handler === "melee_strike" || handler === "ranged_shot" ||
+    handler === "hold_position" || handler === "bind";
+}
+
+function cloneAndValidateStatusLayers(layers: readonly StatusLayer[], entityId: string): StatusLayer[] {
+  const seenIds = new Set<string>();
+  return layers.map((layer) => {
+    if (!layer.id || seenIds.has(layer.id) || layer.templateKey !== "immobilized" ||
+      !Number.isFinite(layer.potency) || layer.potency <= 0 || !Number.isInteger(layer.stacks) || layer.stacks !== 1 ||
+      !Number.isInteger(layer.appliedAtTick) || layer.appliedAtTick < 0 ||
+      !Number.isInteger(layer.expiresAtTick) || layer.expiresAtTick <= layer.appliedAtTick ||
+      layer.refreshPolicy !== "refresh_duration") {
+      throw new Error(`Entity ${entityId} has an invalid status layer ${layer.id}`);
+    }
+    seenIds.add(layer.id);
+    return cloneStatusLayer(layer);
+  });
+}
+
+function cloneStatusLayer(layer: StatusLayer): StatusLayer {
+  return { ...layer };
+}
+
+function buildCardTemplateRegistry(templates: readonly CardTemplate[]): Map<string, CardTemplate> {
+  const registry = new Map<string, CardTemplate>();
+  for (const template of templates) {
+    if (!template.key || registry.has(template.key)) throw new Error(`Duplicate or empty card template key: ${template.key}`);
+    if (!Number.isInteger(template.version) || template.version < 1 ||
+      !Number.isInteger(template.staminaCost) || template.staminaCost < 0 ||
+      !Number.isInteger(template.range.minInclusive) || template.range.minInclusive < 1 ||
+      !Number.isInteger(template.range.maxInclusive) || template.range.maxInclusive < template.range.minInclusive ||
+      !Number.isFinite(template.effect.rawDamage) || template.effect.rawDamage <= 0 ||
+      !Number.isFinite(template.effect.multiplier) || template.effect.multiplier <= 0 ||
+      template.effect.kind !== "direct_damage" || template.allowedModes.length === 0 ||
+      template.allowedModes.some((mode) => !["movement", "melee", "ranged"].includes(mode)) ||
+      new Set(template.allowedModes).size !== template.allowedModes.length ||
+      !["required", "not_required"].includes(template.lineOfSight)) {
+      throw new Error(`Invalid direct-damage card template ${template.key}`);
+    }
+    registry.set(template.key, cloneCardTemplate(template));
+  }
+  return registry;
+}
+
+function cloneAndValidateCardInstances(
+  cards: readonly { instanceId: string; templateKey: string }[],
+  templates: ReadonlyMap<string, CardTemplate>,
+  seenInstances: Set<string>,
+  heroId: string,
+): { instanceId: string; templateKey: string }[] {
+  return cards.map((card) => {
+    if (!card.instanceId || seenInstances.has(card.instanceId) || !templates.has(card.templateKey)) {
+      throw new Error(`Hero ${heroId} has a duplicate or invalid card instance ${card.instanceId}`);
+    }
+    seenInstances.add(card.instanceId);
+    return { ...card };
+  });
+}
+
+function cloneCardTemplate(template: CardTemplate): CardTemplate {
+  return {
+    ...template,
+    allowedModes: [...template.allowedModes],
+    range: { ...template.range },
+    effect: { ...template.effect },
+  };
 }
 
 function compareText(a: string, b: string): number {

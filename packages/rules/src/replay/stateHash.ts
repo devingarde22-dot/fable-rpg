@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { snapshotState } from "../engine/createRuntimeState.js";
-import type { RuntimeState, RuntimeSnapshot } from "../engine/types.js";
+import type { RuntimeState, RuntimeSnapshot, StatusLayer } from "../engine/types.js";
 
 export function canonicalizeSnapshot(snapshot: RuntimeSnapshot): string {
   return JSON.stringify({
@@ -31,7 +31,27 @@ export function canonicalizeSnapshot(snapshot: RuntimeSnapshot): string {
           })),
       },
     },
-    entities: [...snapshot.entities].sort((a, b) => compareText(a.id, b.id)),
+    entities: [...snapshot.entities]
+      .sort((a, b) => compareText(a.id, b.id))
+      .map((entity) => entity.kind === "hero"
+        ? {
+            ...entity,
+            statuses: canonicalStatuses(entity.statuses),
+            stamina: {
+              current: entity.stamina.current,
+              max: entity.stamina.max,
+              nextRegenAtTick: entity.stamina.nextRegenAtTick,
+            },
+            cards: {
+              drawPile: entity.cards.drawPile.map((card) => ({ instanceId: card.instanceId, templateKey: card.templateKey })),
+              hand: entity.cards.hand.map((card) => ({ instanceId: card.instanceId, templateKey: card.templateKey })),
+              discard: entity.cards.discard.map((card) => ({ instanceId: card.instanceId, templateKey: card.templateKey })),
+              excludedForMode: entity.cards.excludedForMode.map((card) => ({ instanceId: card.instanceId, templateKey: card.templateKey })),
+              revision: entity.cards.revision,
+              nextHandRotationAtTick: entity.cards.nextHandRotationAtTick,
+            },
+          }
+        : { ...entity, statuses: canonicalStatuses(entity.statuses) }),
     activeIntents: [...snapshot.activeIntents].sort((a, b) => compareText(a.activeIntentId, b.activeIntentId)),
     heroIdByActorId: [...snapshot.heroIdByActorId].sort(([a], [b]) => compareText(a, b)),
     serverTick: snapshot.serverTick,
@@ -42,6 +62,19 @@ export function canonicalizeSnapshot(snapshot: RuntimeSnapshot): string {
     paused: snapshot.paused,
     outcome: snapshot.outcome,
   });
+}
+
+function canonicalStatuses(statuses: readonly StatusLayer[]): StatusLayer[] {
+  return [...statuses].sort((a, b) => compareText(a.id, b.id)).map((status) => ({
+    id: status.id,
+    templateKey: status.templateKey,
+    sourceEntityId: status.sourceEntityId,
+    potency: status.potency,
+    stacks: status.stacks,
+    appliedAtTick: status.appliedAtTick,
+    expiresAtTick: status.expiresAtTick,
+    refreshPolicy: status.refreshPolicy,
+  }));
 }
 
 export function stateHashFromSnapshot(snapshot: RuntimeSnapshot): string {

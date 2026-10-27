@@ -2,10 +2,13 @@ import { createSimulationEngine } from "../src/engine/SimulationEngine.js";
 import type {
   EnemyTemplate,
   EntityRuntime,
+  HeroCardsRuntime,
   IntentTemplate,
   RuntimeSnapshot,
   SimulationEngineConfig,
+  StatusLayer,
 } from "../src/engine/types.js";
+import { testCardTemplates } from "./fixtures/testCards.js";
 
 const partyTargetFilters = {
   factions: ["party"] as const,
@@ -91,6 +94,44 @@ export const testIntentTemplates: readonly IntentTemplate[] = [
     fallbackKeys: [],
     visibility: "public",
   },
+  {
+    kind: "intent_template",
+    key: "test_bind_once",
+    version: 1,
+    status: "confirmed",
+    icon: "bind",
+    durationMs: 15_000,
+    conditions: { preconditions: ["target_available"] },
+    effect: { handler: "bind", parameters: { statusKey: "immobilized", durationMs: 15_000 } },
+    targetRules: {
+      policy: "nearest_player",
+      fallbackPolicies: [],
+      range: { minInclusive: 1, maxInclusive: 8 },
+      lineOfSight: "not_required",
+      filters: { ...partyTargetFilters, excludedStatuses: ["immobilized"] },
+    },
+    fallbackKeys: ["hold_position"],
+    visibility: "public",
+  },
+  {
+    kind: "intent_template",
+    key: "test_bind_refresh",
+    version: 1,
+    status: "confirmed",
+    icon: "bind",
+    durationMs: 15_000,
+    conditions: { preconditions: ["target_available"] },
+    effect: { handler: "bind", parameters: { statusKey: "immobilized", durationMs: 15_000 } },
+    targetRules: {
+      policy: "nearest_player",
+      fallbackPolicies: [],
+      range: { minInclusive: 1, maxInclusive: 8 },
+      lineOfSight: "not_required",
+      filters: partyTargetFilters,
+    },
+    fallbackKeys: ["hold_position"],
+    visibility: "public",
+  },
 ];
 
 export const testEnemyTemplates: readonly EnemyTemplate[] = [
@@ -118,9 +159,41 @@ export const testEnemyTemplates: readonly EnemyTemplate[] = [
     intentKeys: ["ranged_shot", "hold_position"],
     initialIntentKey: "ranged_shot",
   },
+  {
+    kind: "enemy_template",
+    key: "test_binding_enemy",
+    version: 1,
+    status: "confirmed",
+    hp: 900,
+    defense: 20,
+    basicAttack: { handler: "melee_strike", rawDamage: 140 },
+    role: "TEST_ONLY / NON_BALANCE status fixture",
+    intentKeys: ["test_bind_once", "hold_position"],
+    initialIntentKey: "test_bind_once",
+  },
+  {
+    kind: "enemy_template",
+    key: "test_refreshing_bind_enemy",
+    version: 1,
+    status: "confirmed",
+    hp: 900,
+    defense: 20,
+    basicAttack: { handler: "melee_strike", rawDamage: 140 },
+    role: "TEST_ONLY / NON_BALANCE status refresh fixture",
+    intentKeys: ["test_bind_refresh", "hold_position"],
+    initialIntentKey: "test_bind_refresh",
+  },
 ];
 
-export function hero(id: string, x: number, y: number, mode: "movement" | "melee" | "ranged" | null = "movement", canEnterRangedMode = false): EntityRuntime {
+export function hero(
+  id: string,
+  x: number,
+  y: number,
+  mode: "movement" | "melee" | "ranged" | null = "movement",
+  canEnterRangedMode = false,
+  maxStamina = 3,
+  cards: Partial<HeroCardsRuntime> & { statuses?: StatusLayer[] } = {},
+): EntityRuntime {
   return {
     id,
     kind: "hero",
@@ -128,9 +201,18 @@ export function hero(id: string, x: number, y: number, mode: "movement" | "melee
     position: { x, y },
     aliveState: "active",
     hp: { current: 1_000, max: 1_000 },
+    stamina: { current: 3, max: maxStamina, nextRegenAtTick: null },
+    cards: {
+      drawPile: (cards.drawPile ?? []).map((card) => ({ ...card })),
+      hand: (cards.hand ?? []).map((card) => ({ ...card })),
+      discard: (cards.discard ?? []).map((card) => ({ ...card })),
+      excludedForMode: (cards.excludedForMode ?? []).map((card) => ({ ...card })),
+      revision: cards.revision ?? 0,
+      nextHandRotationAtTick: cards.nextHandRotationAtTick ?? null,
+    },
     defense: 20,
     threat: 0,
-    statuses: [],
+    statuses: (cards.statuses ?? []).map((status) => ({ ...status })),
     mode,
     canEnterRangedMode,
     activeIntentId: null,
@@ -162,6 +244,7 @@ export function testConfig(overrides: Partial<SimulationEngineConfig> = {}): Sim
     sessionId: "session-test",
     sceneId: "scene-test",
     rootSeed: "fable-step-c-test",
+    cardTemplates: testCardTemplates,
     entities: [hero("hero-1", 1, 1), enemy("enemy-1", 7, 7)],
     enemyTemplates: testEnemyTemplates,
     intentTemplates: testIntentTemplates,
@@ -200,6 +283,32 @@ export function modeCommand(
     role: "player" as const,
     command,
     payload: {},
+    clientRevision: options.revision ?? 0,
+    serverReceiveSequence: options.sequence ?? 1,
+  } as const;
+}
+
+export function playCardCommand(
+  requestId: string,
+  cardInstanceId: string,
+  targetEntityId: string | undefined,
+  mode: "movement" | "melee" | "ranged",
+  options: { actorId?: string; revision?: number; cardRevision?: number; sequence?: number; sessionId?: string; targetCell?: { x: number; y: number } } = {},
+) {
+  const payload = {
+    cardInstanceId,
+    ...(targetEntityId === undefined ? {} : { targetEntityId }),
+    ...(options.targetCell === undefined ? {} : { targetCell: { ...options.targetCell } }),
+    mode,
+    clientCardRevision: options.cardRevision ?? 0,
+  };
+  return {
+    requestId,
+    sessionId: options.sessionId ?? "session-test",
+    actorId: options.actorId ?? "actor-1",
+    role: "player" as const,
+    command: "player.play_card" as const,
+    payload,
     clientRevision: options.revision ?? 0,
     serverReceiveSequence: options.sequence ?? 1,
   } as const;
