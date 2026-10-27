@@ -1,0 +1,543 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fable.local/schemas/intent.schema.json",
+  "title": "Fable Intent Contracts v1",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/intentTemplate"
+    },
+    {
+      "$ref": "#/$defs/activeIntent"
+    }
+  ],
+  "$defs": {
+    "cell": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "x",
+        "y"
+      ],
+      "properties": {
+        "x": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "y": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "durationMs": {
+      "type": "integer",
+      "minimum": 3000,
+      "multipleOf": 50
+    },
+    "timer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "startedAtTick",
+        "resolvesAtTick",
+        "durationMs",
+        "remainingMs",
+        "paused"
+      ],
+      "properties": {
+        "startedAtTick": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "resolvesAtTick": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "durationMs": {
+          "$ref": "#/$defs/durationMs"
+        },
+        "remainingMs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "paused": {
+          "type": "boolean"
+        }
+      }
+    },
+    "visibility": {
+      "type": "string",
+      "enum": [
+        "public",
+        "conditional",
+        "gm_only"
+      ]
+    },
+    "targetPolicy": {
+      "type": "string",
+      "enum": [
+        "none",
+        "nearest_player",
+        "current_target",
+        "highest_threat",
+        "nearest_visible_player",
+        "lowest_ally_hp_percentage"
+      ]
+    },
+    "conditions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "preconditions"
+      ],
+      "properties": {
+        "preconditions": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": [
+              "target_available",
+              "path_exists",
+              "melee_contact"
+            ]
+          }
+        }
+      }
+    },
+    "targetRange": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "minInclusive",
+            "maxInclusive"
+          ],
+          "properties": {
+            "minInclusive": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "maxInclusive": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        }
+      ]
+    },
+    "targetFilters": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "factions",
+        "aliveStates",
+        "requiredStatuses",
+        "excludedStatuses"
+      ],
+      "properties": {
+        "factions": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": [
+              "party",
+              "enemy",
+              "neutral"
+            ]
+          }
+        },
+        "aliveStates": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": [
+              "active",
+              "unconscious",
+              "critically_injured",
+              "removed"
+            ]
+          }
+        },
+        "requiredStatuses": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$"
+          }
+        },
+        "excludedStatuses": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$"
+          }
+        }
+      }
+    },
+    "targetRules": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "policy",
+        "fallbackPolicies",
+        "range",
+        "lineOfSight",
+        "filters"
+      ],
+      "properties": {
+        "policy": {
+          "$ref": "#/$defs/targetPolicy"
+        },
+        "fallbackPolicies": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/targetPolicy"
+          }
+        },
+        "range": {
+          "$ref": "#/$defs/targetRange"
+        },
+        "lineOfSight": {
+          "type": "string",
+          "enum": [
+            "required",
+            "not_required"
+          ]
+        },
+        "filters": {
+          "$ref": "#/$defs/targetFilters"
+        }
+      }
+    },
+    "effect": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "handler",
+            "parameters"
+          ],
+          "properties": {
+            "handler": {
+              "const": "move_close"
+            },
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "maxProperties": 0
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "handler",
+            "parameters"
+          ],
+          "properties": {
+            "handler": {
+              "const": "melee_strike"
+            },
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "rawDamage"
+              ],
+              "properties": {
+                "rawDamage": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "handler",
+            "parameters"
+          ],
+          "properties": {
+            "handler": {
+              "const": "ranged_shot"
+            },
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "rawDamage"
+              ],
+              "properties": {
+                "rawDamage": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "handler",
+            "parameters"
+          ],
+          "properties": {
+            "handler": {
+              "const": "hold_position"
+            },
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "maxProperties": 0
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "handler",
+            "parameters"
+          ],
+          "properties": {
+            "handler": {
+              "const": "reposition"
+            },
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "maxProperties": 0
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "handler",
+            "parameters"
+          ],
+          "properties": {
+            "handler": {
+              "const": "bind"
+            },
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "statusKey",
+                "durationMs"
+              ],
+              "properties": {
+                "statusKey": {
+                  "const": "immobilized"
+                },
+                "durationMs": {
+                  "$ref": "#/$defs/durationMs"
+                }
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "handler",
+            "parameters"
+          ],
+          "properties": {
+            "handler": {
+              "const": "ally_guard"
+            },
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "defenseBonusPercent",
+                "durationMs"
+              ],
+              "properties": {
+                "defenseBonusPercent": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "durationMs": {
+                  "$ref": "#/$defs/durationMs"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "intentTemplate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "key",
+        "version",
+        "status",
+        "icon",
+        "durationMs",
+        "conditions",
+        "effect",
+        "targetRules",
+        "fallbackKeys",
+        "visibility"
+      ],
+      "properties": {
+        "kind": {
+          "const": "intent_template"
+        },
+        "key": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]+$"
+        },
+        "version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "draft",
+            "confirmed",
+            "deprecated"
+          ]
+        },
+        "icon": {
+          "type": "string",
+          "minLength": 1
+        },
+        "durationMs": {
+          "$ref": "#/$defs/durationMs"
+        },
+        "conditions": {
+          "$ref": "#/$defs/conditions"
+        },
+        "effect": {
+          "$ref": "#/$defs/effect"
+        },
+        "targetRules": {
+          "$ref": "#/$defs/targetRules"
+        },
+        "fallbackKeys": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$"
+          }
+        },
+        "visibility": {
+          "$ref": "#/$defs/visibility"
+        },
+        "revealPolicy": {
+          "$ref": "#/$defs/revealPolicy"
+        }
+      }
+    },
+    "activeIntent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "activeIntentId",
+        "templateKey",
+        "enemyId",
+        "timer",
+        "state",
+        "visibility"
+      ],
+      "properties": {
+        "kind": {
+          "const": "active_intent"
+        },
+        "activeIntentId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "templateKey": {
+          "type": "string",
+          "minLength": 1
+        },
+        "enemyId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "timer": {
+          "$ref": "#/$defs/timer"
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "started",
+            "telegraphed",
+            "resolving",
+            "resolved",
+            "cancelled"
+          ]
+        },
+        "targetEntityId": {
+          "type": "string"
+        },
+        "targetCell": {
+          "$ref": "#/$defs/cell"
+        },
+        "publicTargetCell": {
+          "$ref": "#/$defs/cell"
+        },
+        "visibility": {
+          "$ref": "#/$defs/visibility"
+        },
+        "revealPolicy": {
+          "$ref": "#/$defs/revealPolicy"
+        },
+        "createdAtTick": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "revealPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "visibility",
+        "revealKey",
+        "revealEventType"
+      ],
+      "properties": {
+        "visibility": {
+          "const": "conditional"
+        },
+        "revealKey": {
+          "type": "string",
+          "minLength": 1
+        },
+        "revealEventType": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]+(\\.[a-z0-9_]+)+$"
+        }
+      }
+    }
+  }
+}

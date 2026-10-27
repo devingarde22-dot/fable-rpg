@@ -1,0 +1,379 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fable.local/schemas/visibility.schema.json",
+  "title": "Fable Visibility Contracts v1",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "field",
+        "visibility"
+      ],
+      "properties": {
+        "kind": {
+          "const": "visibility_annotation"
+        },
+        "field": {
+          "type": "string",
+          "minLength": 1
+        },
+        "visibility": {
+          "enum": [
+            "public",
+            "player_private",
+            "gm_only",
+            "conditional",
+            "audit_only"
+          ]
+        },
+        "roles": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "tv",
+              "player",
+              "gm",
+              "ai"
+            ]
+          }
+        },
+        "revealPolicy": {
+          "$ref": "#/$defs/revealPolicy"
+        },
+        "redaction": {
+          "type": "string"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocolVersion",
+        "snapshotSchema",
+        "projectionSchema",
+        "campaignId",
+        "sessionId",
+        "sceneId",
+        "sceneRevision",
+        "serverTick",
+        "timePaused",
+        "rulesetVersion",
+        "contentVersion",
+        "data",
+        "kind",
+        "projection"
+      ],
+      "properties": {
+        "protocolVersion": {
+          "const": "fable.protocol.v1"
+        },
+        "snapshotSchema": {
+          "const": "fable.snapshot.scene.v1"
+        },
+        "projectionSchema": {
+          "const": "fable.projection.tv.v1"
+        },
+        "campaignId": {
+          "type": "string"
+        },
+        "sessionId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sceneId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sceneRevision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "serverTick": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "timePaused": {
+          "type": "boolean"
+        },
+        "rulesetVersion": {
+          "const": "fable.ruleset.0.1"
+        },
+        "contentVersion": {
+          "const": "slice.quarantine-gates.v1"
+        },
+        "data": {
+          "type": "object"
+        },
+        "kind": {
+          "const": "projection"
+        },
+        "projection": {
+          "const": "tv"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocolVersion",
+        "snapshotSchema",
+        "projectionSchema",
+        "campaignId",
+        "sessionId",
+        "sceneId",
+        "sceneRevision",
+        "serverTick",
+        "timePaused",
+        "rulesetVersion",
+        "contentVersion",
+        "data",
+        "kind",
+        "projection",
+        "subjectPlayerId"
+      ],
+      "properties": {
+        "protocolVersion": {
+          "const": "fable.protocol.v1"
+        },
+        "snapshotSchema": {
+          "const": "fable.snapshot.scene.v1"
+        },
+        "projectionSchema": {
+          "const": "fable.projection.player.v1"
+        },
+        "campaignId": {
+          "type": "string"
+        },
+        "sessionId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sceneId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sceneRevision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "serverTick": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "timePaused": {
+          "type": "boolean"
+        },
+        "rulesetVersion": {
+          "const": "fable.ruleset.0.1"
+        },
+        "contentVersion": {
+          "const": "slice.quarantine-gates.v1"
+        },
+        "data": {
+          "type": "object"
+        },
+        "kind": {
+          "const": "projection"
+        },
+        "projection": {
+          "const": "player"
+        },
+        "subjectPlayerId": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocolVersion",
+        "snapshotSchema",
+        "projectionSchema",
+        "campaignId",
+        "sessionId",
+        "sceneId",
+        "sceneRevision",
+        "serverTick",
+        "timePaused",
+        "rulesetVersion",
+        "contentVersion",
+        "data",
+        "kind",
+        "projection"
+      ],
+      "properties": {
+        "protocolVersion": {
+          "const": "fable.protocol.v1"
+        },
+        "snapshotSchema": {
+          "const": "fable.snapshot.scene.v1"
+        },
+        "projectionSchema": {
+          "const": "fable.projection.gm.v1"
+        },
+        "campaignId": {
+          "type": "string"
+        },
+        "sessionId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sceneId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sceneRevision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "serverTick": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "timePaused": {
+          "type": "boolean"
+        },
+        "rulesetVersion": {
+          "const": "fable.ruleset.0.1"
+        },
+        "contentVersion": {
+          "const": "slice.quarantine-gates.v1"
+        },
+        "data": {
+          "type": "object"
+        },
+        "kind": {
+          "const": "projection"
+        },
+        "projection": {
+          "const": "gm"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocolVersion",
+        "snapshotSchema",
+        "projectionSchema",
+        "campaignId",
+        "sessionId",
+        "sceneId",
+        "sceneRevision",
+        "serverTick",
+        "timePaused",
+        "rulesetVersion",
+        "contentVersion",
+        "data",
+        "kind",
+        "projection",
+        "contextVersion",
+        "allowList"
+      ],
+      "properties": {
+        "protocolVersion": {
+          "const": "fable.protocol.v1"
+        },
+        "snapshotSchema": {
+          "const": "fable.snapshot.scene.v1"
+        },
+        "projectionSchema": {
+          "const": "fable.context.v1"
+        },
+        "campaignId": {
+          "type": "string"
+        },
+        "sessionId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sceneId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sceneRevision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "serverTick": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "timePaused": {
+          "type": "boolean"
+        },
+        "rulesetVersion": {
+          "const": "fable.ruleset.0.1"
+        },
+        "contentVersion": {
+          "const": "slice.quarantine-gates.v1"
+        },
+        "data": {
+          "type": "object"
+        },
+        "kind": {
+          "const": "ai_context"
+        },
+        "projection": {
+          "const": "ai"
+        },
+        "contextVersion": {
+          "const": "fable.context.v1"
+        },
+        "allowList": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "revealPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "visibility",
+        "revealKey",
+        "revealEventType"
+      ],
+      "properties": {
+        "visibility": {
+          "const": "conditional"
+        },
+        "revealKey": {
+          "type": "string",
+          "minLength": 1
+        },
+        "revealEventType": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}

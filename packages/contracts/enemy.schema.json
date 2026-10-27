@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fable.invalid/contracts/enemy.schema.json",
+  "title": "Fable enemy template",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "kind",
+    "key",
+    "version",
+    "status",
+    "hp",
+    "defense",
+    "basicAttack",
+    "role",
+    "intentKeys"
+  ],
+  "properties": {
+    "kind": { "const": "enemy_template" },
+    "key": { "type": "string", "minLength": 1 },
+    "version": { "type": "integer", "minimum": 1 },
+    "status": { "enum": ["draft", "confirmed", "deprecated"] },
+    "hp": { "type": "integer", "minimum": 1 },
+    "defense": { "type": "number", "minimum": 0 },
+    "basicAttack": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["handler", "rawDamage"],
+      "properties": {
+        "handler": { "const": "melee_strike" },
+        "rawDamage": { "type": "number", "exclusiveMinimum": 0 }
+      }
+    },
+    "role": { "type": "string", "minLength": 1 },
+    "intentKeys": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "initialIntentKey": { "type": "string", "minLength": 1 }
+  }
+}

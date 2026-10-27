@@ -1,0 +1,2175 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fable.local/schemas/event.schema.json",
+  "title": "Fable Authoritative Event Envelope v1",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocolVersion",
+        "schemaVersion",
+        "eventId",
+        "eventVersion",
+        "campaignId",
+        "sessionId",
+        "sceneId",
+        "sceneRevision",
+        "serverTick",
+        "serverSequence",
+        "eventGroupId",
+        "eventIndex",
+        "causedByRequestId",
+        "actorId",
+        "replay",
+        "eventType",
+        "payload"
+      ],
+      "properties": {
+        "protocolVersion": {
+          "const": "fable.protocol.v1"
+        },
+        "schemaVersion": {
+          "const": 1
+        },
+        "eventId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "eventVersion": {
+          "const": 1
+        },
+        "campaignId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sessionId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sceneId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sceneRevision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "serverTick": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "serverSequence": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "eventGroupId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "eventIndex": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "causedByRequestId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "actorId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "replay": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "required": [
+            "seedRef"
+          ],
+          "properties": {
+            "seedRef": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "eventType": {
+          "const": "scene.entity_moved"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "entityId",
+            "from",
+            "to"
+          ],
+          "properties": {
+            "entityId": {
+              "type": "string"
+            },
+            "from": {
+              "$ref": "#/$defs/cell"
+            },
+            "to": {
+              "$ref": "#/$defs/cell"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocolVersion",
+        "schemaVersion",
+        "eventId",
+        "eventVersion",
+        "campaignId",
+        "sessionId",
+        "sceneId",
+        "sceneRevision",
+        "serverTick",
+        "serverSequence",
+        "eventGroupId",
+        "eventIndex",
+        "causedByRequestId",
+        "actorId",
+        "replay",
+        "eventType",
+        "payload"
+      ],
+      "properties": {
+        "protocolVersion": {
+          "const": "fable.protocol.v1"
+        },
+        "schemaVersion": {
+          "const": 1
+        },
+        "eventId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "eventVersion": {
+          "const": 1
+        },
+        "campaignId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sessionId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sceneId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sceneRevision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "serverTick": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "serverSequence": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "eventGroupId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "eventIndex": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "causedByRequestId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "actorId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "replay": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "required": [
+            "seedRef"
+          ],
+          "properties": {
+            "seedRef": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "eventType": {
+          "const": "card.played"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "heroId",
+            "cardInstanceId",
+            "mode",
+            "staminaCost"
+          ],
+          "properties": {
+            "heroId": {
+              "type": "string"
+            },
+            "cardInstanceId": {
+              "type": "string"
+            },
+            "mode": {
+              "enum": [
+                "melee",
+                "ranged",
+                "movement"
+              ]
+            },
+            "staminaCost": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "targetEntityId": {
+              "type": "string"
+            },
+            "targetCell": {
+              "$ref": "#/$defs/cell"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocolVersion",
+        "schemaVersion",
+        "eventId",
+        "eventVersion",
+        "campaignId",
+        "sessionId",
+        "sceneId",
+        "sceneRevision",
+        "serverTick",
+        "serverSequence",
+        "eventGroupId",
+        "eventIndex",
+        "causedByRequestId",
+        "actorId",
+        "replay",
+        "eventType",
+        "payload"
+      ],
+      "properties": {
+        "protocolVersion": {
+          "const": "fable.protocol.v1"
+        },
+        "schemaVersion": {
+          "const": 1
+        },
+        "eventId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "eventVersion": {
+          "const": 1
+        },
+        "campaignId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sessionId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sceneId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sceneRevision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "serverTick": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "serverSequence": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "eventGroupId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "eventIndex": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "causedByRequestId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "actorId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "replay": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "required": [
+            "seedRef"
+          ],
+          "properties": {
+            "seedRef": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "eventType": {
+          "const": "stamina.changed"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "heroId",
+            "current",
+            "maximum",
+            "reason"
+          ],
+          "properties": {
+            "heroId": {
+              "type": "string"
+            },
+            "current": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "maximum": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "reason": {
+              "enum": [
+                "card_cost",
+                "regeneration",
+                "equipment",
+                "status",
+                "rollback"
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocolVersion",
+        "schemaVersion",
+        "eventId",
+        "eventVersion",
+        "campaignId",
+        "sessionId",
+        "sceneId",
+        "sceneRevision",
+        "serverTick",
+        "serverSequence",
+        "eventGroupId",
+        "eventIndex",
+        "causedByRequestId",
+        "actorId",
+        "replay",
+        "eventType",
+        "payload"
+      ],
+      "properties": {
+        "protocolVersion": {
+          "const": "fable.protocol.v1"
+        },
+        "schemaVersion": {
+          "const": 1
+        },
+        "eventId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "eventVersion": {
+          "const": 1
+        },
+        "campaignId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sessionId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sceneId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sceneRevision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "serverTick": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "serverSequence": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "eventGroupId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "eventIndex": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "causedByRequestId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "actorId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "replay": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "required": [
+            "seedRef"
+          ],
+          "properties": {
+            "seedRef": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "eventType": {
+          "const": "hp.changed"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "entityId",
+            "current",
+            "maximum",
+            "kind"
+          ],
+          "properties": {
+            "entityId": {
+              "type": "string"
+            },
+            "current": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "maximum": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "kind": {
+              "enum": [
+                "damage",
+                "heal",
+                "direct_set",
+                "rollback"
+              ]
+            },
+            "publicAmount": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocolVersion",
+        "schemaVersion",
+        "eventId",
+        "eventVersion",
+        "campaignId",
+        "sessionId",
+        "sceneId",
+        "sceneRevision",
+        "serverTick",
+        "serverSequence",
+        "eventGroupId",
+        "eventIndex",
+        "causedByRequestId",
+        "actorId",
+        "replay",
+        "eventType",
+        "payload"
+      ],
+      "properties": {
+        "protocolVersion": {
+          "const": "fable.protocol.v1"
+        },
+        "schemaVersion": {
+          "const": 1
+        },
+        "eventId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "eventVersion": {
+          "const": 1
+        },
+        "campaignId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sessionId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sceneId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sceneRevision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "serverTick": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "serverSequence": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "eventGroupId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "eventIndex": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "causedByRequestId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "actorId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "replay": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "required": [
+            "seedRef"
+          ],
+          "properties": {
+            "seedRef": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "eventType": {
+          "const": "status.applied"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "entityId",
+            "statusKey",
+            "layerId",
+            "timer"
+          ],
+          "properties": {
+            "entityId": {
+              "type": "string"
+            },
+            "statusKey": {
+              "type": "string"
+            },
+            "layerId": {
+              "type": "string"
+            },
+            "timer": {
+              "$ref": "#/$defs/timer"
+            },
+            "publicPotency": {
+              "type": "number",
+              "minimum": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocolVersion",
+        "schemaVersion",
+        "eventId",
+        "eventVersion",
+        "campaignId",
+        "sessionId",
+        "sceneId",
+        "sceneRevision",
+        "serverTick",
+        "serverSequence",
+        "eventGroupId",
+        "eventIndex",
+        "causedByRequestId",
+        "actorId",
+        "replay",
+        "eventType",
+        "payload"
+      ],
+      "properties": {
+        "protocolVersion": {
+          "const": "fable.protocol.v1"
+        },
+        "schemaVersion": {
+          "const": 1
+        },
+        "eventId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "eventVersion": {
+          "const": 1
+        },
+        "campaignId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sessionId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sceneId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sceneRevision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "serverTick": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "serverSequence": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "eventGroupId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "eventIndex": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "causedByRequestId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "actorId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "replay": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "required": [
+            "seedRef"
+          ],
+          "properties": {
+            "seedRef": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "eventType": {
+          "const": "status.expired"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "entityId",
+            "statusKey",
+            "layerId"
+          ],
+          "properties": {
+            "entityId": {
+              "type": "string"
+            },
+            "statusKey": {
+              "type": "string"
+            },
+            "layerId": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocolVersion",
+        "schemaVersion",
+        "eventId",
+        "eventVersion",
+        "campaignId",
+        "sessionId",
+        "sceneId",
+        "sceneRevision",
+        "serverTick",
+        "serverSequence",
+        "eventGroupId",
+        "eventIndex",
+        "causedByRequestId",
+        "actorId",
+        "replay",
+        "eventType",
+        "payload"
+      ],
+      "properties": {
+        "protocolVersion": {
+          "const": "fable.protocol.v1"
+        },
+        "schemaVersion": {
+          "const": 1
+        },
+        "eventId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "eventVersion": {
+          "const": 1
+        },
+        "campaignId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sessionId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sceneId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sceneRevision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "serverTick": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "serverSequence": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "eventGroupId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "eventIndex": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "causedByRequestId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "actorId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "replay": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "required": [
+            "seedRef"
+          ],
+          "properties": {
+            "seedRef": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "eventType": {
+          "const": "mode.changed"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "heroId",
+            "from",
+            "to"
+          ],
+          "properties": {
+            "heroId": {
+              "type": "string"
+            },
+            "from": {
+              "enum": [
+                "out_of_combat",
+                "movement",
+                "melee",
+                "ranged"
+              ]
+            },
+            "to": {
+              "enum": [
+                "out_of_combat",
+                "movement",
+                "melee",
+                "ranged"
+              ]
+            },
+            "reason": {
+              "enum": [
+                "command",
+                "contact",
+                "retreat",
+                "scene_end",
+                "rollback"
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocolVersion",
+        "schemaVersion",
+        "eventId",
+        "eventVersion",
+        "campaignId",
+        "sessionId",
+        "sceneId",
+        "sceneRevision",
+        "serverTick",
+        "serverSequence",
+        "eventGroupId",
+        "eventIndex",
+        "causedByRequestId",
+        "actorId",
+        "replay",
+        "eventType",
+        "payload"
+      ],
+      "properties": {
+        "protocolVersion": {
+          "const": "fable.protocol.v1"
+        },
+        "schemaVersion": {
+          "const": 1
+        },
+        "eventId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "eventVersion": {
+          "const": 1
+        },
+        "campaignId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sessionId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sceneId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sceneRevision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "serverTick": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "serverSequence": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "eventGroupId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "eventIndex": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "causedByRequestId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "actorId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "replay": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "required": [
+            "seedRef"
+          ],
+          "properties": {
+            "seedRef": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "eventType": {
+          "const": "intent.started"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "enemyId",
+            "templateKey",
+            "activeIntentId",
+            "timer",
+            "icon"
+          ],
+          "properties": {
+            "enemyId": {
+              "type": "string"
+            },
+            "templateKey": {
+              "type": "string"
+            },
+            "activeIntentId": {
+              "type": "string"
+            },
+            "timer": {
+              "$ref": "#/$defs/timer"
+            },
+            "icon": {
+              "type": "string"
+            },
+            "publicTargetCell": {
+              "$ref": "#/$defs/cell"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocolVersion",
+        "schemaVersion",
+        "eventId",
+        "eventVersion",
+        "campaignId",
+        "sessionId",
+        "sceneId",
+        "sceneRevision",
+        "serverTick",
+        "serverSequence",
+        "eventGroupId",
+        "eventIndex",
+        "causedByRequestId",
+        "actorId",
+        "replay",
+        "eventType",
+        "payload"
+      ],
+      "properties": {
+        "protocolVersion": {
+          "const": "fable.protocol.v1"
+        },
+        "schemaVersion": {
+          "const": 1
+        },
+        "eventId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "eventVersion": {
+          "const": 1
+        },
+        "campaignId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sessionId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sceneId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sceneRevision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "serverTick": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "serverSequence": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "eventGroupId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "eventIndex": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "causedByRequestId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "actorId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "replay": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "required": [
+            "seedRef"
+          ],
+          "properties": {
+            "seedRef": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "eventType": {
+          "const": "intent.target_selected"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "activeIntentId",
+            "enemyId",
+            "targetEntityId",
+            "targetCell",
+            "selectionPolicy",
+            "tieBreak",
+            "seedRef"
+          ],
+          "properties": {
+            "activeIntentId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "enemyId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "targetEntityId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "targetCell": {
+              "$ref": "#/$defs/cell"
+            },
+            "selectionPolicy": {
+              "type": "string",
+              "enum": [
+                "nearest_player",
+                "current_target",
+                "highest_threat",
+                "nearest_visible_player",
+                "lowest_ally_hp_percentage"
+              ]
+            },
+            "tieBreak": {
+              "type": "string",
+              "enum": [
+                "seeded_random",
+                "single_candidate"
+              ]
+            },
+            "seedRef": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocolVersion",
+        "schemaVersion",
+        "eventId",
+        "eventVersion",
+        "campaignId",
+        "sessionId",
+        "sceneId",
+        "sceneRevision",
+        "serverTick",
+        "serverSequence",
+        "eventGroupId",
+        "eventIndex",
+        "causedByRequestId",
+        "actorId",
+        "replay",
+        "eventType",
+        "payload"
+      ],
+      "properties": {
+        "protocolVersion": {
+          "const": "fable.protocol.v1"
+        },
+        "schemaVersion": {
+          "const": 1
+        },
+        "eventId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "eventVersion": {
+          "const": 1
+        },
+        "campaignId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sessionId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sceneId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sceneRevision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "serverTick": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "serverSequence": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "eventGroupId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "eventIndex": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "causedByRequestId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "actorId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "replay": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "required": [
+            "seedRef"
+          ],
+          "properties": {
+            "seedRef": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "eventType": {
+          "const": "intent.cancelled"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "enemyId",
+            "activeIntentId",
+            "reason"
+          ],
+          "properties": {
+            "enemyId": {
+              "type": "string"
+            },
+            "activeIntentId": {
+              "type": "string"
+            },
+            "reason": {
+              "enum": [
+                "target_invalid",
+                "path_blocked",
+                "los_blocked",
+                "state_locked",
+                "no_longer_possible",
+                "no_valid_fallback"
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocolVersion",
+        "schemaVersion",
+        "eventId",
+        "eventVersion",
+        "campaignId",
+        "sessionId",
+        "sceneId",
+        "sceneRevision",
+        "serverTick",
+        "serverSequence",
+        "eventGroupId",
+        "eventIndex",
+        "causedByRequestId",
+        "actorId",
+        "replay",
+        "eventType",
+        "payload"
+      ],
+      "properties": {
+        "protocolVersion": {
+          "const": "fable.protocol.v1"
+        },
+        "schemaVersion": {
+          "const": 1
+        },
+        "eventId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "eventVersion": {
+          "const": 1
+        },
+        "campaignId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sessionId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sceneId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sceneRevision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "serverTick": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "serverSequence": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "eventGroupId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "eventIndex": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "causedByRequestId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "actorId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "replay": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "required": [
+            "seedRef"
+          ],
+          "properties": {
+            "seedRef": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "eventType": {
+          "const": "intent.resolved"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "enemyId",
+            "activeIntentId",
+            "effectKey"
+          ],
+          "properties": {
+            "enemyId": {
+              "type": "string"
+            },
+            "activeIntentId": {
+              "type": "string"
+            },
+            "effectKey": {
+              "type": "string"
+            },
+            "targetEntityId": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocolVersion",
+        "schemaVersion",
+        "eventId",
+        "eventVersion",
+        "campaignId",
+        "sessionId",
+        "sceneId",
+        "sceneRevision",
+        "serverTick",
+        "serverSequence",
+        "eventGroupId",
+        "eventIndex",
+        "causedByRequestId",
+        "actorId",
+        "replay",
+        "eventType",
+        "payload"
+      ],
+      "properties": {
+        "protocolVersion": {
+          "const": "fable.protocol.v1"
+        },
+        "schemaVersion": {
+          "const": 1
+        },
+        "eventId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "eventVersion": {
+          "const": 1
+        },
+        "campaignId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sessionId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sceneId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sceneRevision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "serverTick": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "serverSequence": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "eventGroupId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "eventIndex": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "causedByRequestId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "actorId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "replay": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "required": [
+            "seedRef"
+          ],
+          "properties": {
+            "seedRef": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "eventType": {
+          "const": "hint.sent"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "targetPlayerId",
+            "text",
+            "vibration"
+          ],
+          "properties": {
+            "targetPlayerId": {
+              "type": "string"
+            },
+            "text": {
+              "type": "string"
+            },
+            "vibration": {
+              "type": "boolean"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocolVersion",
+        "schemaVersion",
+        "eventId",
+        "eventVersion",
+        "campaignId",
+        "sessionId",
+        "sceneId",
+        "sceneRevision",
+        "serverTick",
+        "serverSequence",
+        "eventGroupId",
+        "eventIndex",
+        "causedByRequestId",
+        "actorId",
+        "replay",
+        "eventType",
+        "payload"
+      ],
+      "properties": {
+        "protocolVersion": {
+          "const": "fable.protocol.v1"
+        },
+        "schemaVersion": {
+          "const": 1
+        },
+        "eventId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "eventVersion": {
+          "const": 1
+        },
+        "campaignId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sessionId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sceneId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sceneRevision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "serverTick": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "serverSequence": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "eventGroupId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "eventIndex": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "causedByRequestId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "actorId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "replay": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "required": [
+            "seedRef"
+          ],
+          "properties": {
+            "seedRef": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "eventType": {
+          "const": "scene.pause_changed"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "paused"
+          ],
+          "properties": {
+            "paused": {
+              "type": "boolean"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocolVersion",
+        "schemaVersion",
+        "eventId",
+        "eventVersion",
+        "campaignId",
+        "sessionId",
+        "sceneId",
+        "sceneRevision",
+        "serverTick",
+        "serverSequence",
+        "eventGroupId",
+        "eventIndex",
+        "causedByRequestId",
+        "actorId",
+        "replay",
+        "eventType",
+        "payload"
+      ],
+      "properties": {
+        "protocolVersion": {
+          "const": "fable.protocol.v1"
+        },
+        "schemaVersion": {
+          "const": 1
+        },
+        "eventId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "eventVersion": {
+          "const": 1
+        },
+        "campaignId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sessionId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sceneId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sceneRevision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "serverTick": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "serverSequence": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "eventGroupId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "eventIndex": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "causedByRequestId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "actorId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "replay": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "required": [
+            "seedRef"
+          ],
+          "properties": {
+            "seedRef": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "eventType": {
+          "const": "expedition.ended"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "outcome",
+            "rewardLocked"
+          ],
+          "properties": {
+            "outcome": {
+              "enum": [
+                "success",
+                "retreat",
+                "defeat",
+                "gm_abort"
+              ]
+            },
+            "rewardLocked": {
+              "type": "boolean"
+            },
+            "sceneTransferAllowed": {
+              "type": "boolean"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocolVersion",
+        "schemaVersion",
+        "eventId",
+        "eventVersion",
+        "campaignId",
+        "sessionId",
+        "sceneId",
+        "sceneRevision",
+        "serverTick",
+        "serverSequence",
+        "eventGroupId",
+        "eventIndex",
+        "causedByRequestId",
+        "actorId",
+        "replay",
+        "eventType",
+        "payload"
+      ],
+      "properties": {
+        "protocolVersion": {
+          "const": "fable.protocol.v1"
+        },
+        "schemaVersion": {
+          "const": 1
+        },
+        "eventId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "eventVersion": {
+          "const": 1
+        },
+        "campaignId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sessionId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sceneId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sceneRevision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "serverTick": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "serverSequence": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "eventGroupId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "eventIndex": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "causedByRequestId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "actorId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "replay": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "required": [
+            "seedRef"
+          ],
+          "properties": {
+            "seedRef": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "eventType": {
+          "const": "checkpoint.created"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "checkpointId",
+            "label",
+            "snapshotSchemaVersion"
+          ],
+          "properties": {
+            "checkpointId": {
+              "type": "string"
+            },
+            "label": {
+              "type": "string"
+            },
+            "snapshotSchemaVersion": {
+              "const": 1
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocolVersion",
+        "schemaVersion",
+        "eventId",
+        "eventVersion",
+        "campaignId",
+        "sessionId",
+        "sceneId",
+        "sceneRevision",
+        "serverTick",
+        "serverSequence",
+        "eventGroupId",
+        "eventIndex",
+        "causedByRequestId",
+        "actorId",
+        "replay",
+        "eventType",
+        "payload"
+      ],
+      "properties": {
+        "protocolVersion": {
+          "const": "fable.protocol.v1"
+        },
+        "schemaVersion": {
+          "const": 1
+        },
+        "eventId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "eventVersion": {
+          "const": 1
+        },
+        "campaignId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sessionId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sceneId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sceneRevision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "serverTick": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "serverSequence": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "eventGroupId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "eventIndex": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "causedByRequestId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "actorId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "replay": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "required": [
+            "seedRef"
+          ],
+          "properties": {
+            "seedRef": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "eventType": {
+          "const": "rollback.applied"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "previousRevision",
+            "restoredRevision"
+          ],
+          "properties": {
+            "previousRevision": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "restoredRevision": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "cell": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "x",
+        "y"
+      ],
+      "properties": {
+        "x": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "y": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "timer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "startedAtTick",
+        "resolvesAtTick",
+        "durationMs",
+        "remainingMs",
+        "paused"
+      ],
+      "properties": {
+        "startedAtTick": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "resolvesAtTick": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "durationMs": {
+          "type": "integer",
+          "minimum": 3000,
+          "multipleOf": 50
+        },
+        "remainingMs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "paused": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

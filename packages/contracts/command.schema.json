@@ -1,0 +1,720 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fable.local/schemas/command.schema.json",
+  "title": "Fable Command Envelope v1",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocolVersion",
+        "schemaVersion",
+        "requestId",
+        "sessionId",
+        "actorId",
+        "commandVersion",
+        "clientRevision",
+        "role",
+        "command",
+        "payload"
+      ],
+      "properties": {
+        "protocolVersion": {
+          "const": "fable.protocol.v1"
+        },
+        "schemaVersion": {
+          "const": 1
+        },
+        "requestId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "sessionId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "actorId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "commandVersion": {
+          "const": 1
+        },
+        "clientRevision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "role": {
+          "const": "player"
+        },
+        "command": {
+          "const": "player.move"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "direction"
+          ],
+          "properties": {
+            "direction": {
+              "enum": [
+                "up",
+                "down",
+                "left",
+                "right"
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocolVersion",
+        "schemaVersion",
+        "requestId",
+        "sessionId",
+        "actorId",
+        "commandVersion",
+        "clientRevision",
+        "role",
+        "command",
+        "payload"
+      ],
+      "properties": {
+        "protocolVersion": {
+          "const": "fable.protocol.v1"
+        },
+        "schemaVersion": {
+          "const": 1
+        },
+        "requestId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "sessionId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "actorId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "commandVersion": {
+          "const": 1
+        },
+        "clientRevision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "role": {
+          "const": "player"
+        },
+        "command": {
+          "const": "player.play_card"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "cardInstanceId",
+            "mode",
+            "clientCardRevision"
+          ],
+          "properties": {
+            "cardInstanceId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "targetEntityId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "targetCell": {
+              "$ref": "#/$defs/cell"
+            },
+            "mode": {
+              "enum": [
+                "melee",
+                "ranged",
+                "movement"
+              ]
+            },
+            "clientCardRevision": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocolVersion",
+        "schemaVersion",
+        "requestId",
+        "sessionId",
+        "actorId",
+        "commandVersion",
+        "clientRevision",
+        "role",
+        "command",
+        "payload"
+      ],
+      "properties": {
+        "protocolVersion": {
+          "const": "fable.protocol.v1"
+        },
+        "schemaVersion": {
+          "const": 1
+        },
+        "requestId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "sessionId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "actorId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "commandVersion": {
+          "const": 1
+        },
+        "clientRevision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "role": {
+          "const": "player"
+        },
+        "command": {
+          "const": "player.enter_movement_mode"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [],
+          "properties": {}
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocolVersion",
+        "schemaVersion",
+        "requestId",
+        "sessionId",
+        "actorId",
+        "commandVersion",
+        "clientRevision",
+        "role",
+        "command",
+        "payload"
+      ],
+      "properties": {
+        "protocolVersion": {
+          "const": "fable.protocol.v1"
+        },
+        "schemaVersion": {
+          "const": 1
+        },
+        "requestId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "sessionId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "actorId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "commandVersion": {
+          "const": 1
+        },
+        "clientRevision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "role": {
+          "const": "player"
+        },
+        "command": {
+          "const": "player.enter_ranged_mode"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [],
+          "properties": {}
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocolVersion",
+        "schemaVersion",
+        "requestId",
+        "sessionId",
+        "actorId",
+        "commandVersion",
+        "clientRevision",
+        "role",
+        "command",
+        "payload"
+      ],
+      "properties": {
+        "protocolVersion": {
+          "const": "fable.protocol.v1"
+        },
+        "schemaVersion": {
+          "const": 1
+        },
+        "requestId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "sessionId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "actorId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "commandVersion": {
+          "const": 1
+        },
+        "clientRevision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "role": {
+          "const": "gm"
+        },
+        "command": {
+          "const": "gm.send_hint"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "targetPlayerId",
+            "text",
+            "vibration"
+          ],
+          "properties": {
+            "targetPlayerId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "text": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            },
+            "vibration": {
+              "type": "boolean"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocolVersion",
+        "schemaVersion",
+        "requestId",
+        "sessionId",
+        "actorId",
+        "commandVersion",
+        "clientRevision",
+        "role",
+        "command",
+        "payload"
+      ],
+      "properties": {
+        "protocolVersion": {
+          "const": "fable.protocol.v1"
+        },
+        "schemaVersion": {
+          "const": 1
+        },
+        "requestId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "sessionId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "actorId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "commandVersion": {
+          "const": 1
+        },
+        "clientRevision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "role": {
+          "const": "gm"
+        },
+        "command": {
+          "const": "gm.apply_consequence"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "proposalId",
+            "editedPayload",
+            "reason"
+          ],
+          "properties": {
+            "proposalId": {
+              "type": "string"
+            },
+            "editedPayload": {
+              "type": "object"
+            },
+            "reason": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1000
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocolVersion",
+        "schemaVersion",
+        "requestId",
+        "sessionId",
+        "actorId",
+        "commandVersion",
+        "clientRevision",
+        "role",
+        "command",
+        "payload"
+      ],
+      "properties": {
+        "protocolVersion": {
+          "const": "fable.protocol.v1"
+        },
+        "schemaVersion": {
+          "const": 1
+        },
+        "requestId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "sessionId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "actorId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "commandVersion": {
+          "const": 1
+        },
+        "clientRevision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "role": {
+          "const": "gm"
+        },
+        "command": {
+          "const": "gm.end_expedition"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "outcome",
+            "createCitySave",
+            "reason"
+          ],
+          "properties": {
+            "outcome": {
+              "enum": [
+                "success",
+                "retreat",
+                "defeat",
+                "gm_abort"
+              ]
+            },
+            "consequenceId": {
+              "type": "string"
+            },
+            "createCitySave": {
+              "type": "boolean"
+            },
+            "reason": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1000
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocolVersion",
+        "schemaVersion",
+        "requestId",
+        "sessionId",
+        "actorId",
+        "commandVersion",
+        "clientRevision",
+        "role",
+        "command",
+        "payload"
+      ],
+      "properties": {
+        "protocolVersion": {
+          "const": "fable.protocol.v1"
+        },
+        "schemaVersion": {
+          "const": 1
+        },
+        "requestId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "sessionId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "actorId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "commandVersion": {
+          "const": 1
+        },
+        "clientRevision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "role": {
+          "const": "gm"
+        },
+        "command": {
+          "const": "gm.create_checkpoint"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "label",
+            "reason"
+          ],
+          "properties": {
+            "label": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160
+            },
+            "reason": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1000
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocolVersion",
+        "schemaVersion",
+        "requestId",
+        "sessionId",
+        "actorId",
+        "commandVersion",
+        "clientRevision",
+        "role",
+        "command",
+        "payload"
+      ],
+      "properties": {
+        "protocolVersion": {
+          "const": "fable.protocol.v1"
+        },
+        "schemaVersion": {
+          "const": 1
+        },
+        "requestId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "sessionId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "actorId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "commandVersion": {
+          "const": 1
+        },
+        "clientRevision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "role": {
+          "const": "gm"
+        },
+        "command": {
+          "const": "gm.rollback_to_checkpoint"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "checkpointId",
+            "confirmationToken",
+            "reason"
+          ],
+          "properties": {
+            "checkpointId": {
+              "type": "string"
+            },
+            "confirmationToken": {
+              "type": "string",
+              "minLength": 32,
+              "maxLength": 256
+            },
+            "reason": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1000
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocolVersion",
+        "schemaVersion",
+        "requestId",
+        "sessionId",
+        "actorId",
+        "commandVersion",
+        "clientRevision",
+        "role",
+        "command",
+        "payload"
+      ],
+      "properties": {
+        "protocolVersion": {
+          "const": "fable.protocol.v1"
+        },
+        "schemaVersion": {
+          "const": 1
+        },
+        "requestId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "sessionId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "actorId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "commandVersion": {
+          "const": 1
+        },
+        "clientRevision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "role": {
+          "const": "gm"
+        },
+        "command": {
+          "const": "gm.pause_scene"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "paused"
+          ],
+          "properties": {
+            "paused": {
+              "type": "boolean"
+            }
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "cell": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "x",
+        "y"
+      ],
+      "properties": {
+        "x": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "y": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    }
+  }
+}

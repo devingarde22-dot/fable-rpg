@@ -1,0 +1,256 @@
+{
+  "rootSeed": "fable-step-c-001",
+  "serverTick": 200,
+  "events": [
+    {
+      "protocolVersion": "fable.protocol.v1",
+      "schemaVersion": 1,
+      "eventVersion": 1,
+      "campaignId": "campaign-test",
+      "sessionId": "session-test",
+      "sceneId": "scene-test",
+      "serverTick": 0,
+      "causedByRequestId": null,
+      "actorId": "shooter-1",
+      "eventType": "intent.started",
+      "payload": {
+        "enemyId": "shooter-1",
+        "templateKey": "ranged_shot",
+        "activeIntentId": "scene-test:shooter-1:0:ranged_shot",
+        "timer": {
+          "startedAtTick": 0,
+          "resolvesAtTick": 200,
+          "durationMs": 10000,
+          "remainingMs": 10000,
+          "paused": false
+        },
+        "icon": "ranged_attack",
+        "publicTargetCell": {
+          "x": 6,
+          "y": 2
+        }
+      },
+      "replay": {
+        "seedRef": "c74a7436c31ba77a0e781773bd2ec9352fb0397eec4ccbe86bbf2ef3d39e1692"
+      },
+      "eventId": "evt-1",
+      "eventGroupId": "scene-1",
+      "eventIndex": 0,
+      "serverSequence": 1,
+      "sceneRevision": 1
+    },
+    {
+      "protocolVersion": "fable.protocol.v1",
+      "schemaVersion": 1,
+      "eventVersion": 1,
+      "campaignId": "campaign-test",
+      "sessionId": "session-test",
+      "sceneId": "scene-test",
+      "serverTick": 0,
+      "causedByRequestId": null,
+      "actorId": "shooter-1",
+      "eventType": "intent.target_selected",
+      "payload": {
+        "activeIntentId": "scene-test:shooter-1:0:ranged_shot",
+        "enemyId": "shooter-1",
+        "targetEntityId": "hero-z",
+        "targetCell": {
+          "x": 6,
+          "y": 2
+        },
+        "selectionPolicy": "highest_threat",
+        "tieBreak": "seeded_random",
+        "seedRef": "c74a7436c31ba77a0e781773bd2ec9352fb0397eec4ccbe86bbf2ef3d39e1692"
+      },
+      "replay": {
+        "seedRef": "c74a7436c31ba77a0e781773bd2ec9352fb0397eec4ccbe86bbf2ef3d39e1692"
+      },
+      "eventId": "evt-2",
+      "eventGroupId": "scene-1",
+      "eventIndex": 1,
+      "serverSequence": 2,
+      "sceneRevision": 1
+    },
+    {
+      "protocolVersion": "fable.protocol.v1",
+      "schemaVersion": 1,
+      "eventVersion": 1,
+      "campaignId": "campaign-test",
+      "sessionId": "session-test",
+      "sceneId": "scene-test",
+      "serverTick": 200,
+      "causedByRequestId": null,
+      "actorId": "shooter-1",
+      "eventType": "intent.resolved",
+      "payload": {
+        "enemyId": "shooter-1",
+        "activeIntentId": "scene-test:shooter-1:0:ranged_shot",
+        "effectKey": "ranged_shot",
+        "targetEntityId": "hero-z"
+      },
+      "replay": {
+        "seedRef": "c74a7436c31ba77a0e781773bd2ec9352fb0397eec4ccbe86bbf2ef3d39e1692"
+      },
+      "eventId": "evt-3",
+      "eventGroupId": "scene-2",
+      "eventIndex": 0,
+      "serverSequence": 3,
+      "sceneRevision": 2
+    },
+    {
+      "protocolVersion": "fable.protocol.v1",
+      "schemaVersion": 1,
+      "eventVersion": 1,
+      "campaignId": "campaign-test",
+      "sessionId": "session-test",
+      "sceneId": "scene-test",
+      "serverTick": 200,
+      "causedByRequestId": null,
+      "actorId": "shooter-1",
+      "eventType": "hp.changed",
+      "payload": {
+        "entityId": "hero-z",
+        "current": 908,
+        "maximum": 1000,
+        "kind": "damage",
+        "publicAmount": 92
+      },
+      "replay": null,
+      "eventId": "evt-4",
+      "eventGroupId": "scene-2",
+      "eventIndex": 1,
+      "serverSequence": 4,
+      "sceneRevision": 2
+    },
+    {
+      "protocolVersion": "fable.protocol.v1",
+      "schemaVersion": 1,
+      "eventVersion": 1,
+      "campaignId": "campaign-test",
+      "sessionId": "session-test",
+      "sceneId": "scene-test",
+      "serverTick": 200,
+      "causedByRequestId": null,
+      "actorId": "shooter-1",
+      "eventType": "intent.started",
+      "payload": {
+        "enemyId": "shooter-1",
+        "templateKey": "ranged_shot",
+        "activeIntentId": "scene-test:shooter-1:200:ranged_shot",
+        "timer": {
+          "startedAtTick": 200,
+          "resolvesAtTick": 400,
+          "durationMs": 10000,
+          "remainingMs": 10000,
+          "paused": false
+        },
+        "icon": "ranged_attack",
+        "publicTargetCell": {
+          "x": 6,
+          "y": 2
+        }
+      },
+      "replay": {
+        "seedRef": "20ef702d488fc4cc35a782781bbcd5316c3f070492c653b2ca96f1c6eef63fbe"
+      },
+      "eventId": "evt-5",
+      "eventGroupId": "scene-2",
+      "eventIndex": 2,
+      "serverSequence": 5,
+      "sceneRevision": 2
+    },
+    {
+      "protocolVersion": "fable.protocol.v1",
+      "schemaVersion": 1,
+      "eventVersion": 1,
+      "campaignId": "campaign-test",
+      "sessionId": "session-test",
+      "sceneId": "scene-test",
+      "serverTick": 200,
+      "causedByRequestId": null,
+      "actorId": "shooter-1",
+      "eventType": "intent.target_selected",
+      "payload": {
+        "activeIntentId": "scene-test:shooter-1:200:ranged_shot",
+        "enemyId": "shooter-1",
+        "targetEntityId": "hero-z",
+        "targetCell": {
+          "x": 6,
+          "y": 2
+        },
+        "selectionPolicy": "highest_threat",
+        "tieBreak": "seeded_random",
+        "seedRef": "20ef702d488fc4cc35a782781bbcd5316c3f070492c653b2ca96f1c6eef63fbe"
+      },
+      "replay": {
+        "seedRef": "20ef702d488fc4cc35a782781bbcd5316c3f070492c653b2ca96f1c6eef63fbe"
+      },
+      "eventId": "evt-6",
+      "eventGroupId": "scene-2",
+      "eventIndex": 3,
+      "serverSequence": 6,
+      "sceneRevision": 2
+    }
+  ],
+  "rngAudit": [
+    {
+      "eventId": "evt-2",
+      "records": [
+        {
+          "algorithmVersion": "fable.rng.v1",
+          "forkInput": {
+            "rootSeed": "fable-step-c-001",
+            "campaignId": "campaign-test",
+            "sceneId": "scene-test",
+            "serverTick": 0,
+            "activeIntentId": "scene-test:shooter-1:0:ranged_shot",
+            "purpose": "target_selection"
+          },
+          "seedRef": "c74a7436c31ba77a0e781773bd2ec9352fb0397eec4ccbe86bbf2ef3d39e1692",
+          "rngStateBefore": [
+            3343545398,
+            3273369466,
+            242751347,
+            3173959989
+          ],
+          "rngStateAfter": [
+            3112114809,
+            170509375,
+            4269578053,
+            2876406769
+          ]
+        }
+      ]
+    },
+    {
+      "eventId": "evt-6",
+      "records": [
+        {
+          "algorithmVersion": "fable.rng.v1",
+          "forkInput": {
+            "rootSeed": "fable-step-c-001",
+            "campaignId": "campaign-test",
+            "sceneId": "scene-test",
+            "serverTick": 200,
+            "activeIntentId": "scene-test:shooter-1:200:ranged_shot",
+            "purpose": "target_selection"
+          },
+          "seedRef": "20ef702d488fc4cc35a782781bbcd5316c3f070492c653b2ca96f1c6eef63fbe",
+          "rngStateBefore": [
+            552562733,
+            1217381580,
+            900170360,
+            465360177
+          ],
+          "rngStateAfter": [
+            1943822800,
+            1573336729,
+            180447829,
+            2559568537
+          ]
+        }
+      ]
+    }
+  ],
+  "finalStateHash": "024b5109c8c8a2b3ab82d0cd525ae4de494ae8ff91c3a1a9fb9de7dae16d1152"
+}
