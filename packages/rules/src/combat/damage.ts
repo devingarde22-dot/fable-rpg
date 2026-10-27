@@ -57,7 +57,10 @@ export function applyDamage(state: RuntimeState, input: ApplyDamageInput): Apply
   const hpAfter = Math.max(0, Math.min(input.target.hp.max, hpBefore - calculation.finalDamage));
   const appliedDamage = hpBefore - hpAfter;
   input.target.hp.current = hpAfter;
-  if (input.target.kind === "hero" && hpAfter === 0) input.target.aliveState = "critically_injured";
+  if (input.target.kind === "hero" && hpAfter === 0) {
+    input.target.aliveState = "critically_injured";
+    input.target.stamina.nextRegenAtTick = null;
+  }
 
   const event: PendingJournalEvent | null = appliedDamage === 0
     ? null

@@ -57,4 +57,19 @@ describe("canonical event contract", () => {
     invalid.payload.timer.durationMs = 3_025;
     expect(validateEvent(invalid)).toBe(false);
   });
+
+  it("validates stamina regeneration events and rejects an impossible maximum", () => {
+    const engine = createSimulationEngine(testConfig({
+      entities: [hero("hero-stamina", 1, 1, "movement", false, 4)],
+      heroIdByActorId: { "actor-stamina": "hero-stamina" },
+    }));
+    engine.advanceTicks(300);
+    const event = engine.events().find((candidate) => candidate.eventType === "stamina.changed");
+    if (!event || event.eventType !== "stamina.changed") throw new Error("expected stamina.changed event");
+    expect(validateEvent(event), JSON.stringify(validateEvent.errors)).toBe(true);
+
+    const invalid = structuredClone(event);
+    invalid.payload.maximum = 2;
+    expect(validateEvent(invalid)).toBe(false);
+  });
 });

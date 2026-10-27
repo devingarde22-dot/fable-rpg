@@ -120,7 +120,14 @@ export const testEnemyTemplates: readonly EnemyTemplate[] = [
   },
 ];
 
-export function hero(id: string, x: number, y: number, mode: "movement" | "melee" | "ranged" | null = "movement", canEnterRangedMode = false): EntityRuntime {
+export function hero(
+  id: string,
+  x: number,
+  y: number,
+  mode: "movement" | "melee" | "ranged" | null = "movement",
+  canEnterRangedMode = false,
+  maxStamina = 3,
+): EntityRuntime {
   return {
     id,
     kind: "hero",
@@ -128,6 +135,7 @@ export function hero(id: string, x: number, y: number, mode: "movement" | "melee
     position: { x, y },
     aliveState: "active",
     hp: { current: 1_000, max: 1_000 },
+    stamina: { current: 3, max: maxStamina, nextRegenAtTick: null },
     defense: 20,
     threat: 0,
     statuses: [],

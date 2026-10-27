@@ -202,9 +202,7 @@ export type ResourceValue = { current: number; max: number };
 export type StaminaRuntime = {
   current: number;
   max: number;
-  regenEveryTicks: number;
   nextRegenAtTick: number | null;
-  pausedByMovement: boolean;
 };
 ```
 
@@ -357,17 +355,11 @@ requestId ASC
 
 ### 6.7 RESOURCE_REGEN
 
-Stamina regen проверяется по tick. Базовый regen — 1 единица каждые 300 ticks (15 секунд), если герой не находится в состоянии, блокирующем regen. Во время movement stamina может восстанавливаться согласно confirmed rule; `pausedByMovement` используется только если конкретный ruleset preset это включает. Step C default: movement **не блокирует** regen.
+Stamina regen использует только authoritative ticks: 1 единица каждые 300 ticks (15 секунд). Новый hero начинает с 3 stamina; `max` задаётся config/preset и должен быть не меньше 3. Если `current < max` и герой активен, первый due tick равен `initialServerTick + 300`.
 
-Если regen timer догнал текущий tick:
+На due tick активный герой получает ровно 1 единицу. Если он всё ещё ниже максимума, следующий due tick сдвигается на 300 ticks. При достижении max timer становится `null`: полный запас не накапливает восстановления. Будущее успешное списание должно запускать новый полный интервал от tick списания, а не выдавать catch-up. Регенерация не выполняется при `aliveState !== "active"`; HP=0/`critically_injured` останавливает timer. Movement, melee и ranged mode не блокируют regen.
 
-```text
-while currentTick >= nextRegenAtTick and stamina < max:
-  stamina += 1
-  nextRegenAtTick += regenEveryTicks
-```
-
-Один tick не может восстановить больше одной единицы, если это явно не задано status effect.
+Ресурсная фаза запускается после players, enemies и environment и до cleanup; heroes обрабатываются по `heroId`. Каждое реальное восстановление выдаёт `stamina.changed`; timer и current входят в replay и `stateHash`. Scene pause engine support не входит в Increment 5; pause contracts остаются будущей отдельной задачей.
 
 ### 6.8 CLEANUP
 
@@ -856,7 +848,7 @@ Pure formulas (`damage.ts`, `targeting.ts`, `pathing.ts`) должны имет�
 7. Contact starts melee; ranged mode requires authoritative `hero.canEnterRangedMode === true`.
 8. Melee magic halves damage but preserves status potency.
 9. Impossible ranged intent cancels and starts a valid fallback.
-10. Stamina regens exactly at 300 ticks and not during pause.
+10. Stamina regenerates exactly at 300 ticks, stops at max, and is disabled for non-active heroes.
 11. Expired status disappears during cleanup.
 12. Event replay equals live final state and state hash.
 13. `critically_injured` hero remains in scene and cannot act.

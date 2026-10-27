@@ -5,6 +5,7 @@ import { checkMovementDestination } from "../grid/collision.js";
 import { calculateDamage } from "../combat/damage.js";
 import {
   DAMAGE_FORMULA_VERSION,
+  STAMINA_REGEN_INTERVAL_TICKS,
   type DomainEvent,
   type JournalRecord,
   type RuntimeSnapshot,
@@ -117,6 +118,9 @@ function applyReplayEvent(state: RuntimeState, event: DomainEvent, progress: Rep
       break;
     case "hp.changed":
       applyHpChanged(state, event);
+      break;
+    case "stamina.changed":
+      applyStaminaChanged(state, event);
       break;
     case "mode.changed":
       applyModeChanged(state, event);
@@ -248,7 +252,24 @@ function applyHpChanged(state: RuntimeState, event: Extract<DomainEvent, { event
     validateDamageEventSource(state, payload.source, payload.multiplier);
   }
   entity.hp.current = event.payload.current;
-  if (entity.kind === "hero" && entity.hp.current === 0) entity.aliveState = "critically_injured";
+  if (entity.kind === "hero" && entity.hp.current === 0) {
+    entity.aliveState = "critically_injured";
+    entity.stamina.nextRegenAtTick = null;
+  }
+}
+
+function applyStaminaChanged(state: RuntimeState, event: Extract<DomainEvent, { eventType: "stamina.changed" }>): void {
+  const hero = state.entities.get(event.payload.heroId);
+  if (!hero || hero.kind !== "hero" || hero.aliveState !== "active" ||
+    event.payload.reason !== "regeneration" || event.payload.maximum !== hero.stamina.max ||
+    !Number.isInteger(event.payload.current) || event.payload.current !== hero.stamina.current + 1 ||
+    event.payload.current > hero.stamina.max || hero.stamina.nextRegenAtTick !== event.serverTick) {
+    throw new Error("Replay stamina.changed payload does not match the due regeneration transition");
+  }
+  hero.stamina.current = event.payload.current;
+  hero.stamina.nextRegenAtTick = hero.stamina.current < hero.stamina.max
+    ? event.serverTick + STAMINA_REGEN_INTERVAL_TICKS
+    : null;
 }
 
 function applyEntityRemoved(state: RuntimeState, event: Extract<DomainEvent, { eventType: "scene.entity_removed" }>): void {

@@ -31,7 +31,18 @@ export function canonicalizeSnapshot(snapshot: RuntimeSnapshot): string {
           })),
       },
     },
-    entities: [...snapshot.entities].sort((a, b) => compareText(a.id, b.id)),
+    entities: [...snapshot.entities]
+      .sort((a, b) => compareText(a.id, b.id))
+      .map((entity) => entity.kind === "hero"
+        ? {
+            ...entity,
+            stamina: {
+              current: entity.stamina.current,
+              max: entity.stamina.max,
+              nextRegenAtTick: entity.stamina.nextRegenAtTick,
+            },
+          }
+        : entity),
     activeIntents: [...snapshot.activeIntents].sort((a, b) => compareText(a.activeIntentId, b.activeIntentId)),
     heroIdByActorId: [...snapshot.heroIdByActorId].sort(([a], [b]) => compareText(a, b)),
     serverTick: snapshot.serverTick,

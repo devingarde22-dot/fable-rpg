@@ -20,6 +20,6 @@ describe("tick scheduler", () => {
       moveCommand("a", "up", { actorId: "actor-a", sequence: 1 }),
     ]);
     expect(ordered.map((command) => command.requestId)).toEqual(["a", "z", "b"]);
-    expect(phaseOrder()).toEqual(["players", "enemies", "environment"]);
+    expect(phaseOrder()).toEqual(["players", "enemies", "environment", "resources"]);
   });
 });

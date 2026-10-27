@@ -3,6 +3,8 @@ import { cloneIntentTemplate, buildEnemyRegistry, buildIntentRegistry } from "..
 import {
   GRID_HEIGHT,
   GRID_WIDTH,
+  INITIAL_STAMINA,
+  STAMINA_REGEN_INTERVAL_TICKS,
   type ActiveIntent,
   type EntityRuntime,
   type RuntimeState,
@@ -16,6 +18,7 @@ export function createRuntimeState(config: SimulationEngineConfig): RuntimeState
   const enemyTemplates = buildEnemyRegistry(config.enemyTemplates, intentTemplates);
   const entities = new Map<string, EntityRuntime>();
   const cells = createGrid(config.terrain);
+  const initialServerTick = config.initialServerTick ?? 0;
   const playerEntityIds: string[] = [];
   const enemyEntityIds: string[] = [];
 
@@ -36,9 +39,18 @@ export function createRuntimeState(config: SimulationEngineConfig): RuntimeState
         activeIntentId: null,
       };
     } else {
+      if (source.stamina.current !== INITIAL_STAMINA || source.stamina.max < INITIAL_STAMINA) {
+        throw new Error(`Hero ${source.id} must start with ${INITIAL_STAMINA} stamina and a sufficient maximum`);
+      }
       entity = {
         ...source,
         hp: { ...source.hp },
+        stamina: {
+          ...source.stamina,
+          nextRegenAtTick: source.aliveState === "active" && source.stamina.current < source.stamina.max
+            ? initialServerTick + STAMINA_REGEN_INTERVAL_TICKS
+            : null,
+        },
         statuses: [...source.statuses],
         position: { ...source.position },
         activeIntentId: null,
@@ -88,7 +100,6 @@ export function createRuntimeState(config: SimulationEngineConfig): RuntimeState
     }
   }
 
-  const initialServerTick = config.initialServerTick ?? 0;
   if (initialIntentByEnemyId.size > 0 && initialServerTick !== 0) {
     throw new Error("Initial intents can only start during the loading-to-active transition at serverTick 0");
   }
@@ -171,6 +182,15 @@ export function snapshotState(state: RuntimeState): RuntimeSnapshot {
 }
 
 export function cloneEntity(entity: EntityRuntime): EntityRuntime {
+  if (entity.kind === "hero") {
+    return {
+      ...entity,
+      position: { ...entity.position },
+      hp: { ...entity.hp },
+      stamina: { ...entity.stamina },
+      statuses: [...entity.statuses],
+    };
+  }
   return {
     ...entity,
     position: { ...entity.position },

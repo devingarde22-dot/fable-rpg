@@ -10,6 +10,7 @@ import { activateScene, resolveDueIntents } from "../intents/intentSystem.js";
 import { groupEvents, type PendingJournalEvent } from "../intents/events.js";
 import { detectContactTransitions, modeChangedEvent } from "../combat/heroModes.js";
 import { resolveRetreat } from "../combat/retreatResolution.js";
+import { resolveStaminaRegeneration } from "../resources/stamina.js";
 import { cleanupDeadEnemies } from "./cleanup.js";
 import { assertRuntimeInvariants } from "./invariants.js";
 import { cloneRuntimeState, createRuntimeState, snapshotState } from "./createRuntimeState.js";
@@ -136,6 +137,8 @@ export class HeadlessSimulationEngine implements SimulationEngine {
         if (enemyEvents.some(({ event }) => event.eventType === "scene.entity_moved")) {
           pending.push(...detectContactTransitions(this.runtime, this.runtime.serverTick));
         }
+      } else if (phase === "resources") {
+        pending.push(...resolveStaminaRegeneration(this.runtime, this.runtime.serverTick));
       }
       // Environment has no active effects in this increment; its phase remains explicit and ordered.
     }

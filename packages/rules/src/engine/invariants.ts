@@ -36,6 +36,18 @@ export function assertRuntimeInvariants(state: RuntimeState): void {
     }
     if (entity.kind === "hero") {
       if (typeof entity.canEnterRangedMode !== "boolean") throw new Error(`Hero ${entity.id} has invalid ranged-mode capability`);
+      if (!Number.isInteger(entity.stamina.current) || !Number.isInteger(entity.stamina.max) ||
+        entity.stamina.max < 3 || entity.stamina.current < 0 || entity.stamina.current > entity.stamina.max) {
+        throw new Error(`Hero ${entity.id} has invalid stamina`);
+      }
+      const staminaTimerMustBeStopped = entity.aliveState !== "active" || entity.stamina.current === entity.stamina.max;
+      if (staminaTimerMustBeStopped && entity.stamina.nextRegenAtTick !== null) {
+        throw new Error(`Hero ${entity.id} has an unexpected stamina regeneration timer`);
+      }
+      if (!staminaTimerMustBeStopped && (!Number.isInteger(entity.stamina.nextRegenAtTick) ||
+        entity.stamina.nextRegenAtTick === null || entity.stamina.nextRegenAtTick < state.serverTick)) {
+        throw new Error(`Hero ${entity.id} has an invalid stamina regeneration timer`);
+      }
       if (entity.hp.current === 0 && entity.aliveState !== "critically_injured") {
         throw new Error(`Hero ${entity.id} with 0 HP must be critically injured`);
       }

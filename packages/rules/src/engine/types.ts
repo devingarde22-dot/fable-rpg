@@ -5,6 +5,8 @@ export const TICK_DURATION_MS = 50 as const;
 export const INPUT_WINDOW_TICKS = 5 as const;
 export const RNG_ALGORITHM_VERSION = "fable.rng.v1" as const;
 export const DAMAGE_FORMULA_VERSION = "fable.damage.v1" as const;
+export const STAMINA_REGEN_INTERVAL_TICKS = 300 as const;
+export const INITIAL_STAMINA = 3 as const;
 
 export type EntityId = string;
 export type Cell = { x: number; y: number };
@@ -14,6 +16,7 @@ export type RuntimeEntityKind = "hero" | "enemy";
 export type RuntimeFaction = "party" | "enemy" | "neutral";
 export type AliveState = "active" | "unconscious" | "critically_injured" | "removed";
 export type ResourceValue = { current: number; max: number };
+export type StaminaRuntime = ResourceValue & { nextRegenAtTick: number | null };
 export type HeroMode = "movement" | "melee" | "ranged";
 export type ModeChangedValue = "out_of_combat" | HeroMode;
 
@@ -96,6 +99,7 @@ type RuntimeEntityBase = {
 export type HeroRuntime = RuntimeEntityBase & {
   kind: "hero";
   faction: "party";
+  stamina: StaminaRuntime;
   mode: HeroMode | null;
   canEnterRangedMode: boolean;
   activeIntentId: null;
@@ -237,6 +241,10 @@ export type DomainEvent =
   | (EventBase & {
       eventType: "mode.changed";
       payload: { heroId: EntityId; from: ModeChangedValue; to: ModeChangedValue; reason: "command" | "contact" | "retreat" | "scene_end" | "rollback" };
+    })
+  | (EventBase & {
+      eventType: "stamina.changed";
+      payload: { heroId: EntityId; current: number; maximum: number; reason: "regeneration" };
     })
   | (EventBase & {
       eventType: "intent.started";
