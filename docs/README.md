@@ -25,7 +25,8 @@
 19. [DR-C-003 — Deterministic Retreat Resolution](./16-step-c-retreat-resolution.md) — retreat attacks, mode/contact transitions and replay.
 20. [DR-C-004 — HP & Damage Resolution](./18-step-c-hp-damage-resolution.md) — единый урон, HP=0, removal events, версии hp.changed и replay.
 21. [DR-C-005 — Stamina & Resource Regeneration](./19-step-c-stamina-regeneration.md) — стартовый ресурс, tick-based regeneration, cap behavior, replay и scope.
-22. [Журнал разработки и AI handoff](./17-development-log-and-handoff.md) — repository routing, выполненные инкременты, DR, тесты и правила продолжения.
+22. [DR-C-006 — Minimal Card Play](./20-step-c-card-play.md) — одиночный direct-damage play, стоимость stamina, hand→discard и replay.
+23. [Журнал разработки и AI handoff](./17-development-log-and-handoff.md) — repository routing, выполненные инкременты, DR, тесты и правила продолжения.
 
 ## Правило использования
 
@@ -68,7 +69,7 @@ docs/03-system-contracts.md
 docs/05-vertical-slice.md
 ```
 
-Step C increments 1–4 реализованы и приняты. PR [#1](https://github.com/devingarde22-dot/fable-rpg/pull/1) (increments 1–3) и PR [#2](https://github.com/devingarde22-dot/fable-rpg/pull/2) (Increment 4 / DR-C-004) слиты в `main`; PR #2 слит 2026-10-27 (merge commit `9e0d0f8`). Increment 5 / DR-C-005 реализован в commit `d237616` ветки `step-c-increment-5-stamina` и открыт в PR [#3](https://github.com/devingarde22-dot/fable-rpg/pull/3). Не начинать дальнейшие increments без отдельного запроса пользователя и предварительно одобренного плана. См. [журнал разработки и AI handoff](./17-development-log-and-handoff.md).
+Step C increments 1–4 приняты и слиты; PR [#1](https://github.com/devingarde22-dot/fable-rpg/pull/1) и PR [#2](https://github.com/devingarde22-dot/fable-rpg/pull/2), merge commit PR #2 — `9e0d0f8`. Increment 5 / DR-C-005 реализован в commit `d237616` и открыт в PR [#3](https://github.com/devingarde22-dot/fable-rpg/pull/3). Increment 6 / DR-C-006 реализован в локальной ветке `step-c-increment-6-card-play`; изменения пока не закоммичены и не опубликованы. См. [журнал разработки и AI handoff](./17-development-log-and-handoff.md).
 
 ## Machine-readable contracts
 

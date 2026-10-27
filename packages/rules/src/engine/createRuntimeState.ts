@@ -6,6 +6,7 @@ import {
   INITIAL_STAMINA,
   STAMINA_REGEN_INTERVAL_TICKS,
   type ActiveIntent,
+  type CardTemplate,
   type EntityRuntime,
   type RuntimeState,
   type RuntimeSnapshot,
@@ -16,11 +17,13 @@ import { assertRuntimeInvariants } from "./invariants.js";
 export function createRuntimeState(config: SimulationEngineConfig): RuntimeState {
   const intentTemplates = buildIntentRegistry(config.intentTemplates);
   const enemyTemplates = buildEnemyRegistry(config.enemyTemplates, intentTemplates);
+  const cardTemplates = buildCardTemplateRegistry(config.cardTemplates ?? []);
   const entities = new Map<string, EntityRuntime>();
   const cells = createGrid(config.terrain);
   const initialServerTick = config.initialServerTick ?? 0;
   const playerEntityIds: string[] = [];
   const enemyEntityIds: string[] = [];
+  const seenCardInstances = new Set<string>();
 
   for (const source of config.entities) {
     if (entities.has(source.id)) throw new Error(`Duplicate entity id: ${source.id}`);
@@ -50,6 +53,11 @@ export function createRuntimeState(config: SimulationEngineConfig): RuntimeState
           nextRegenAtTick: source.aliveState === "active" && source.stamina.current < source.stamina.max
             ? initialServerTick + STAMINA_REGEN_INTERVAL_TICKS
             : null,
+        },
+        cards: {
+          hand: cloneAndValidateCardInstances(source.cards.hand, cardTemplates, seenCardInstances, source.id),
+          discard: cloneAndValidateCardInstances(source.cards.discard, cardTemplates, seenCardInstances, source.id),
+          revision: source.cards.revision,
         },
         statuses: [...source.statuses],
         position: { ...source.position },
@@ -119,6 +127,7 @@ export function createRuntimeState(config: SimulationEngineConfig): RuntimeState
     },
     entities,
     activeIntents: new Map(),
+    cardTemplates,
     enemyTemplates,
     intentTemplates,
     initialIntentByEnemyId,
@@ -151,6 +160,7 @@ export function cloneRuntimeState(state: RuntimeState): RuntimeState {
     },
     entities: new Map([...state.entities].map(([id, entity]) => [id, cloneEntity(entity)])),
     activeIntents: new Map([...state.activeIntents].map(([id, intent]) => [id, cloneActiveIntent(intent)])),
+    cardTemplates: new Map([...state.cardTemplates].map(([key, template]) => [key, cloneCardTemplate(template)])),
     enemyTemplates: new Map([...state.enemyTemplates].map(([key, template]) => [key, {
       ...template,
       basicAttack: { ...template.basicAttack },
@@ -188,6 +198,11 @@ export function cloneEntity(entity: EntityRuntime): EntityRuntime {
       position: { ...entity.position },
       hp: { ...entity.hp },
       stamina: { ...entity.stamina },
+      cards: {
+        hand: entity.cards.hand.map((card) => ({ ...card })),
+        discard: entity.cards.discard.map((card) => ({ ...card })),
+        revision: entity.cards.revision,
+      },
       statuses: [...entity.statuses],
     };
   }
@@ -209,6 +224,51 @@ export function cloneActiveIntent(intent: ActiveIntent): ActiveIntent {
 
 function isRuntimeHandler(handler: string): boolean {
   return handler === "move_close" || handler === "melee_strike" || handler === "ranged_shot" || handler === "hold_position";
+}
+
+function buildCardTemplateRegistry(templates: readonly CardTemplate[]): Map<string, CardTemplate> {
+  const registry = new Map<string, CardTemplate>();
+  for (const template of templates) {
+    if (!template.key || registry.has(template.key)) throw new Error(`Duplicate or empty card template key: ${template.key}`);
+    if (!Number.isInteger(template.version) || template.version < 1 ||
+      !Number.isInteger(template.staminaCost) || template.staminaCost < 0 ||
+      !Number.isInteger(template.range.minInclusive) || template.range.minInclusive < 1 ||
+      !Number.isInteger(template.range.maxInclusive) || template.range.maxInclusive < template.range.minInclusive ||
+      !Number.isFinite(template.effect.rawDamage) || template.effect.rawDamage <= 0 ||
+      !Number.isFinite(template.effect.multiplier) || template.effect.multiplier <= 0 ||
+      template.effect.kind !== "direct_damage" || template.allowedModes.length === 0 ||
+      template.allowedModes.some((mode) => !["movement", "melee", "ranged"].includes(mode)) ||
+      new Set(template.allowedModes).size !== template.allowedModes.length ||
+      !["required", "not_required"].includes(template.lineOfSight)) {
+      throw new Error(`Invalid direct-damage card template ${template.key}`);
+    }
+    registry.set(template.key, cloneCardTemplate(template));
+  }
+  return registry;
+}
+
+function cloneAndValidateCardInstances(
+  cards: readonly { instanceId: string; templateKey: string }[],
+  templates: ReadonlyMap<string, CardTemplate>,
+  seenInstances: Set<string>,
+  heroId: string,
+): { instanceId: string; templateKey: string }[] {
+  return cards.map((card) => {
+    if (!card.instanceId || seenInstances.has(card.instanceId) || !templates.has(card.templateKey)) {
+      throw new Error(`Hero ${heroId} has a duplicate or invalid card instance ${card.instanceId}`);
+    }
+    seenInstances.add(card.instanceId);
+    return { ...card };
+  });
+}
+
+function cloneCardTemplate(template: CardTemplate): CardTemplate {
+  return {
+    ...template,
+    allowedModes: [...template.allowedModes],
+    range: { ...template.range },
+    effect: { ...template.effect },
+  };
 }
 
 function compareText(a: string, b: string): number {

@@ -5,12 +5,13 @@ import { replayEvents, replayJournalRecords } from "../replay/replay.js";
 import { closedWindowIdAtTick, windowIdAtTick } from "../scheduler/InputWindow.js";
 import { orderCommands, phaseOrder, type SchedulerPhase } from "../scheduler/orderCommands.js";
 import { validateMove } from "../movement/playerMove.js";
-import { cellIndex } from "../grid/Grid.js";
+import { cellIndex, isInBounds } from "../grid/Grid.js";
 import { activateScene, resolveDueIntents } from "../intents/intentSystem.js";
 import { groupEvents, type PendingJournalEvent } from "../intents/events.js";
 import { detectContactTransitions, modeChangedEvent } from "../combat/heroModes.js";
 import { resolveRetreat } from "../combat/retreatResolution.js";
 import { resolveStaminaRegeneration } from "../resources/stamina.js";
+import { resolvePlayCard } from "../cards/playCard.js";
 import { cleanupDeadEnemies } from "./cleanup.js";
 import { assertRuntimeInvariants } from "./invariants.js";
 import { cloneRuntimeState, createRuntimeState, snapshotState } from "./createRuntimeState.js";
@@ -20,6 +21,7 @@ import type {
   FinalCommandResult,
   InternalCommand,
   InternalModeCommand,
+  InternalPlayCardCommand,
   InternalPlayerMoveCommand,
   JournalRecord,
   RuntimeSnapshot,
@@ -126,7 +128,9 @@ export class HeadlessSimulationEngine implements SimulationEngine {
         for (const command of orderedCommands) {
           const applied = command.command === "player.move"
             ? this.applyMove(command, reservations)
-            : this.applyModeCommand(command);
+            : command.command === "player.play_card"
+              ? this.applyPlayCard(command)
+              : this.applyModeCommand(command);
           commandResults.push(applied.result);
           pending.push(...applied.pendingEvents);
           if (applied.destinationCell !== undefined) reservations.add(applied.destinationCell);
@@ -281,6 +285,20 @@ export class HeadlessSimulationEngine implements SimulationEngine {
     };
   }
 
+  private applyPlayCard(command: InternalPlayCardCommand): AppliedCommand {
+    const resolution = resolvePlayCard(this.runtime, command);
+    if (!resolution.ok) {
+      return {
+        result: { requestId: command.requestId, status: "rejected", code: resolution.code, sceneRevision: this.runtime.sceneRevision },
+        pendingEvents: [],
+      };
+    }
+    return {
+      result: { requestId: command.requestId, status: "accepted", eventIds: [], sceneRevision: this.runtime.sceneRevision + 1 },
+      pendingEvents: resolution.pendingEvents,
+    };
+  }
+
   private isValidCommand(command: InternalCommand): boolean {
     if (!command || typeof command !== "object") return false;
     if (typeof command.requestId !== "string" || command.requestId.length === 0 ||
@@ -291,6 +309,14 @@ export class HeadlessSimulationEngine implements SimulationEngine {
       if (Object.keys(command.payload).sort().join(",") !== "direction") return false;
     } else if (command.command === "player.enter_movement_mode" || command.command === "player.enter_ranged_mode") {
       if (!command.payload || typeof command.payload !== "object" || Object.keys(command.payload).length !== 0) return false;
+    } else if (command.command === "player.play_card") {
+      const payload = command.payload;
+      if (!payload || typeof payload !== "object" || typeof payload.cardInstanceId !== "string" || payload.cardInstanceId.length === 0 ||
+        !["movement", "melee", "ranged"].includes(payload.mode) || !Number.isInteger(payload.clientCardRevision) || payload.clientCardRevision < 0) return false;
+      if (payload.targetEntityId !== undefined && (typeof payload.targetEntityId !== "string" || payload.targetEntityId.length === 0)) return false;
+      if (payload.targetCell !== undefined && (!payload.targetCell || !isInBounds(payload.targetCell) ||
+        Object.keys(payload.targetCell).sort().join(",") !== "x,y")) return false;
+      if (Object.keys(payload).some((key) => !["cardInstanceId", "targetEntityId", "targetCell", "mode", "clientCardRevision"].includes(key))) return false;
     } else return false;
     if (!Number.isInteger(command.clientRevision) || command.clientRevision < 0 ||
       !Number.isInteger(command.serverReceiveSequence) || command.serverReceiveSequence < 0) return false;

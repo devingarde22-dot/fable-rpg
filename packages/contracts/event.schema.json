@@ -363,7 +363,9 @@
             "heroId",
             "cardInstanceId",
             "mode",
-            "staminaCost"
+            "staminaCost",
+            "targetEntityId",
+            "targetCell"
           ],
           "properties": {
             "heroId": {
@@ -388,6 +390,138 @@
             },
             "targetCell": {
               "$ref": "#/$defs/cell"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocolVersion",
+        "schemaVersion",
+        "eventId",
+        "eventVersion",
+        "campaignId",
+        "sessionId",
+        "sceneId",
+        "sceneRevision",
+        "serverTick",
+        "serverSequence",
+        "eventGroupId",
+        "eventIndex",
+        "causedByRequestId",
+        "actorId",
+        "replay",
+        "eventType",
+        "payload"
+      ],
+      "properties": {
+        "protocolVersion": {
+          "const": "fable.protocol.v1"
+        },
+        "schemaVersion": {
+          "const": 1
+        },
+        "eventId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "eventVersion": {
+          "const": 1
+        },
+        "campaignId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sessionId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sceneId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sceneRevision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "serverTick": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "serverSequence": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "eventGroupId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "eventIndex": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "causedByRequestId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "actorId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "replay": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "required": [
+            "seedRef"
+          ],
+          "properties": {
+            "seedRef": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "eventType": {
+          "const": "card.discarded"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "heroId",
+            "cardInstanceId",
+            "reason",
+            "discardRevision"
+          ],
+          "properties": {
+            "heroId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "cardInstanceId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "reason": {
+              "const": "played"
+            },
+            "discardRevision": {
+              "type": "integer",
+              "minimum": 1
             }
           }
         }
@@ -857,6 +991,33 @@
                     "attackOrder": {
                       "type": "integer",
                       "minimum": 1
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "kind",
+                    "heroId",
+                    "cardInstanceId",
+                    "cardTemplateKey"
+                  ],
+                  "properties": {
+                    "kind": {
+                      "const": "card"
+                    },
+                    "heroId": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "cardInstanceId": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "cardTemplateKey": {
+                      "type": "string",
+                      "minLength": 1
                     }
                   }
                 }

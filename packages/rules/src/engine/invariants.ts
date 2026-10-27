@@ -9,6 +9,7 @@ export function assertRuntimeInvariants(state: RuntimeState): void {
     throw new Error("Scene grid must contain exactly 81 cells");
   }
   const seenOccupants = new Set<string>();
+  const seenCardInstances = new Set<string>();
   for (let index = 0; index < state.scene.cells.length; index += 1) {
     const cell = state.scene.cells[index];
     if (!cell || cell.x !== index % GRID_WIDTH || cell.y !== Math.floor(index / GRID_WIDTH)) {
@@ -36,6 +37,15 @@ export function assertRuntimeInvariants(state: RuntimeState): void {
     }
     if (entity.kind === "hero") {
       if (typeof entity.canEnterRangedMode !== "boolean") throw new Error(`Hero ${entity.id} has invalid ranged-mode capability`);
+      if (!Number.isInteger(entity.cards.revision) || entity.cards.revision < 0) {
+        throw new Error(`Hero ${entity.id} has an invalid card revision`);
+      }
+      for (const card of [...entity.cards.hand, ...entity.cards.discard]) {
+        if (!card.instanceId || seenCardInstances.has(card.instanceId) || !state.cardTemplates.has(card.templateKey)) {
+          throw new Error(`Hero ${entity.id} has a duplicate or invalid card instance ${card.instanceId}`);
+        }
+        seenCardInstances.add(card.instanceId);
+      }
       if (!Number.isInteger(entity.stamina.current) || !Number.isInteger(entity.stamina.max) ||
         entity.stamina.max < 3 || entity.stamina.current < 0 || entity.stamina.current > entity.stamina.max) {
         throw new Error(`Hero ${entity.id} has invalid stamina`);

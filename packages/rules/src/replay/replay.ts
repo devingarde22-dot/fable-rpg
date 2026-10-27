@@ -2,6 +2,8 @@ import { cloneRuntimeState, snapshotState } from "../engine/createRuntimeState.j
 import { assertRuntimeInvariants } from "../engine/invariants.js";
 import { cellIndex, isInBounds } from "../grid/Grid.js";
 import { checkMovementDestination } from "../grid/collision.js";
+import { chebyshevDistance, hasLineOfSight } from "../intents/geometry.js";
+import { canAffordStamina } from "../resources/stamina.js";
 import { calculateDamage } from "../combat/damage.js";
 import {
   DAMAGE_FORMULA_VERSION,
@@ -20,6 +22,7 @@ export function replayEvents(initialState: RuntimeState, events: readonly Domain
   state.phase = "active";
   const progress = createReplayProgress(state);
   for (const sourceEvent of events) applyReplayEvent(state, cloneEvent(sourceEvent), progress);
+  if (progress.pendingCardPlay) throw new Error("Replay ended before the card play transaction completed");
   return snapshotState(state);
 }
 
@@ -55,8 +58,24 @@ export function replayJournalRecords(initialState: RuntimeState, records: readon
     lastTickMark = record.serverTick;
     assertRuntimeInvariants(state);
   }
+  if (progress.pendingCardPlay) throw new Error("Replay ended before the card play transaction completed");
   return snapshotState(state);
 }
+
+type PendingCardPlay = {
+  heroId: string;
+  cardInstanceId: string;
+  cardTemplateKey: string;
+  targetEntityId: string;
+  mode: "movement" | "melee" | "ranged";
+  staminaCost: number;
+  serverTick: number;
+  sceneRevision: number;
+  eventGroupId: string;
+  requestId: string;
+  actorId: string;
+  stage: "stamina" | "damage" | "discard";
+};
 
 type ReplayProgress = {
   previousSequence: number;
@@ -64,6 +83,7 @@ type ReplayProgress = {
   currentGroup: string;
   expectedEventIndex: number;
   currentGroupRevision: number;
+  pendingCardPlay: PendingCardPlay | null;
 };
 
 function createReplayProgress(state: RuntimeState): ReplayProgress {
@@ -73,6 +93,7 @@ function createReplayProgress(state: RuntimeState): ReplayProgress {
     currentGroup: "",
     expectedEventIndex: 0,
     currentGroupRevision: -1,
+    pendingCardPlay: null,
   };
 }
 
@@ -92,6 +113,18 @@ function applyReplayEvent(state: RuntimeState, event: DomainEvent, progress: Rep
     progress.currentGroupRevision = event.sceneRevision;
     progress.expectedEventIndex = 0;
   }
+  if (progress.pendingCardPlay) {
+    const expectedType = progress.pendingCardPlay.stage === "stamina"
+      ? "stamina.changed"
+      : progress.pendingCardPlay.stage === "damage"
+        ? "hp.changed"
+        : "card.discarded";
+    if (event.eventType !== expectedType || event.eventGroupId !== progress.pendingCardPlay.eventGroupId ||
+      event.sceneRevision !== progress.pendingCardPlay.sceneRevision || event.serverTick !== progress.pendingCardPlay.serverTick ||
+      event.causedByRequestId !== progress.pendingCardPlay.requestId || event.actorId !== progress.pendingCardPlay.actorId) {
+      throw new Error("Replay card-play event sequence is incomplete or inconsistent");
+    }
+  }
   if (event.eventGroupId !== progress.currentGroup || event.sceneRevision !== progress.currentGroupRevision || event.eventIndex !== progress.expectedEventIndex) {
     throw new Error("Replay event group, revision, or eventIndex is inconsistent");
   }
@@ -100,6 +133,12 @@ function applyReplayEvent(state: RuntimeState, event: DomainEvent, progress: Rep
   switch (event.eventType) {
     case "scene.entity_moved":
       applyMovement(state, event);
+      break;
+    case "card.played":
+      applyCardPlayed(state, event, progress);
+      break;
+    case "card.discarded":
+      applyCardDiscarded(state, event, progress);
       break;
     case "scene.entity_removed":
       applyEntityRemoved(state, event);
@@ -117,10 +156,10 @@ function applyReplayEvent(state: RuntimeState, event: DomainEvent, progress: Rep
       applyIntentResolved(state, event);
       break;
     case "hp.changed":
-      applyHpChanged(state, event);
+      applyHpChanged(state, event, progress);
       break;
     case "stamina.changed":
-      applyStaminaChanged(state, event);
+      applyStaminaChanged(state, event, progress);
       break;
     case "mode.changed":
       applyModeChanged(state, event);
@@ -135,6 +174,49 @@ function applyReplayEvent(state: RuntimeState, event: DomainEvent, progress: Rep
   progress.previousSequence = event.serverSequence;
   progress.previousEventTick = event.serverTick;
   assertRuntimeInvariants(state);
+}
+
+function applyCardPlayed(
+  state: RuntimeState,
+  event: Extract<DomainEvent, { eventType: "card.played" }>,
+  progress: ReplayProgress,
+): void {
+  const { heroId, cardInstanceId, mode, staminaCost, targetEntityId, targetCell } = event.payload;
+  const hero = state.entities.get(heroId);
+  const card = hero?.kind === "hero"
+    ? hero.cards.hand.find((instance) => instance.instanceId === cardInstanceId)
+    : undefined;
+  const template = card ? state.cardTemplates.get(card.templateKey) : undefined;
+  const target = state.entities.get(targetEntityId);
+  if (progress.pendingCardPlay || !hero || hero.kind !== "hero" || hero.aliveState !== "active" || hero.hp.current <= 0 ||
+    event.actorId === null || state.heroIdByActorId.get(event.actorId) !== hero.id || event.causedByRequestId === null ||
+    !card || !template || template.effect.kind !== "direct_damage" || template.staminaCost !== staminaCost ||
+    hero.mode !== mode || !template.allowedModes.includes(mode) || !canAffordStamina(hero.stamina.current, staminaCost) ||
+    !target || target.kind !== "enemy" || target.aliveState !== "active" || target.hp.current <= 0 ||
+    target.position.x !== targetCell.x || target.position.y !== targetCell.y) {
+    throw new Error("Replay card.played references an invalid hero, card, mode, cost, or target");
+  }
+  const distance = chebyshevDistance(hero.position, target.position);
+  if (distance < template.range.minInclusive || distance > template.range.maxInclusive) {
+    throw new Error("Replay card.played target is outside the configured range");
+  }
+  if (template.lineOfSight === "required" && !hasLineOfSight(state.scene.cells, hero.position, target.position)) {
+    throw new Error("Replay card.played target is blocked by line of sight");
+  }
+  progress.pendingCardPlay = {
+    heroId,
+    cardInstanceId,
+    cardTemplateKey: template.key,
+    targetEntityId,
+    mode,
+    staminaCost,
+    serverTick: event.serverTick,
+    sceneRevision: event.sceneRevision,
+    eventGroupId: event.eventGroupId,
+    requestId: event.causedByRequestId,
+    actorId: event.actorId,
+    stage: staminaCost > 0 ? "stamina" : "damage",
+  };
 }
 
 function applyMovement(state: RuntimeState, event: Extract<DomainEvent, { eventType: "scene.entity_moved" }>): void {
@@ -231,11 +313,22 @@ function applyIntentResolved(state: RuntimeState, event: Extract<DomainEvent, { 
   enemy.activeIntentId = null;
 }
 
-function applyHpChanged(state: RuntimeState, event: Extract<DomainEvent, { eventType: "hp.changed" }>): void {
+function applyHpChanged(
+  state: RuntimeState,
+  event: Extract<DomainEvent, { eventType: "hp.changed" }>,
+  progress: ReplayProgress,
+): void {
   const entity = state.entities.get(event.payload.entityId);
   if (!entity || event.payload.maximum !== entity.hp.max || !Number.isInteger(event.payload.current) ||
     event.payload.current < 0 || event.payload.current > event.payload.maximum) {
     throw new Error("Replay hp.changed payload is inconsistent");
+  }
+  if (progress.pendingCardPlay && (progress.pendingCardPlay.stage !== "damage" || event.eventVersion !== 2 ||
+    event.payload.entityId !== progress.pendingCardPlay.targetEntityId || event.payload.source.kind !== "card")) {
+    throw new Error("Replay card play is missing its matching source and target hp.changed event");
+  }
+  if (!progress.pendingCardPlay && event.eventVersion === 2 && event.payload.source.kind === "card") {
+    throw new Error("Replay card damage is not linked to a successful card.played event");
   }
   if (event.eventVersion === 2) {
     const { payload } = event;
@@ -249,17 +342,37 @@ function applyHpChanged(state: RuntimeState, event: Extract<DomainEvent, { event
       (payload.publicAmount !== undefined && payload.publicAmount !== calculation.finalDamage)) {
       throw new Error("Replay hp.changed v2 damage calculation does not match the prior state");
     }
-    validateDamageEventSource(state, payload.source, payload.multiplier);
+    validateDamageEventSource(state, payload.source, payload.rawDamage, payload.multiplier, progress.pendingCardPlay);
   }
   entity.hp.current = event.payload.current;
   if (entity.kind === "hero" && entity.hp.current === 0) {
     entity.aliveState = "critically_injured";
     entity.stamina.nextRegenAtTick = null;
   }
+  if (progress.pendingCardPlay) progress.pendingCardPlay.stage = "discard";
 }
 
-function applyStaminaChanged(state: RuntimeState, event: Extract<DomainEvent, { eventType: "stamina.changed" }>): void {
+function applyStaminaChanged(
+  state: RuntimeState,
+  event: Extract<DomainEvent, { eventType: "stamina.changed" }>,
+  progress: ReplayProgress,
+): void {
   const hero = state.entities.get(event.payload.heroId);
+  if (event.payload.reason === "card_cost") {
+    const pending = progress.pendingCardPlay;
+    if (!hero || hero.kind !== "hero" || !pending || pending.stage !== "stamina" || pending.staminaCost <= 0 ||
+      pending.heroId !== hero.id || pending.serverTick !== event.serverTick ||
+      state.heroIdByActorId.get(event.actorId ?? "") !== hero.id ||
+      event.payload.maximum !== hero.stamina.max || event.payload.current !== hero.stamina.current - pending.staminaCost ||
+      event.payload.current < 0 || event.payload.current >= hero.stamina.max) {
+      throw new Error("Replay stamina.changed card_cost does not match the pending card play");
+    }
+    hero.stamina.current = event.payload.current;
+    hero.stamina.nextRegenAtTick = event.serverTick + STAMINA_REGEN_INTERVAL_TICKS;
+    pending.stage = "damage";
+    return;
+  }
+  if (progress.pendingCardPlay) throw new Error("Replay stamina regeneration interrupted a card-play transaction");
   if (!hero || hero.kind !== "hero" || hero.aliveState !== "active" ||
     event.payload.reason !== "regeneration" || event.payload.maximum !== hero.stamina.max ||
     !Number.isInteger(event.payload.current) || event.payload.current !== hero.stamina.current + 1 ||
@@ -270,6 +383,28 @@ function applyStaminaChanged(state: RuntimeState, event: Extract<DomainEvent, { 
   hero.stamina.nextRegenAtTick = hero.stamina.current < hero.stamina.max
     ? event.serverTick + STAMINA_REGEN_INTERVAL_TICKS
     : null;
+}
+
+function applyCardDiscarded(
+  state: RuntimeState,
+  event: Extract<DomainEvent, { eventType: "card.discarded" }>,
+  progress: ReplayProgress,
+): void {
+  const pending = progress.pendingCardPlay;
+  const hero = state.entities.get(event.payload.heroId);
+  const cardIndex = hero?.kind === "hero"
+    ? hero.cards.hand.findIndex((instance) => instance.instanceId === event.payload.cardInstanceId)
+    : -1;
+  const card = hero?.kind === "hero" && cardIndex >= 0 ? hero.cards.hand[cardIndex] : undefined;
+  if (!pending || pending.stage !== "discard" || !hero || hero.kind !== "hero" || !card ||
+    pending.heroId !== hero.id || pending.cardInstanceId !== card.instanceId || event.payload.reason !== "played" ||
+    event.payload.discardRevision !== hero.cards.revision + 1 || card.templateKey !== pending.cardTemplateKey) {
+    throw new Error("Replay card.discarded does not match the completed card play");
+  }
+  hero.cards.hand.splice(cardIndex, 1);
+  hero.cards.discard.push({ ...card });
+  hero.cards.revision = event.payload.discardRevision;
+  progress.pendingCardPlay = null;
 }
 
 function applyEntityRemoved(state: RuntimeState, event: Extract<DomainEvent, { eventType: "scene.entity_removed" }>): void {
@@ -289,8 +424,25 @@ function applyEntityRemoved(state: RuntimeState, event: Extract<DomainEvent, { e
 function validateDamageEventSource(
   state: RuntimeState,
   source: Extract<DomainEvent, { eventType: "hp.changed"; eventVersion: 2 }>['payload']['source'],
+  rawDamage: number,
   multiplier: number,
+  pendingCardPlay: PendingCardPlay | null,
 ): void {
+  if (source.kind === "card") {
+    const hero = state.entities.get(source.heroId);
+    const card = hero?.kind === "hero"
+      ? hero.cards.hand.find((instance) => instance.instanceId === source.cardInstanceId)
+      : undefined;
+    const template = state.cardTemplates.get(source.cardTemplateKey);
+    if (!pendingCardPlay || pendingCardPlay.stage !== "damage" || !hero || hero.kind !== "hero" ||
+      hero.aliveState !== "active" || hero.hp.current <= 0 || !card || card.templateKey !== source.cardTemplateKey ||
+      pendingCardPlay.heroId !== source.heroId || pendingCardPlay.cardInstanceId !== source.cardInstanceId ||
+      pendingCardPlay.cardTemplateKey !== source.cardTemplateKey || !template || template.effect.kind !== "direct_damage" ||
+      rawDamage !== template.effect.rawDamage || multiplier !== template.effect.multiplier) {
+      throw new Error("Replay card damage source does not match its pending card play");
+    }
+    return;
+  }
   const enemy = state.entities.get(source.enemyId);
   if (!enemy || enemy.kind !== "enemy" || enemy.aliveState !== "active" || enemy.hp.current === 0) {
     throw new Error("Replay damage source does not reference a living active enemy");

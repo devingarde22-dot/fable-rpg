@@ -41,6 +41,11 @@ export function canonicalizeSnapshot(snapshot: RuntimeSnapshot): string {
               max: entity.stamina.max,
               nextRegenAtTick: entity.stamina.nextRegenAtTick,
             },
+            cards: {
+              hand: entity.cards.hand.map((card) => ({ instanceId: card.instanceId, templateKey: card.templateKey })),
+              discard: entity.cards.discard.map((card) => ({ instanceId: card.instanceId, templateKey: card.templateKey })),
+              revision: entity.cards.revision,
+            },
           }
         : entity),
     activeIntents: [...snapshot.activeIntents].sort((a, b) => compareText(a.activeIntentId, b.activeIntentId)),

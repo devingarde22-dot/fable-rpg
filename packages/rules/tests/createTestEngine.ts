@@ -2,10 +2,12 @@ import { createSimulationEngine } from "../src/engine/SimulationEngine.js";
 import type {
   EnemyTemplate,
   EntityRuntime,
+  HeroCardsRuntime,
   IntentTemplate,
   RuntimeSnapshot,
   SimulationEngineConfig,
 } from "../src/engine/types.js";
+import { testCardTemplates } from "./fixtures/testCards.js";
 
 const partyTargetFilters = {
   factions: ["party"] as const,
@@ -127,6 +129,7 @@ export function hero(
   mode: "movement" | "melee" | "ranged" | null = "movement",
   canEnterRangedMode = false,
   maxStamina = 3,
+  cards: HeroCardsRuntime = { hand: [], discard: [], revision: 0 },
 ): EntityRuntime {
   return {
     id,
@@ -136,6 +139,11 @@ export function hero(
     aliveState: "active",
     hp: { current: 1_000, max: 1_000 },
     stamina: { current: 3, max: maxStamina, nextRegenAtTick: null },
+    cards: {
+      hand: cards.hand.map((card) => ({ ...card })),
+      discard: cards.discard.map((card) => ({ ...card })),
+      revision: cards.revision,
+    },
     defense: 20,
     threat: 0,
     statuses: [],
@@ -170,6 +178,7 @@ export function testConfig(overrides: Partial<SimulationEngineConfig> = {}): Sim
     sessionId: "session-test",
     sceneId: "scene-test",
     rootSeed: "fable-step-c-test",
+    cardTemplates: testCardTemplates,
     entities: [hero("hero-1", 1, 1), enemy("enemy-1", 7, 7)],
     enemyTemplates: testEnemyTemplates,
     intentTemplates: testIntentTemplates,
@@ -208,6 +217,32 @@ export function modeCommand(
     role: "player" as const,
     command,
     payload: {},
+    clientRevision: options.revision ?? 0,
+    serverReceiveSequence: options.sequence ?? 1,
+  } as const;
+}
+
+export function playCardCommand(
+  requestId: string,
+  cardInstanceId: string,
+  targetEntityId: string | undefined,
+  mode: "movement" | "melee" | "ranged",
+  options: { actorId?: string; revision?: number; cardRevision?: number; sequence?: number; sessionId?: string; targetCell?: { x: number; y: number } } = {},
+) {
+  const payload = {
+    cardInstanceId,
+    ...(targetEntityId === undefined ? {} : { targetEntityId }),
+    ...(options.targetCell === undefined ? {} : { targetCell: { ...options.targetCell } }),
+    mode,
+    clientCardRevision: options.cardRevision ?? 0,
+  };
+  return {
+    requestId,
+    sessionId: options.sessionId ?? "session-test",
+    actorId: options.actorId ?? "actor-1",
+    role: "player" as const,
+    command: "player.play_card" as const,
+    payload,
     clientRevision: options.revision ?? 0,
     serverReceiveSequence: options.sequence ?? 1,
   } as const;
