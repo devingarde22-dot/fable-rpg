@@ -1,6 +1,6 @@
 # DR-C-005 — Stamina & Resource Regeneration
 
-**Статус:** CONFIRMED; implemented in commit `d237616` on branch `step-c-increment-5-stamina`, not yet merged.
+**Статус:** CONFIRMED; implemented in commit `d237616` on branch `step-c-increment-5-stamina`; PR [#3](https://github.com/devingarde22-dot/fable-rpg/pull/3) is open, not yet merged.
 **Дата:** 2026-10-27
 **Область:** headless rules runtime, deterministic stamina regeneration, replay and tests.
 

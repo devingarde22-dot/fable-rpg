@@ -68,7 +68,7 @@ docs/03-system-contracts.md
 docs/05-vertical-slice.md
 ```
 
-Step C increments 1–4 реализованы и приняты. PR [#1](https://github.com/devingarde22-dot/fable-rpg/pull/1) (increments 1–3) и PR [#2](https://github.com/devingarde22-dot/fable-rpg/pull/2) (Increment 4 / DR-C-004) слиты в `main`; PR #2 слит 2026-10-27 (merge commit `9e0d0f8`). Increment 5 / DR-C-005 реализован в commit `d237616` ветки `step-c-increment-5-stamina`, но пока не слит. Не начинать дальнейшие increments без отдельного запроса пользователя и предварительно одобренного плана. См. [журнал разработки и AI handoff](./17-development-log-and-handoff.md).
+Step C increments 1–4 реализованы и приняты. PR [#1](https://github.com/devingarde22-dot/fable-rpg/pull/1) (increments 1–3) и PR [#2](https://github.com/devingarde22-dot/fable-rpg/pull/2) (Increment 4 / DR-C-004) слиты в `main`; PR #2 слит 2026-10-27 (merge commit `9e0d0f8`). Increment 5 / DR-C-005 реализован в commit `d237616` ветки `step-c-increment-5-stamina` и открыт в PR [#3](https://github.com/devingarde22-dot/fable-rpg/pull/3). Не начинать дальнейшие increments без отдельного запроса пользователя и предварительно одобренного плана. См. [журнал разработки и AI handoff](./17-development-log-and-handoff.md).
 
 ## Machine-readable contracts
 

@@ -1,7 +1,7 @@
 # Fable — журнал разработки и handoff для AI
 
 **Обновлено:** 2026-10-27 (Increment 5 реализован)
-**Статус:** Step C, Increment 1–4 приняты и слиты в `fable-rpg/main`; Increment 5 (DR-C-005) реализован в feature branch `step-c-increment-5-stamina`, commit `d237616`, но ещё не слит. PR [#1](https://github.com/devingarde22-dot/fable-rpg/pull/1) содержал increments 1–3; PR [#2](https://github.com/devingarde22-dot/fable-rpg/pull/2) с Increment 4 (DR-C-004) слит 2026-10-27. Merge commit: `9e0d0f8`.
+**Статус:** Step C, Increment 1–4 приняты и слиты в `fable-rpg/main`; Increment 5 (DR-C-005) реализован в feature branch `step-c-increment-5-stamina`, commit `d237616`, и открыт в PR [#3](https://github.com/devingarde22-dot/fable-rpg/pull/3) на review. PR [#1](https://github.com/devingarde22-dot/fable-rpg/pull/1) содержал increments 1–3; PR [#2](https://github.com/devingarde22-dot/fable-rpg/pull/2) с Increment 4 (DR-C-004) слит 2026-10-27. Merge commit: `9e0d0f8`.
 
 Этот документ — краткая карта проекта для продолжения работы другой нейросетью. Он не заменяет нормативные документы и не вводит новых игровых правил. При любом расхождении приоритет имеют подтверждённые документы `docs/` и машинно-читаемые контракты.
 
@@ -12,7 +12,7 @@
 - Step C Increment 1 (grid/movement), Increment 2 (enemy registry/intents) и Increment 3 (hero modes/contact/retreat) завершены и приняты. PR #1 слит 2026-10-27.
 - Текущая ветка `step-c-headless-core` уже вошла в `fable-rpg/main`. Merge commit PR #1: `a9b07d6aeca48e26993b8b02b13e3520b934a41e`.
 - Increment 4 (HP & Damage Resolution) закоммичен как `4d26a18` (`feat(rules): add HP and damage resolution`) в ветке `step-c-increment-4-hp-damage`; PR #2 слит в `main` 2026-10-27. Merge commit: `9e0d0f8` (`9e0d0f8996816f7d00c4521bbf6ad30382bfb74e`).
-- Increment 5 (Stamina & Resource Regeneration) реализован commit `d237616` в ветке `step-c-increment-5-stamina`; PR не открыт, merge в `main` не выполнен. Не начинать следующий increment без отдельного запроса пользователя; для новой игровой задачи сначала подготовить PLAN и дождаться явного одобрения.
+- Increment 5 (Stamina & Resource Regeneration) реализован commit `d237616` в ветке `step-c-increment-5-stamina`; PR [#3](https://github.com/devingarde22-dot/fable-rpg/pull/3) открыт и ждёт review/merge. Не начинать следующий increment без отдельного запроса пользователя; для новой игровой задачи сначала подготовить PLAN и дождаться явного одобрения.
 
 ### Маршрутизация репозиториев
 
@@ -52,9 +52,9 @@
 | `85745e5` — `merge: connect fable-rpg main history` | Технический merge commit для соединения feature branch с первоначальной историей `fable-rpg/main`, в которой был только `LICENSE`; игрового кода не меняет. |
 | `a9b07d6` — GitHub merge commit PR #1 | PR #1 слит в `fable-rpg/main`. |
 | `4d26a18` — `feat(rules): add HP and damage resolution` | Increment 4: единый `fable.damage.v1` pipeline; `hp.changed` v2 и replay-совместимость с v1; enemy cleanup/removal; регрессии и DR-C-004. Слито в `main` через PR [#2](https://github.com/devingarde22-dot/fable-rpg/pull/2) 2026-10-27; merge commit `9e0d0f8`. |
-| `d237616` — `feat(rules): add stamina regeneration` | Increment 5: max из config/preset, start=3, tick timer/300, timer stop at cap, `stamina.changed`, resource phase, pure affordability helper, replay/stateHash и DR-C-005. Реализован в `step-c-increment-5-stamina`; ожидает отдельного PR/merge. |
+| `d237616` — `feat(rules): add stamina regeneration` | Increment 5: max из config/preset, start=3, tick timer/300, timer stop at cap, `stamina.changed`, resource phase, pure affordability helper, replay/stateHash и DR-C-005. Ветка `step-c-increment-5-stamina`; PR [#3](https://github.com/devingarde22-dot/fable-rpg/pull/3) открыт. |
 
-PR [#1](https://github.com/devingarde22-dot/fable-rpg/pull/1) включал Increment 1–3 и DR-C-001–003; PR [#2](https://github.com/devingarde22-dot/fable-rpg/pull/2) включал Increment 4 и DR-C-004. Оба PR слиты в `main`.
+PR [#1](https://github.com/devingarde22-dot/fable-rpg/pull/1) включал Increment 1–3 и DR-C-001–003; PR [#2](https://github.com/devingarde22-dot/fable-rpg/pull/2) включал Increment 4 и DR-C-004 и слит в `main`; PR [#3](https://github.com/devingarde22-dot/fable-rpg/pull/3) содержит Increment 5 и открыт.
 
 ## 4. Архитектура и инварианты
 
@@ -138,7 +138,7 @@ PR [#1](https://github.com/devingarde22-dot/fable-rpg/pull/1) включал Inc
 
 При любом новом изменении повторно запустить как минимум `pnpm check` и `pnpm build`, затем сообщить точные результаты. Increment 5 реализован, но ещё не слит; не начинать следующий increment без отдельного запроса пользователя и предварительно одобренного плана.
 
-Для Increment 5 (`d237616`; 2026-10-27; ветка `step-c-increment-5-stamina`, PR не открыт):
+Для Increment 5 (`d237616`; 2026-10-27; ветка `step-c-increment-5-stamina`, PR #3 открыт):
 
 - `pnpm check` — PASS: typecheck, lint и полный workspace suite.
 - `pnpm build` — PASS: `@fable/content` и `@fable/rules`.
