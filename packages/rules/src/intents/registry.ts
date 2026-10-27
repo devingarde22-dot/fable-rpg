@@ -1,6 +1,12 @@
-import { IMMOBILIZED_DURATION_MS, type EnemyTemplate, type IntentTemplate } from "../engine/types.js";
+import {
+  ALLY_GUARD_DEFENSE_BONUS_PERCENT,
+  ALLY_GUARD_DURATION_MS,
+  IMMOBILIZED_DURATION_MS,
+  type EnemyTemplate,
+  type IntentTemplate,
+} from "../engine/types.js";
 
-export const ACTIVE_INTENT_HANDLERS = new Set(["move_close", "melee_strike", "ranged_shot", "hold_position", "bind"]);
+export const ACTIVE_INTENT_HANDLERS = new Set(["move_close", "melee_strike", "ranged_shot", "hold_position", "bind", "ally_guard"]);
 
 export function buildIntentRegistry(templates: readonly IntentTemplate[]): Map<string, IntentTemplate> {
   const registry = new Map<string, IntentTemplate>();
@@ -12,6 +18,11 @@ export function buildIntentRegistry(templates: readonly IntentTemplate[]): Map<s
     if (template.effect.handler === "bind" &&
       (template.effect.parameters.statusKey !== "immobilized" || template.effect.parameters.durationMs !== IMMOBILIZED_DURATION_MS)) {
       throw new Error(`Bind intent ${template.key} must apply immobilized for ${IMMOBILIZED_DURATION_MS} ms`);
+    }
+    if (template.effect.handler === "ally_guard" &&
+      (template.effect.parameters.defenseBonusPercent !== ALLY_GUARD_DEFENSE_BONUS_PERCENT ||
+        template.effect.parameters.durationMs !== ALLY_GUARD_DURATION_MS || template.durationMs !== ALLY_GUARD_DURATION_MS)) {
+      throw new Error(`Ally Guard intent ${template.key} must apply ${ALLY_GUARD_DEFENSE_BONUS_PERCENT}% defense for ${ALLY_GUARD_DURATION_MS} ms`);
     }
     const range = template.targetRules.range;
     if (range && range.minInclusive > range.maxInclusive) throw new Error(`Invalid range for intent template ${template.key}`);

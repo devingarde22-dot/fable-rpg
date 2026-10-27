@@ -14,7 +14,7 @@ import { eventBase, type EventDefinition, type PendingDomainEvent, type PendingJ
 import { nextGreedyPathCell } from "./geometry.js";
 import { selectIntentTarget } from "./targeting.js";
 import { isIntentStillValid, validateIntent } from "./validation.js";
-import { applyImmobilized } from "../statuses/statusSystem.js";
+import { applyAllyGuard, applyImmobilized } from "../statuses/statusSystem.js";
 
 export function activateScene(state: RuntimeState): PendingJournalEvent[] {
   if (state.phase !== "loading") throw new Error("Scene can only activate from loading");
@@ -283,8 +283,20 @@ function applyEffect(
       pending.push(applyImmobilized(state, target, enemy, activeIntentId, serverTick));
       return;
     }
+    case "ally_guard": {
+      if (!target || target.kind !== "enemy") throw new Error(`Ally Guard intent ${activeIntentId} resolved without an eligible ally`);
+      pending.push(applyAllyGuard(
+        state,
+        target,
+        enemy,
+        activeIntentId,
+        serverTick,
+        template.effect.parameters.defenseBonusPercent,
+        template.effect.parameters.durationMs,
+      ));
+      return;
+    }
     case "reposition":
-    case "ally_guard":
       return;
   }
 }

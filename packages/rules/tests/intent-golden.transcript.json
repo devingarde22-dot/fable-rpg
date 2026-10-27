@@ -1,7 +1,76 @@
 {
   "rootSeed": "fable-step-c-001",
-  "serverTick": 200,
+  "serverTick": 300,
   "events": [
+    {
+      "protocolVersion": "fable.protocol.v1",
+      "schemaVersion": 1,
+      "eventVersion": 1,
+      "campaignId": "campaign-test",
+      "sessionId": "session-test",
+      "sceneId": "scene-test",
+      "serverTick": 0,
+      "causedByRequestId": null,
+      "actorId": "extinguisher-1",
+      "eventType": "intent.started",
+      "payload": {
+        "enemyId": "extinguisher-1",
+        "templateKey": "ally_guard",
+        "activeIntentId": "scene-test:extinguisher-1:0:ally_guard",
+        "timer": {
+          "startedAtTick": 0,
+          "resolvesAtTick": 300,
+          "durationMs": 15000,
+          "remainingMs": 15000,
+          "paused": false
+        },
+        "icon": "ally_guard",
+        "publicTargetCell": {
+          "x": 6,
+          "y": 5
+        }
+      },
+      "replay": {
+        "seedRef": "612dcd925baeb574e11076804dcc480e3f9e3eca903b05a863295931f3db5468"
+      },
+      "eventId": "evt-1",
+      "eventGroupId": "scene-1",
+      "eventIndex": 0,
+      "serverSequence": 1,
+      "sceneRevision": 1
+    },
+    {
+      "protocolVersion": "fable.protocol.v1",
+      "schemaVersion": 1,
+      "eventVersion": 1,
+      "campaignId": "campaign-test",
+      "sessionId": "session-test",
+      "sceneId": "scene-test",
+      "serverTick": 0,
+      "causedByRequestId": null,
+      "actorId": "extinguisher-1",
+      "eventType": "intent.target_selected",
+      "payload": {
+        "activeIntentId": "scene-test:extinguisher-1:0:ally_guard",
+        "enemyId": "extinguisher-1",
+        "targetEntityId": "guard-ally-1",
+        "targetCell": {
+          "x": 6,
+          "y": 5
+        },
+        "selectionPolicy": "lowest_ally_hp_percentage",
+        "tieBreak": "single_candidate",
+        "seedRef": "612dcd925baeb574e11076804dcc480e3f9e3eca903b05a863295931f3db5468"
+      },
+      "replay": {
+        "seedRef": "612dcd925baeb574e11076804dcc480e3f9e3eca903b05a863295931f3db5468"
+      },
+      "eventId": "evt-2",
+      "eventGroupId": "scene-1",
+      "eventIndex": 1,
+      "serverSequence": 2,
+      "sceneRevision": 1
+    },
     {
       "protocolVersion": "fable.protocol.v1",
       "schemaVersion": 1,
@@ -33,10 +102,10 @@
       "replay": {
         "seedRef": "c74a7436c31ba77a0e781773bd2ec9352fb0397eec4ccbe86bbf2ef3d39e1692"
       },
-      "eventId": "evt-1",
+      "eventId": "evt-3",
       "eventGroupId": "scene-1",
-      "eventIndex": 0,
-      "serverSequence": 1,
+      "eventIndex": 2,
+      "serverSequence": 3,
       "sceneRevision": 1
     },
     {
@@ -65,10 +134,10 @@
       "replay": {
         "seedRef": "c74a7436c31ba77a0e781773bd2ec9352fb0397eec4ccbe86bbf2ef3d39e1692"
       },
-      "eventId": "evt-2",
+      "eventId": "evt-4",
       "eventGroupId": "scene-1",
-      "eventIndex": 1,
-      "serverSequence": 2,
+      "eventIndex": 3,
+      "serverSequence": 4,
       "sceneRevision": 1
     },
     {
@@ -91,10 +160,10 @@
       "replay": {
         "seedRef": "c74a7436c31ba77a0e781773bd2ec9352fb0397eec4ccbe86bbf2ef3d39e1692"
       },
-      "eventId": "evt-3",
+      "eventId": "evt-5",
       "eventGroupId": "scene-2",
       "eventIndex": 0,
-      "serverSequence": 3,
+      "serverSequence": 5,
       "sceneRevision": 2
     },
     {
@@ -127,10 +196,10 @@
         "finalDamage": 92
       },
       "replay": null,
-      "eventId": "evt-4",
+      "eventId": "evt-6",
       "eventGroupId": "scene-2",
       "eventIndex": 1,
-      "serverSequence": 4,
+      "serverSequence": 6,
       "sceneRevision": 2
     },
     {
@@ -164,10 +233,10 @@
       "replay": {
         "seedRef": "20ef702d488fc4cc35a782781bbcd5316c3f070492c653b2ca96f1c6eef63fbe"
       },
-      "eventId": "evt-5",
+      "eventId": "evt-7",
       "eventGroupId": "scene-2",
       "eventIndex": 2,
-      "serverSequence": 5,
+      "serverSequence": 7,
       "sceneRevision": 2
     },
     {
@@ -196,16 +265,171 @@
       "replay": {
         "seedRef": "20ef702d488fc4cc35a782781bbcd5316c3f070492c653b2ca96f1c6eef63fbe"
       },
-      "eventId": "evt-6",
+      "eventId": "evt-8",
       "eventGroupId": "scene-2",
       "eventIndex": 3,
-      "serverSequence": 6,
+      "serverSequence": 8,
       "sceneRevision": 2
+    },
+    {
+      "protocolVersion": "fable.protocol.v1",
+      "schemaVersion": 1,
+      "eventVersion": 1,
+      "campaignId": "campaign-test",
+      "sessionId": "session-test",
+      "sceneId": "scene-test",
+      "serverTick": 300,
+      "causedByRequestId": null,
+      "actorId": "extinguisher-1",
+      "eventType": "intent.resolved",
+      "payload": {
+        "enemyId": "extinguisher-1",
+        "activeIntentId": "scene-test:extinguisher-1:0:ally_guard",
+        "effectKey": "ally_guard",
+        "targetEntityId": "guard-ally-1"
+      },
+      "replay": {
+        "seedRef": "612dcd925baeb574e11076804dcc480e3f9e3eca903b05a863295931f3db5468"
+      },
+      "eventId": "evt-9",
+      "eventGroupId": "scene-3",
+      "eventIndex": 0,
+      "serverSequence": 9,
+      "sceneRevision": 3
+    },
+    {
+      "protocolVersion": "fable.protocol.v1",
+      "schemaVersion": 1,
+      "eventVersion": 1,
+      "campaignId": "campaign-test",
+      "sessionId": "session-test",
+      "sceneId": "scene-test",
+      "serverTick": 300,
+      "causedByRequestId": null,
+      "actorId": "extinguisher-1",
+      "eventType": "status.applied",
+      "payload": {
+        "entityId": "guard-ally-1",
+        "statusKey": "ally_guard",
+        "layerId": "status:guard-ally-1:ally_guard:extinguisher-1:scene-test:extinguisher-1:0:ally_guard",
+        "timer": {
+          "startedAtTick": 300,
+          "resolvesAtTick": 600,
+          "durationMs": 15000,
+          "remainingMs": 15000,
+          "paused": false
+        },
+        "publicPotency": 20
+      },
+      "replay": null,
+      "eventId": "evt-10",
+      "eventGroupId": "scene-3",
+      "eventIndex": 1,
+      "serverSequence": 10,
+      "sceneRevision": 3
+    },
+    {
+      "protocolVersion": "fable.protocol.v1",
+      "schemaVersion": 1,
+      "eventVersion": 1,
+      "campaignId": "campaign-test",
+      "sessionId": "session-test",
+      "sceneId": "scene-test",
+      "serverTick": 300,
+      "causedByRequestId": null,
+      "actorId": "extinguisher-1",
+      "eventType": "intent.started",
+      "payload": {
+        "enemyId": "extinguisher-1",
+        "templateKey": "bind",
+        "activeIntentId": "scene-test:extinguisher-1:300:bind",
+        "timer": {
+          "startedAtTick": 300,
+          "resolvesAtTick": 540,
+          "durationMs": 12000,
+          "remainingMs": 12000,
+          "paused": false
+        },
+        "icon": "bind",
+        "publicTargetCell": {
+          "x": 6,
+          "y": 2
+        }
+      },
+      "replay": {
+        "seedRef": "b924b483fd4a11afbabf7443aba0c62726ab796db726d1d9335aced883470130"
+      },
+      "eventId": "evt-11",
+      "eventGroupId": "scene-3",
+      "eventIndex": 2,
+      "serverSequence": 11,
+      "sceneRevision": 3
+    },
+    {
+      "protocolVersion": "fable.protocol.v1",
+      "schemaVersion": 1,
+      "eventVersion": 1,
+      "campaignId": "campaign-test",
+      "sessionId": "session-test",
+      "sceneId": "scene-test",
+      "serverTick": 300,
+      "causedByRequestId": null,
+      "actorId": "extinguisher-1",
+      "eventType": "intent.target_selected",
+      "payload": {
+        "activeIntentId": "scene-test:extinguisher-1:300:bind",
+        "enemyId": "extinguisher-1",
+        "targetEntityId": "hero-z",
+        "targetCell": {
+          "x": 6,
+          "y": 2
+        },
+        "selectionPolicy": "nearest_visible_player",
+        "tieBreak": "seeded_random",
+        "seedRef": "b924b483fd4a11afbabf7443aba0c62726ab796db726d1d9335aced883470130"
+      },
+      "replay": {
+        "seedRef": "b924b483fd4a11afbabf7443aba0c62726ab796db726d1d9335aced883470130"
+      },
+      "eventId": "evt-12",
+      "eventGroupId": "scene-3",
+      "eventIndex": 3,
+      "serverSequence": 12,
+      "sceneRevision": 3
     }
   ],
   "rngAudit": [
     {
       "eventId": "evt-2",
+      "records": [
+        {
+          "algorithmVersion": "fable.rng.v1",
+          "forkInput": {
+            "rootSeed": "fable-step-c-001",
+            "campaignId": "campaign-test",
+            "sceneId": "scene-test",
+            "serverTick": 0,
+            "activeIntentId": "scene-test:extinguisher-1:0:ally_guard",
+            "purpose": "target_selection"
+          },
+          "seedRef": "612dcd925baeb574e11076804dcc480e3f9e3eca903b05a863295931f3db5468",
+          "rngStateBefore": [
+            1630391698,
+            1538176372,
+            3775952512,
+            1305233422
+          ],
+          "rngStateAfter": [
+            1630391698,
+            1538176372,
+            3775952512,
+            1305233422
+          ]
+        }
+      ]
+    },
+    {
+      "eventId": "evt-4",
       "records": [
         {
           "algorithmVersion": "fable.rng.v1",
@@ -234,7 +458,7 @@
       ]
     },
     {
-      "eventId": "evt-6",
+      "eventId": "evt-8",
       "records": [
         {
           "algorithmVersion": "fable.rng.v1",
@@ -261,7 +485,36 @@
           ]
         }
       ]
+    },
+    {
+      "eventId": "evt-12",
+      "records": [
+        {
+          "algorithmVersion": "fable.rng.v1",
+          "forkInput": {
+            "rootSeed": "fable-step-c-001",
+            "campaignId": "campaign-test",
+            "sceneId": "scene-test",
+            "serverTick": 300,
+            "activeIntentId": "scene-test:extinguisher-1:300:bind",
+            "purpose": "target_selection"
+          },
+          "seedRef": "b924b483fd4a11afbabf7443aba0c62726ab796db726d1d9335aced883470130",
+          "rngStateBefore": [
+            3106190467,
+            4249489839,
+            3133109315,
+            2879440423
+          ],
+          "rngStateAfter": [
+            4023280395,
+            4275163503,
+            2545458880,
+            1455178423
+          ]
+        }
+      ]
     }
   ],
-  "finalStateHash": "b30a39ec51a65905c8ea0fe260b9dc7851f7e5f16b27724ea7d789ef65e326f8"
+  "finalStateHash": "9100fe297bfa3b53cb70e007109746d827423c6852762dd6b4902f567971599d"
 }

@@ -42,6 +42,11 @@ export function calculateDamage(input: DamageCalculationInput): DamageCalculatio
   return { ...input, mitigation, mitigatedDamage, finalDamage };
 }
 
+export function effectiveDefense(target: EntityRuntime, serverTick: number): number {
+  const guard = target.statuses.find((layer) => layer.templateKey === "ally_guard" && layer.expiresAtTick >= serverTick);
+  return guard ? target.defense * (1 + guard.potency / 100) : target.defense;
+}
+
 export function applyDamage(state: RuntimeState, input: ApplyDamageInput): ApplyDamageResult {
   if (input.target.aliveState === "removed") throw new Error(`Cannot damage removed entity ${input.target.id}`);
   if (!Number.isInteger(input.target.hp.current) || input.target.hp.current < 0 || input.target.hp.current > input.target.hp.max) {
@@ -51,7 +56,7 @@ export function applyDamage(state: RuntimeState, input: ApplyDamageInput): Apply
 
   const calculation = calculateDamage({
     rawDamage: input.rawDamage,
-    defense: input.target.defense,
+    defense: effectiveDefense(input.target, input.serverTick),
     multiplier: input.multiplier,
   });
   const hpBefore = input.target.hp.current;

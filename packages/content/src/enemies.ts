@@ -38,9 +38,10 @@ export const ENEMY_TEMPLATES: readonly EnemyTemplate[] = [
   },
 ];
 
-/** Only handlers implemented in this increment are included in the active runtime fixture. */
-export const ACTIVE_RUNTIME_ENEMY_TEMPLATE_KEYS = ["quarantine_chaser", "slag_shooter"] as const;
+/** Only enemies whose declared active handlers are implemented are included in the runtime roster. */
+export const ACTIVE_RUNTIME_ENEMY_TEMPLATE_KEYS = ["quarantine_chaser", "slag_shooter", "extinguisher"] as const;
 export const ACTIVE_RUNTIME_INTENT_KEYS_BY_ENEMY = {
   quarantine_chaser: ["move_close", "melee_strike", "hold_position"],
   slag_shooter: ["ranged_shot", "hold_position"],
+  extinguisher: ["bind", "ally_guard", "move_close"],
 } as const;

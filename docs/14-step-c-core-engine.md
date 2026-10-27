@@ -572,9 +572,9 @@ intent.cancelled(reason)
 |---|---|---|
 | `quarantine_chaser` | `move_close`, `melee_strike`, `hold_position` | `move_close`, `melee_strike`, `hold_position` |
 | `slag_shooter` | `ranged_shot`, `reposition` (draft/deferred), `hold_position` | `ranged_shot`, `hold_position` |
-| `extinguisher` | `bind`, `ally_guard`, `move_close` | production content remains catalog-only; `bind` is exercised only by TEST_ONLY / NON_BALANCE fixtures |
+| `extinguisher` | `bind`, `ally_guard`, `move_close` | `bind` and `ally_guard` active; `reposition` remains inactive |
 
-`bind` is now an active runtime handler only for the bounded `immobilized` effect specified in [DR-C-008](./22-step-c-status-immobilized.md). Production `extinguisher` catalog behavior remains unchanged. `reposition` and `ally_guard` remain non-active handlers. Enemy-specific timers/effects and RNG/version details are defined in DR-C-002.
+`bind` is an active runtime handler for the bounded `immobilized` effect specified in [DR-C-008](./22-step-c-status-immobilized.md). The existing production `extinguisher` template is active now that both required status handlers are implemented; no catalog values were added or changed. `ally_guard` behavior is specified in [DR-C-009](./23-step-c-ally-guard.md). `reposition` remains deferred and inactive. Enemy-specific timers/effects and RNG/version details are defined in DR-C-002.
 
 ---
 
@@ -665,7 +665,7 @@ Engine хранит `nextRegenAtTick`, а projection строит circular timer
 ```ts
 export type StatusLayer = {
   id: string;
-  templateKey: "immobilized"; // current implemented status key; see DR-C-008
+  templateKey: "immobilized" | "ally_guard"; // current implemented status keys; see DR-C-008/009
   sourceEntityId: EntityId | null;
   potency: number;
   stacks: number;
@@ -675,19 +675,19 @@ export type StatusLayer = {
 };
 ```
 
-Runtime layer shape and creation/clone invariants are specified in [DR-C-008](./22-step-c-status-immobilized.md). The current `StatusTemplateKey` is the closed union `"immobilized"`; the shared `StatusRefreshPolicy` type lists future policy values, but only `"refresh_duration"` is enabled for this status.
+Runtime layer shape and creation/clone invariants are specified in [DR-C-008](./22-step-c-status-immobilized.md). The current `StatusTemplateKey` is the closed union `"immobilized" | "ally_guard"`; the shared `StatusRefreshPolicy` type lists future policy values, but only `"refresh_duration"` is enabled for these statuses.
 
-`immobilized` lasts 300 ticks. Refresh resets its deadline to the latest successful application tick + 300; it does not add duration, stacks or potency. The existing layer ID and original source are preserved. Status cleanup runs after player/enemy/environment/resource/card phases; the status is effective through gameplay resolution on its due tick and is then removed with `status.expired`. This exact boundary is covered by integration tests.
+`immobilized` and `ally_guard` last 300 ticks. Refresh preserves layer ID, original source, potency and stacks, then sets `appliedAtTick` to the latest successful application tick and expiry to that tick + 300; it does not add duration or potency. Status cleanup runs after player/enemy/environment/resource/card phases; the status is effective through gameplay resolution on its due tick and is then removed with `status.expired`. This exact boundary is covered by integration tests.
 
 Implemented in this Step C increment:
 
 - `immobilized`: blocks `player.move`; 15 seconds / 300 ticks; only test-backed `bind` applies it.
+- `ally_guard`: 20% defense bonus for 15 seconds / 300 ticks; the existing Extinguisher intent applies it to an eligible enemy ally. Damage uses `effectiveDefense = baseDefense * 1.20` without intermediate rounding; base entity defense is unchanged. See [DR-C-009](./23-step-c-ally-guard.md).
 
 Future, not implemented by Increment 8:
 
 - `unconscious`: запрещает любое действие на configured duration;
 - `last_chance`: +20% all stats while surrounded, if enabled by ruleset;
-- `ally_guard`: +20% defense;
 - `stamina_overload`: -30% stamina regeneration for 15s after configured powerful card;
 - `contact_immunity`: скрытый control timer after retreat.
 
@@ -712,11 +712,11 @@ card.discarded
 intent.started
 intent.target_selected       // if target policy requires explicit target
 intent.resolved
-hp.changed v2 / status.applied / status.refreshed  // effects after resolution; bind status event immediately follows intent.resolved
+hp.changed v2 / status.applied / status.refreshed  // effects after resolution; status events immediately follow their bind/ally_guard resolution
 intent.cancelled(owner_removed) → scene.entity_removed  // if a zero-HP enemy owns an active intent
 ```
 
-`status.expired` is emitted in the post-gameplay status cleanup phase. Bind event ordering, fixed timer validation and replay requirements are defined in [DR-C-008](./22-step-c-status-immobilized.md).
+`status.expired` is emitted in the post-gameplay status cleanup phase. Replay re-evaluates the existing Ally Guard target policy/eligibility and rejects tampered target selection. Bind event ordering and status-layer rules are defined in [DR-C-008](./22-step-c-status-immobilized.md); Ally Guard effective-defense and replay requirements are defined in [DR-C-009](./23-step-c-ally-guard.md).
 
 Event envelope получает:
 

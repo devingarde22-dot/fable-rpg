@@ -43,16 +43,17 @@ describe("validated content catalog", () => {
     expect(validateEnemy({ ...template, basicAttack: { handler: "ranged_shot", rawDamage: 140 } })).toBe(false);
   });
 
-  it("registers all three enemies while keeping extinguisher out of the active runtime fixture", () => {
+  it("registers all three enemies and activates the implemented extinguisher handlers", () => {
     expect(ENEMY_TEMPLATES.map((template) => template.key)).toEqual([
       "quarantine_chaser",
       "slag_shooter",
       "extinguisher",
     ]);
-    expect(ACTIVE_RUNTIME_ENEMY_TEMPLATE_KEYS).toEqual(["quarantine_chaser", "slag_shooter"]);
+    expect(ACTIVE_RUNTIME_ENEMY_TEMPLATE_KEYS).toEqual(["quarantine_chaser", "slag_shooter", "extinguisher"]);
     expect(ACTIVE_RUNTIME_INTENT_KEYS_BY_ENEMY.quarantine_chaser).toEqual(["move_close", "melee_strike", "hold_position"]);
     expect(ACTIVE_RUNTIME_INTENT_KEYS_BY_ENEMY.slag_shooter).toEqual(["ranged_shot", "hold_position"]);
-    expect(ACTIVE_RUNTIME_ENEMY_TEMPLATE_KEYS).not.toContain("extinguisher");
+    expect(ACTIVE_RUNTIME_INTENT_KEYS_BY_ENEMY.extinguisher).toEqual(["bind", "ally_guard", "move_close"]);
+    expect(ACTIVE_RUNTIME_INTENT_KEYS_BY_ENEMY.extinguisher).not.toContain("reposition");
   });
 
   it("only references registered templates and does not use deferred reposition as a fallback", () => {

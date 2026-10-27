@@ -1,4 +1,6 @@
 import { createSimulationEngine } from "../src/engine/SimulationEngine.js";
+import { ENEMY_TEMPLATES as CONTENT_ENEMY_TEMPLATES } from "../../content/src/enemies.js";
+import { INTENT_TEMPLATES as CONTENT_INTENT_TEMPLATES } from "../../content/src/intentTemplates.js";
 import type {
   EnemyTemplate,
   EntityRuntime,
@@ -132,6 +134,10 @@ export const testIntentTemplates: readonly IntentTemplate[] = [
     fallbackKeys: ["hold_position"],
     visibility: "public",
   },
+  ...CONTENT_INTENT_TEMPLATES.filter((template) => template.key === "bind" || template.key === "ally_guard"),
+  ...CONTENT_INTENT_TEMPLATES
+    .filter((template) => template.key === "ally_guard")
+    .map((template) => ({ ...template, key: "test_ally_guard_refresh" })),
 ];
 
 export const testEnemyTemplates: readonly EnemyTemplate[] = [
@@ -182,6 +188,19 @@ export const testEnemyTemplates: readonly EnemyTemplate[] = [
     role: "TEST_ONLY / NON_BALANCE status refresh fixture",
     intentKeys: ["test_bind_refresh", "hold_position"],
     initialIntentKey: "test_bind_refresh",
+  },
+  ...CONTENT_ENEMY_TEMPLATES.filter((template) => template.key === "extinguisher"),
+  {
+    kind: "enemy_template",
+    key: "test_refreshing_guard_enemy",
+    version: 1,
+    status: "confirmed",
+    hp: 900,
+    defense: 20,
+    basicAttack: { handler: "melee_strike", rawDamage: 140 },
+    role: "TEST_ONLY / NON_BALANCE Ally Guard refresh fixture",
+    intentKeys: ["test_ally_guard_refresh"],
+    initialIntentKey: "test_ally_guard_refresh",
   },
 ];
 

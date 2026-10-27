@@ -19,7 +19,7 @@ export type ResourceValue = { current: number; max: number };
 export type StaminaRuntime = ResourceValue & { nextRegenAtTick: number | null };
 export type HeroMode = "movement" | "melee" | "ranged";
 export type ModeChangedValue = "out_of_combat" | HeroMode;
-export type StatusTemplateKey = "immobilized";
+export type StatusTemplateKey = "immobilized" | "ally_guard";
 export type StatusRefreshPolicy = "refresh_duration" | "add_duration" | "diminishing_potency" | "replace";
 export type StatusLayer = {
   id: string;
@@ -33,6 +33,9 @@ export type StatusLayer = {
 };
 export const IMMOBILIZED_DURATION_MS = 15_000 as const;
 export const IMMOBILIZED_DURATION_TICKS = IMMOBILIZED_DURATION_MS / TICK_DURATION_MS;
+export const ALLY_GUARD_DURATION_MS = 15_000 as const;
+export const ALLY_GUARD_DURATION_TICKS = ALLY_GUARD_DURATION_MS / TICK_DURATION_MS;
+export const ALLY_GUARD_DEFENSE_BONUS_PERCENT = 20 as const;
 export type CardTemplate = {
   key: string;
   version: number;
@@ -343,7 +346,7 @@ export type DomainEvent =
         statusKey: StatusTemplateKey;
         layerId: string;
         timer: { startedAtTick: number; resolvesAtTick: number; durationMs: number; remainingMs: number; paused: false };
-        publicPotency?: number;
+        publicPotency: number;
       };
     })
   | (EventBase & {
@@ -353,7 +356,7 @@ export type DomainEvent =
         statusKey: StatusTemplateKey;
         layerId: string;
         timer: { startedAtTick: number; resolvesAtTick: number; durationMs: number; remainingMs: number; paused: false };
-        publicPotency?: number;
+        publicPotency: number;
       };
     })
   | (EventBase & {
