@@ -229,6 +229,131 @@
           }
         },
         "eventType": {
+          "const": "scene.entity_removed"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "entityId",
+            "reason",
+            "cell"
+          ],
+          "properties": {
+            "entityId": {
+              "type": "string"
+            },
+            "reason": {
+              "const": "hp_depleted"
+            },
+            "cell": {
+              "$ref": "#/$defs/cell"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocolVersion",
+        "schemaVersion",
+        "eventId",
+        "eventVersion",
+        "campaignId",
+        "sessionId",
+        "sceneId",
+        "sceneRevision",
+        "serverTick",
+        "serverSequence",
+        "eventGroupId",
+        "eventIndex",
+        "causedByRequestId",
+        "actorId",
+        "replay",
+        "eventType",
+        "payload"
+      ],
+      "properties": {
+        "protocolVersion": {
+          "const": "fable.protocol.v1"
+        },
+        "schemaVersion": {
+          "const": 1
+        },
+        "eventId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "eventVersion": {
+          "const": 1
+        },
+        "campaignId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sessionId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sceneId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sceneRevision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "serverTick": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "serverSequence": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "eventGroupId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "eventIndex": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "causedByRequestId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "actorId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "replay": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "required": [
+            "seedRef"
+          ],
+          "properties": {
+            "seedRef": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "eventType": {
           "const": "card.played"
         },
         "payload": {
@@ -538,6 +663,221 @@
               ]
             },
             "publicAmount": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocolVersion",
+        "schemaVersion",
+        "eventId",
+        "eventVersion",
+        "campaignId",
+        "sessionId",
+        "sceneId",
+        "sceneRevision",
+        "serverTick",
+        "serverSequence",
+        "eventGroupId",
+        "eventIndex",
+        "causedByRequestId",
+        "actorId",
+        "replay",
+        "eventType",
+        "payload"
+      ],
+      "properties": {
+        "protocolVersion": {
+          "const": "fable.protocol.v1"
+        },
+        "schemaVersion": {
+          "const": 1
+        },
+        "eventId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "eventVersion": {
+          "const": 2
+        },
+        "campaignId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sessionId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sceneId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sceneRevision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "serverTick": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "serverSequence": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "eventGroupId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "eventIndex": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "causedByRequestId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "actorId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "replay": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "required": [
+            "seedRef"
+          ],
+          "properties": {
+            "seedRef": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "eventType": {
+          "const": "hp.changed"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "entityId",
+            "current",
+            "maximum",
+            "kind",
+            "source",
+            "formulaVersion",
+            "rawDamage",
+            "defense",
+            "multiplier",
+            "finalDamage"
+          ],
+          "properties": {
+            "entityId": {
+              "type": "string"
+            },
+            "current": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "maximum": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "kind": {
+              "const": "damage"
+            },
+            "publicAmount": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "source": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "kind",
+                    "enemyId",
+                    "activeIntentId",
+                    "handler"
+                  ],
+                  "properties": {
+                    "kind": {
+                      "const": "enemy_intent"
+                    },
+                    "enemyId": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "activeIntentId": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "handler": {
+                      "enum": [
+                        "melee_strike",
+                        "ranged_shot"
+                      ]
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "kind",
+                    "enemyId",
+                    "attackOrder"
+                  ],
+                  "properties": {
+                    "kind": {
+                      "const": "retreat_attack"
+                    },
+                    "enemyId": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "attackOrder": {
+                      "type": "integer",
+                      "minimum": 1
+                    }
+                  }
+                }
+              ]
+            },
+            "formulaVersion": {
+              "const": "fable.damage.v1"
+            },
+            "rawDamage": {
+              "type": "number",
+              "minimum": 0
+            },
+            "defense": {
+              "type": "number",
+              "minimum": 0
+            },
+            "multiplier": {
+              "type": "number",
+              "minimum": 0
+            },
+            "finalDamage": {
               "type": "integer",
               "minimum": 0
             }
@@ -1364,7 +1704,8 @@
                 "los_blocked",
                 "state_locked",
                 "no_longer_possible",
-                "no_valid_fallback"
+                "no_valid_fallback",
+                "owner_removed"
               ]
             }
           }

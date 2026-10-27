@@ -23,7 +23,8 @@
 17. [Step C — Core Engine & State Machine](./14-step-c-core-engine.md) — серверные сущности, tick loop, scheduler, режимы, intents, replay и acceptance tests.
 18. [DR-C-002 — Enemy Registry + Deterministic Intent Simulation](./15-step-c-intent-simulation.md) — подтверждённая схема intent, активный enemy roster, timers, RNG, fallback и golden replay requirements.
 19. [DR-C-003 — Deterministic Retreat Resolution](./16-step-c-retreat-resolution.md) — retreat attacks, mode/contact transitions and replay.
-20. [Журнал разработки и AI handoff](./17-development-log-and-handoff.md) — repository routing, выполненные инкременты, DR, тесты и правила продолжения.
+20. [DR-C-004 — HP & Damage Resolution](./18-step-c-hp-damage-resolution.md) — единый урон, HP=0, removal events, версии hp.changed и replay.
+21. [Журнал разработки и AI handoff](./17-development-log-and-handoff.md) — repository routing, выполненные инкременты, DR, тесты и правила продолжения.
 
 ## Правило использования
 
@@ -66,7 +67,7 @@ docs/03-system-contracts.md
 docs/05-vertical-slice.md
 ```
 
-Step C increments 1–3 реализованы и приняты; PR [#1](https://github.com/devingarde22-dot/fable-rpg/pull/1) слит в `main`. Следующую игровую задачу не выводить из этого исторического context pack: сначала дождаться scope от пользователя, подготовить PLAN и получить подтверждение. См. [журнал разработки и AI handoff](./17-development-log-and-handoff.md).
+Step C increments 1–3 реализованы и приняты; PR [#1](https://github.com/devingarde22-dot/fable-rpg/pull/1) слит в `main`. Increment 4 (DR-C-004) реализован и опубликован в открытом PR [#2](https://github.com/devingarde22-dot/fable-rpg/pull/2), который ожидает review/merge. Не начинать следующий increment до принятия PR и отдельного запроса пользователя. См. [журнал разработки и AI handoff](./17-development-log-and-handoff.md).
 
 ## Machine-readable contracts
 

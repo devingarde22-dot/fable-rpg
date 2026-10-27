@@ -1,5 +1,6 @@
 import { DeterministicRng } from "../rng/DeterministicRng.js";
 import { cellIndex } from "../grid/Grid.js";
+import { applyDamage } from "../combat/damage.js";
 import type {
   ActiveIntent,
   EnemyRuntime,
@@ -42,7 +43,7 @@ export function resolveDueIntents(state: RuntimeState, serverTick: number): Pend
     if (!current) continue;
     const enemy = state.entities.get(current.ownerEntityId);
     const template = state.intentTemplates.get(current.templateKey);
-    if (!enemy || enemy.kind !== "enemy" || !template) continue;
+    if (!enemy || enemy.kind !== "enemy" || enemy.aliveState !== "active" || enemy.hp.current === 0 || !template) continue;
     current.state = "resolving";
     const validation = isIntentStillValid(state, enemy, current, template);
     if (!validation.ok) {
@@ -62,7 +63,7 @@ export function resolveDueIntents(state: RuntimeState, serverTick: number): Pend
       replay: current.seedRef ? { seedRef: current.seedRef } : null,
     });
     pending.push({ event: resolved });
-    applyEffect(state, enemy, target, template, pending, serverTick);
+    applyEffect(state, enemy, target, current.activeIntentId, template, pending, serverTick);
     clearActiveIntent(state, enemy, current);
     pending.push(...startNextIntent(state, enemy, target?.id ?? current.targetEntityId, serverTick));
   }
@@ -76,7 +77,7 @@ export function startIntent(
   serverTick: number,
   preferredTargetId: string | null,
 ): PendingJournalEvent[] {
-  if (!ACTIVE_INTENT_HANDLERS.has(template.effect.handler)) return [];
+  if (enemy.aliveState !== "active" || enemy.hp.current === 0 || !ACTIVE_INTENT_HANDLERS.has(template.effect.handler)) return [];
   const activeIntentId = makeActiveIntentId(state, enemy.id, template.key, serverTick);
   const usesTargetSelection = template.targetRules.policy !== "none" || template.targetRules.fallbackPolicies.length > 0;
   const forkInput: RngForkInput = {
@@ -210,6 +211,7 @@ function startNextIntent(
   preferredTargetId: string | null,
   serverTick: number,
 ): PendingJournalEvent[] {
+  if (enemy.aliveState !== "active" || enemy.hp.current === 0) return [];
   const enemyTemplate = state.enemyTemplates.get(enemy.templateKey);
   if (!enemyTemplate) return [];
   for (const intentKey of enemyTemplate.intentKeys) {
@@ -226,6 +228,7 @@ function applyEffect(
   state: RuntimeState,
   enemy: EnemyRuntime,
   target: EntityRuntime | null,
+  activeIntentId: string,
   template: IntentTemplate,
   pending: PendingJournalEvent[],
   serverTick: number,
@@ -261,16 +264,15 @@ function applyEffect(
     case "ranged_shot": {
       if (!target) return;
       const rawDamage = template.effect.parameters.rawDamage;
-      const finalDamage = Math.ceil(rawDamage * (100 / (100 + target.defense)));
-      target.hp.current = Math.max(0, target.hp.current - finalDamage);
-      if (target.kind === "hero" && target.hp.current === 0) target.aliveState = "critically_injured";
-      pending.push({
-        event: makeEvent(state, serverTick, enemy.id, {
-          eventType: "hp.changed",
-          payload: { entityId: target.id, current: target.hp.current, maximum: target.hp.max, kind: "damage", publicAmount: finalDamage },
-          replay: null,
-        }),
+      const result = applyDamage(state, {
+        target,
+        source: { kind: "enemy_intent", enemyId: enemy.id, activeIntentId, handler: template.effect.handler },
+        rawDamage,
+        multiplier: 1,
+        serverTick,
+        causedByRequestId: null,
       });
+      if (result.event) pending.push(result.event);
       return;
     }
     case "hold_position":

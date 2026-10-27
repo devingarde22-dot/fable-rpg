@@ -45,12 +45,21 @@ describe("deterministic enemy intent simulation", () => {
     const result = engine.advanceTicks(120).at(-1);
     const damageEvent = result?.events.find((event) => event.eventType === "hp.changed");
     expect(result?.events.map((event) => event.eventType)).toEqual(["intent.resolved", "hp.changed", "intent.started", "intent.target_selected"]);
-    expect(damageEvent?.eventType === "hp.changed" ? damageEvent.payload : undefined).toMatchObject({
+    if (!damageEvent || damageEvent.eventType !== "hp.changed" || damageEvent.eventVersion !== 2) {
+      throw new Error("expected hp.changed v2 event");
+    }
+    expect(damageEvent.payload).toMatchObject({
       entityId: "hero-1",
       current: 883,
       maximum: 1_000,
       kind: "damage",
       publicAmount: 117,
+      source: { kind: "enemy_intent", enemyId: "enemy-1", handler: "melee_strike" },
+      formulaVersion: "fable.damage.v1",
+      rawDamage: 140,
+      defense: 20,
+      multiplier: 1,
+      finalDamage: 117,
     });
   });
 
@@ -84,7 +93,16 @@ describe("deterministic enemy intent simulation", () => {
     const resolved = engine.advanceOneTick();
     const damage = resolved.events.find((event) => event.eventType === "hp.changed");
     expect(resolved.serverTick).toBe(200);
-    expect(damage?.eventType === "hp.changed" ? damage.payload.current : undefined).toBe(908);
+    if (!damage || damage.eventType !== "hp.changed" || damage.eventVersion !== 2) throw new Error("expected ranged hp.changed v2 event");
+    expect(damage.payload).toMatchObject({
+      current: 908,
+      source: { kind: "enemy_intent", enemyId: "shooter-1", handler: "ranged_shot" },
+      formulaVersion: "fable.damage.v1",
+      rawDamage: 110,
+      defense: 20,
+      multiplier: 1,
+      finalDamage: 92,
+    });
     expect(resolved.events.map((event) => event.eventType)).toEqual([
       "intent.resolved",
       "hp.changed",

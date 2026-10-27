@@ -4,6 +4,7 @@ export const TICK_RATE = 20 as const;
 export const TICK_DURATION_MS = 50 as const;
 export const INPUT_WINDOW_TICKS = 5 as const;
 export const RNG_ALGORITHM_VERSION = "fable.rng.v1" as const;
+export const DAMAGE_FORMULA_VERSION = "fable.damage.v1" as const;
 
 export type EntityId = string;
 export type Cell = { x: number; y: number };
@@ -132,6 +133,7 @@ export type IntentCancelReason =
   | "los_blocked"
   | "state_locked"
   | "no_longer_possible"
+  | "owner_removed"
   | "no_valid_fallback";
 
 export type RngPurpose = "target_selection" | "fallback_selection" | "deck_shuffle" | "retreat_attack_order";
@@ -151,6 +153,10 @@ export type RngAuditRecord = {
   rngStateBefore: RngState;
   rngStateAfter: RngState;
 };
+
+export type DamageSource =
+  | { kind: "enemy_intent"; enemyId: EntityId; activeIntentId: string; handler: "melee_strike" | "ranged_shot" }
+  | { kind: "retreat_attack"; enemyId: EntityId; attackOrder: number };
 
 export type InternalPlayerMoveCommand = {
   requestId: string;
@@ -224,6 +230,8 @@ type EventBase = {
   replay: { seedRef: string } | null;
 };
 
+type EventBaseV2 = Omit<EventBase, "eventVersion"> & { eventVersion: 2 };
+
 export type DomainEvent =
   | (EventBase & { eventType: "scene.entity_moved"; payload: { entityId: EntityId; from: Cell; to: Cell } })
   | (EventBase & {
@@ -264,6 +272,26 @@ export type DomainEvent =
   | (EventBase & {
       eventType: "hp.changed";
       payload: { entityId: EntityId; current: number; maximum: number; kind: "damage" | "heal" | "direct_set" | "rollback"; publicAmount?: number };
+    })
+  | (EventBaseV2 & {
+      eventType: "hp.changed";
+      payload: {
+        entityId: EntityId;
+        current: number;
+        maximum: number;
+        kind: "damage";
+        publicAmount?: number;
+        source: DamageSource;
+        formulaVersion: typeof DAMAGE_FORMULA_VERSION;
+        rawDamage: number;
+        defense: number;
+        multiplier: number;
+        finalDamage: number;
+      };
+    })
+  | (EventBase & {
+      eventType: "scene.entity_removed";
+      payload: { entityId: EntityId; reason: "hp_depleted"; cell: Cell };
     });
 
 export type JournalRecord =

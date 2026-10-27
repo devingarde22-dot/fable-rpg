@@ -46,7 +46,7 @@ export function isEligibleTarget(
   template: IntentTemplate,
 ): boolean {
   const filters = template.targetRules.filters;
-  if (!filters.factions.includes(candidate.faction) || !filters.aliveStates.includes(candidate.aliveState)) return false;
+  if (!filters.factions.includes(candidate.faction) || !filters.aliveStates.includes(candidate.aliveState) || candidate.hp.current === 0) return false;
   if (filters.requiredStatuses.some((status) => !candidate.statuses.includes(status))) return false;
   if (filters.excludedStatuses.some((status) => candidate.statuses.includes(status))) return false;
   if (candidate.id === enemy.id) return false;
@@ -100,5 +100,6 @@ export function targetCellIndex(target: EntityRuntime): number {
 
 export function activeIntentTarget(state: RuntimeState, intent: ActiveIntent | undefined): EntityRuntime | null {
   if (!intent?.targetEntityId) return null;
-  return state.entities.get(intent.targetEntityId) ?? null;
+  const target = state.entities.get(intent.targetEntityId);
+  return target && target.aliveState === "active" && target.hp.current > 0 ? target : null;
 }

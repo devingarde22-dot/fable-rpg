@@ -7,7 +7,7 @@ export function contactingEnemies(state: RuntimeState, hero: HeroRuntime): Entit
   return state.scene.enemyEntityIds
     .filter((enemyId) => {
       const enemy = state.entities.get(enemyId);
-      if (!enemy || enemy.kind !== "enemy" || enemy.aliveState !== "active") return false;
+      if (!enemy || enemy.kind !== "enemy" || enemy.aliveState !== "active" || enemy.hp.current === 0) return false;
       const distance = Math.max(
         Math.abs(hero.position.x - enemy.position.x),
         Math.abs(hero.position.y - enemy.position.y),

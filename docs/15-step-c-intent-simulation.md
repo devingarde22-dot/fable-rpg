@@ -69,11 +69,13 @@ The implementation must not use `Math.random()` or wall-clock time in gameplay l
 | Handler | Behavior |
 |---|---|
 | `move_close` | on due tick, move the enemy by up to two deterministic greedy one-cell steps toward the selected target; stop at blocked or contact cells |
-| `melee_strike` | revalidate target contact and apply the template's `rawDamage` using the confirmed damage formula |
-| `ranged_shot` | revalidate range and line of sight, then apply the template's `rawDamage` using the confirmed damage formula |
+| `melee_strike` | revalidate target contact and pass the template's `rawDamage` to the shared `fable.damage.v1` pipeline with multiplier `1` |
+| `ranged_shot` | revalidate range and line of sight, then pass the template's `rawDamage` to the shared `fable.damage.v1` pipeline with multiplier `1` |
 | `hold_position` | no scene effect; complete the timer and reevaluate the enemy's ordered runtime intent list |
 
 This increment does not activate `reposition`, `bind`, or `ally_guard` handlers. It does not implement status application, cards, stamina, environment effects, or the full combat system.
+
+Damage events use `hp.changed` v2; historical v1 events remain replayable. A hero at 0 HP is not a valid target. An enemy at 0 HP cannot resolve or start intents and is removed during cleanup; an active intent is cancelled with `owner_removed` before `scene.entity_removed`. See [DR-C-004](./18-step-c-hp-damage-resolution.md).
 
 ## Impossible intent and fallback
 

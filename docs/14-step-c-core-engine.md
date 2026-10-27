@@ -652,7 +652,7 @@ criticalFinal = ceil(modeFinal * 1.5)
 
 При `hp.current` равном нулю engine переводит hero в `critically_injured`, а не удаляет его из scene. В первом slice critically injured герой не может действовать. Полная defeat/party outcome решается OutcomeSystem, не HP handler.
 
-Enemy с HP 0 получает `removed` после batch cleanup; его occupied cell освобождается только в cleanup phase, не в середине player action ordering.
+Enemy с HP 0 немедленно исключается из целей и разрешения intents, но получает `removed` только после batch cleanup; его occupied cell освобождается только в cleanup phase, не в середине player action ordering. Если enemy имеет active intent, cleanup emits `intent.cancelled(owner_removed)` перед `scene.entity_removed(hp_depleted)`. Контракт и формула описаны в [DR-C-004](./18-step-c-hp-damage-resolution.md).
 
 ### Stamina timer
 
@@ -714,7 +714,8 @@ card.discarded
 intent.started
 intent.target_selected       // if target policy requires explicit target
 intent.resolved
-hp.changed / status.applied  // effects after intent resolution
+hp.changed v2 / status.applied  // effects after intent resolution; v1 remains replayable
+intent.cancelled(owner_removed) → scene.entity_removed  // if a zero-HP enemy owns an active intent
 ```
 
 Event envelope получает:
@@ -760,7 +761,7 @@ return S
 
 `stateHash` строится из canonical JSON с отсортированными entity IDs, card containers, statuses и intents. Нельзя использовать JSON.stringify для Map без canonicalization.
 
-Replay не вызывает random functions. Все random outcomes уже содержатся в event payload или восстанавливаются через recorded seed и versioned RNG algorithm. Retreat replay восстанавливает mode, HP, contact immunity, event group and hash из событий либо детерминированного tick. `hero.canEnterRangedMode` — authoritative state; если равно `true`, участвует в runtime state, snapshot, state hash и replay.
+Replay не вызывает random functions. Все random outcomes уже содержатся в event payload или восстанавливаются через recorded seed и versioned RNG algorithm. Replay принимает historical `hp.changed` v1 и валидирует формулу и итоговый HP для `hp.changed` v2 (`fable.damage.v1`). `scene.entity_removed` восстанавливает `removed` state и освобождение клетки. Retreat replay восстанавливает mode, HP, contact immunity, event group and hash из событий либо детерминированного tick. `hero.canEnterRangedMode` — authoritative state; если равно `true`, участвует в runtime state, snapshot, state hash и replay.
 
 ---
 
@@ -798,6 +799,7 @@ Projection adapter принимает internal state и role context, затем
 packages/rules/src/
 ├── engine/SimulationEngine.ts
 ├── engine/types.ts
+├── engine/cleanup.ts
 ├── clock/TickClock.ts
 ├── scheduler/InputWindow.ts
 ├── scheduler/orderCommands.ts
@@ -835,6 +837,7 @@ Pure formulas (`damage.ts`, `targeting.ts`, `pathing.ts`) должны имет�
 - diagonal contact;
 - range and LoS;
 - damage formula and melee magic multiplier;
+- staged `fable.damage.v1` rounding, HP clamp and damage-source metadata;
 - stamina cost 0/positive;
 - status refresh and expiry;
 - target filtering and seeded tie-break;
@@ -857,7 +860,8 @@ Pure formulas (`damage.ts`, `targeting.ts`, `pathing.ts`) должны имет�
 11. Expired status disappears during cleanup.
 12. Event replay equals live final state and state hash.
 13. `critically_injured` hero remains in scene and cannot act.
-14. Ended scene rejects player commands.
+14. A zero-HP enemy is immediately excluded, then cleanup cancels its active intent and emits `scene.entity_removed` before freeing the cell; v2 event replay preserves the same state hash.
+15. Ended scene rejects player commands.
 
 ### Golden scenario
 

@@ -150,9 +150,12 @@ Baseline damage formula:
 
 ```text
 mitigation = 100 / (100 + targetDefense)
-finalDamage = ceil(rawDamage × mitigation × hitMultiplier)
+mitigatedDamage = ceil(rawDamage × mitigation)
+finalDamage = ceil(mitigatedDamage × multiplier)
 criticalDamage = ceil(finalDamage × 1.5)
 ```
+
+Текущий HP/damage pipeline использует `fable.damage.v1`; карты и критические удары остаются за пределами Step C Increment 4. Damage events и cleanup следуют [DR-C-004](./18-step-c-hp-damage-resolution.md).
 
 Целевые значения для 4 игроков:
 
@@ -172,6 +175,7 @@ criticalDamage = ceil(finalDamage × 1.5)
 
 ### Сервер и симуляция
 - [ ] retreat из melee — одна event group/revision; eligible attacks sorted by `enemyId`, coefficient `1/attackOrder`, HP floors at zero, and no `hp.changed` when unchanged; ranged-to-movement contact without immunity immediately enters melee; replay preserves mode/HP/immunity/group/hash per DR-C-003;
+- [ ] hero at HP 0 is critically injured and cannot act; enemy at HP 0 is excluded immediately and removed/frees its cell in cleanup with replay parity per DR-C-004;
 
 - [ ] headless-сцена проходит без браузера;
 - [ ] fixed seed воспроизводит одинаковые результаты;

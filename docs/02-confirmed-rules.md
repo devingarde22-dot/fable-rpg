@@ -138,11 +138,12 @@ Baseline:
 
 ```text
 mitigation = 100 / (100 + targetDefense)
-finalDamage = ceil(rawDamage * mitigation * hitMultiplier)
+mitigatedDamage = ceil(rawDamage * mitigation)
+finalDamage = ceil(mitigatedDamage * multiplier)
 criticalDamage = ceil(finalDamage * 1.5)
 ```
 
-Отдельные физический и магический типы защиты не используются в baseline; карта может иметь свойства урона, но базовая защита едина.
+Для текущего HP/damage pipeline formula version — `fable.damage.v1`; multiplier не округляется до умножения. Отдельные физический и магический типы защиты не используются в baseline; базовая защита едина. Критические удары и карты не входят в Step C Increment 4.
 
 ### COMBAT-005 — Промах
 
@@ -165,6 +166,10 @@ Baseline: 3 стамины в начале боя, максимум зависи
 ### RESOURCE-003 — Кольцевой таймер
 
 Стамина отображается числом в круге. Вокруг круга идёт линия, которая постепенно заполняется до следующего восстановления.
+
+### RESOURCE-004 — HP = 0
+
+У героя с 0 HP устанавливается `critically_injured`; герой остаётся в сцене и не может выполнять gameplay actions. Враг с 0 HP сразу исключается из целей и intent, но становится `removed` и освобождает клетку только в cleanup. HP не опускается ниже 0. Точные damage events и replay определены в [DR-C-004](./18-step-c-hp-damage-resolution.md).
 
 ### STATUS-001 — Слой
 
