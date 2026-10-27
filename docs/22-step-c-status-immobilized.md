@@ -2,7 +2,7 @@
 
 **Decision:** DR-C-008 — confirmed implementation scope.
 **Implementation branch:** `step-c-increment-8-immobilized`, based on Increment 7 branch `step-c-increment-7-deck-cycle`.
-**Status:** implemented and verified locally on the feature branch; publication details are tracked in the development handoff.
+**Status:** implemented and verified; commit `24ca60e` is published in [PR #6](https://github.com/devingarde22-dot/fable-rpg/pull/6) to `main`.
 **Scope:** one effect only — enemy `bind` applies `immobilized` to its valid target. Only `TEST_ONLY / NON_BALANCE` intent/enemy fixtures are added.
 
 ## 1. Decision

@@ -1,7 +1,7 @@
 # Fable — журнал разработки и handoff для AI
 
-**Обновлено:** 2026-10-27 (Increment 8 implemented and verified locally)
-**Статус:** Step C, Increment 1–4 приняты и слиты в `fable-rpg/main`; Increment 5 (DR-C-005) реализован в feature branch `step-c-increment-5-stamina`, commit `d237616`, и открыт в PR [#3](https://github.com/devingarde22-dot/fable-rpg/pull/3). Increment 6 (DR-C-006) закоммичен как `946b557` в ветке `step-c-increment-6-card-play` и открыт в stacked PR [#4](https://github.com/devingarde22-dot/fable-rpg/pull/4) против ветки Increment 5. Increment 7 (DR-C-007) реализован в commit `f175a1b` на `step-c-increment-7-deck-cycle` и опубликован в PR [#5](https://github.com/devingarde22-dot/fable-rpg/pull/5). Increment 8 (DR-C-008) реализован и проверен локально в ветке `step-c-increment-8-immobilized`; commit и PR для Increment 8 не создавались. PR [#1](https://github.com/devingarde22-dot/fable-rpg/pull/1) содержал increments 1–3; PR [#2](https://github.com/devingarde22-dot/fable-rpg/pull/2) с Increment 4 слит 2026-10-27 (merge commit `9e0d0f8`).
+**Обновлено:** 2026-10-27 (Increment 8 committed and PR #6 opened)
+**Статус:** Step C, Increment 1–4 приняты и слиты в `fable-rpg/main`; Increment 5 (DR-C-005) реализован в feature branch `step-c-increment-5-stamina`, commit `d237616`, и открыт в PR [#3](https://github.com/devingarde22-dot/fable-rpg/pull/3). Increment 6 (DR-C-006) закоммичен как `946b557` в ветке `step-c-increment-6-card-play` и открыт в stacked PR [#4](https://github.com/devingarde22-dot/fable-rpg/pull/4) против ветки Increment 5. Increment 7 (DR-C-007) реализован в commit `f175a1b` на `step-c-increment-7-deck-cycle` и опубликован в PR [#5](https://github.com/devingarde22-dot/fable-rpg/pull/5). Increment 8 (DR-C-008) закоммичен как `24ca60e` в ветке `step-c-increment-8-immobilized` и опубликован в PR [#6](https://github.com/devingarde22-dot/fable-rpg/pull/6) с base `main`. PR #6 включает ancestry increments 5–7 из-за своей базы на Increment 7. PR [#1](https://github.com/devingarde22-dot/fable-rpg/pull/1) содержал increments 1–3; PR [#2](https://github.com/devingarde22-dot/fable-rpg/pull/2) с Increment 4 слит 2026-10-27 (merge commit `9e0d0f8`).
 
 Этот документ — краткая карта проекта для продолжения работы другой нейросетью. Он не заменяет нормативные документы и не вводит новых игровых правил. При любом расхождении приоритет имеют подтверждённые документы `docs/` и машинно-читаемые контракты.
 
@@ -15,7 +15,7 @@
 - Increment 5 (Stamina & Resource Regeneration) реализован commit `d237616` в ветке `step-c-increment-5-stamina`; PR [#3](https://github.com/devingarde22-dot/fable-rpg/pull/3) открыт и ждёт review/merge.
 - Increment 6 (Minimal Card Play) реализован в commit `946b557` на ветке `step-c-increment-6-card-play`; PR [#4](https://github.com/devingarde22-dot/fable-rpg/pull/4) открыт как stacked PR поверх PR #3. Текущий scope и правила — [DR-C-006](./20-step-c-card-play.md).
 - Increment 7 (Mode-filtered Deck & Timed Hand Rotation) реализован в commit `f175a1b` и опубликован в PR [#5](https://github.com/devingarde22-dot/fable-rpg/pull/5). Подтверждённые правила — [DR-C-007](./21-step-c-deck-cycle.md).
-- Increment 8 (Status Layers & Immobilized) реализован и проверен на `step-c-increment-8-immobilized`, stacked от ветки Increment 7; изменения локальные, commit/PR не создавались. Правила и typed-layer contracts — [DR-C-008](./22-step-c-status-immobilized.md).
+- Increment 8 (Status Layers & Immobilized) реализован в commit `24ca60e` и опубликован в PR [#6](https://github.com/devingarde22-dot/fable-rpg/pull/6) в `main`; PR включает ancestry increments 5–7. Правила и typed-layer contracts — [DR-C-008](./22-step-c-status-immobilized.md).
 
 ### Маршрутизация репозиториев
 
@@ -58,9 +58,9 @@
 | `d237616` — `feat(rules): add stamina regeneration` | Increment 5: max из config/preset, start=3, tick timer/300, timer stop at cap, `stamina.changed`, resource phase, pure affordability helper, replay/stateHash и DR-C-005. Ветка `step-c-increment-5-stamina`; PR [#3](https://github.com/devingarde22-dot/fable-rpg/pull/3) открыт. |
 | `946b557` — `feat(rules): implement minimal card play` | Increment 6 / DR-C-006; PR [#4](https://github.com/devingarde22-dot/fable-rpg/pull/4) открыт как stacked PR. |
 | `f175a1b` — `feat(rules): add mode-filtered deck cycle` | Increment 7 / DR-C-007; PR [#5](https://github.com/devingarde22-dot/fable-rpg/pull/5) открыт. |
-| — (uncommitted, `step-c-increment-8-immobilized`) | Increment 8 / DR-C-008: typed status layers, test-backed bind/immobilized, refresh/expiry/replay; quality gates pass locally. |
+| `24ca60e` — `feat(rules): implement immobilized status lifecycle` | Increment 8 / DR-C-008: typed status layers, test-backed bind/immobilized, refresh/expiry/replay; опубликован в PR [#6](https://github.com/devingarde22-dot/fable-rpg/pull/6) в `main`. |
 
-PR [#1](https://github.com/devingarde22-dot/fable-rpg/pull/1) включал Increment 1–3 и DR-C-001–003; PR [#2](https://github.com/devingarde22-dot/fable-rpg/pull/2) включал Increment 4 и DR-C-004 и слит в `main`; PR [#3](https://github.com/devingarde22-dot/fable-rpg/pull/3), PR [#4](https://github.com/devingarde22-dot/fable-rpg/pull/4) и PR [#5](https://github.com/devingarde22-dot/fable-rpg/pull/5) открыты. Increment 8 локален и пока не опубликован.
+PR [#1](https://github.com/devingarde22-dot/fable-rpg/pull/1) включал Increment 1–3 и DR-C-001–003; PR [#2](https://github.com/devingarde22-dot/fable-rpg/pull/2) включал Increment 4 и DR-C-004 и слит в `main`; PR [#3](https://github.com/devingarde22-dot/fable-rpg/pull/3), PR [#4](https://github.com/devingarde22-dot/fable-rpg/pull/4), PR [#5](https://github.com/devingarde22-dot/fable-rpg/pull/5) и PR [#6](https://github.com/devingarde22-dot/fable-rpg/pull/6) открыты. PR #6 направлен в `main` и содержит ancestry increments 5–7.
 
 ## 4. Архитектура и инварианты
 
@@ -194,7 +194,7 @@ PR [#1](https://github.com/devingarde22-dot/fable-rpg/pull/1) включал Inc
 - Schema integration tests прошли, включая Ajv 2020 compilation canonical event schemas и новые card/deck event payloads. Replay tests проверяют event order, deterministic shuffle validation и stateHash parity.
 - Использованы только явно помеченные `TEST_ONLY / NON_BALANCE` card fixtures; production catalog, defense slot, UI/network/database/AI не добавлены.
 
-Для Increment 8 / DR-C-008 (2026-10-27; локальная ветка `step-c-increment-8-immobilized`, uncommitted):
+Для Increment 8 / DR-C-008 (2026-10-27; commit `24ca60e`, PR #6 открыт в `main`):
 
 - `pnpm check` — PASS: typecheck, lint и полный workspace suite; **137 тестов прошли** (5 в `content`, 132 в `rules`), 31 test file суммарно.
 - `pnpm build` — PASS: `@fable/content` и `@fable/rules`; `git diff --check` — PASS.
