@@ -2,7 +2,7 @@
 
 **Decision:** DR-C-009 — confirmed implementation scope.
 **Implementation branch:** `step-c-increment-9-ally-guard`, based on the merged Increment 8 `main`.
-**Status:** implemented and verified; commit `226f654` is published in PR [#7](https://github.com/devingarde22-dot/fable-rpg/pull/7) targeting `main`.
+**Status:** implemented, verified, and merged to `main` by PR [#7](https://github.com/devingarde22-dot/fable-rpg/pull/7); merge commit `6423c19`.
 **Scope:** implement the existing `ally_guard` intent handler and activate the existing `extinguisher` in the runtime roster. No new production content is added.
 
 ## 1. Confirmed behavior
@@ -63,7 +63,7 @@ Defense card slot, card effects, new content or balance changes, new status type
 
 ## 7. Implementation result
 
-- Implemented on `step-c-increment-9-ally-guard`; commit `226f654` is published in PR [#7](https://github.com/devingarde22-dot/fable-rpg/pull/7) targeting `main`.
+- Implemented on `step-c-increment-9-ally-guard`; commit `226f654` was merged by PR [#7](https://github.com/devingarde22-dot/fable-rpg/pull/7) to `main` at merge commit `6423c19`.
 - `pnpm check` passed: typecheck, lint, and all 147 workspace tests (5 content, 142 rules; 33 rules test files).
 - `pnpm build` passed for `@fable/content` and `@fable/rules`; final targeted Ally Guard/replay/schema regressions passed 12 tests.
 - Canonical JSON Schema parses and Ajv tests pass; updated fixed-seed golden transcript matches live simulation; `git diff --check` passes.

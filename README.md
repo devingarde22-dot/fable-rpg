@@ -35,7 +35,7 @@ Step C — Core Engine & State Machine increments 1–9 are implemented and merg
 
 The headless Core Engine lives in `packages/rules` per DR-C-001. The current implementation includes deterministic movement, enemy intents, combat and damage resolution, stamina regeneration, card/deck handling, status layers, Ally Guard, event journaling and replay. Increment 9 activates the existing `extinguisher` intents supported by the implemented status handlers; it does not add or rebalance production content.
 
-No Increment 10 scope or Decision Record is currently documented. Do not infer or invent its gameplay behavior. Before starting further gameplay work, prepare a scoped PLAN against the confirmed rules and contracts, and wait for the user's explicit approval before implementation.
+An unconfirmed, non-binding Increment 10 scope candidate for the defense-card slot is documented in [`docs/24-step-c-increment-10-proposal.md`](docs/24-step-c-increment-10-proposal.md). No Increment 10 scope or DR-C-010 has been confirmed. Do not infer or invent gameplay behavior; implementation must wait for explicit user approval of the scope and its open rules.
 
 The current implementation details, verification results and continuation constraints are summarized in [`docs/17-development-log-and-handoff.md`](docs/17-development-log-and-handoff.md). Note: when handoff text and live GitHub state differ, verify the current branch/PR state; PR #7 has been merged to `main`.
 
