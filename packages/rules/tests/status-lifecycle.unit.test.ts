@@ -101,10 +101,18 @@ describe("typed status layer lifecycle", () => {
   it("orders multiple due layers by layer id and rejects malformed initial layers", () => {
     const layerZ = { ...sourceLayer, id: "status-z" };
     const layerA = { ...sourceLayer, id: "status-a" };
-    const state = createState([layerZ, layerA], 10);
+    const state = createRuntimeState(testConfig({
+      entities: [
+        hero("hero-z", 1, 1, "movement", false, 3, { statuses: [layerZ] }),
+        hero("hero-a", 2, 1, "movement", false, 3, { statuses: [layerA] }),
+        enemy("enemy-1", 3, 1),
+      ],
+      heroIdByActorId: { "actor-1": "hero-a" },
+      initialServerTick: 10,
+    }));
     expect(resolveDueStatusExpirations(state, 310).map(({ event }) =>
-      event.eventType === "status.expired" ? event.payload.layerId : "unexpected",
-    )).toEqual(["status-a", "status-z"]);
+      event.eventType === "status.expired" ? [event.payload.entityId, event.payload.layerId] : ["unexpected", "unexpected"],
+    )).toEqual([["hero-a", "status-a"], ["hero-z", "status-z"]]);
 
     expect(() => createState([sourceLayer, structuredClone(sourceLayer)], 10)).toThrow(/invalid status layer/);
     expect(() => createState([{ ...sourceLayer, refreshPolicy: "replace" } as unknown as StatusLayer], 10))

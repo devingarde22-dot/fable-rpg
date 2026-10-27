@@ -3,8 +3,9 @@ import { assertRuntimeInvariants } from "../engine/invariants.js";
 import { cellIndex, isInBounds } from "../grid/Grid.js";
 import { checkMovementDestination } from "../grid/collision.js";
 import { chebyshevDistance, hasLineOfSight } from "../intents/geometry.js";
+import { selectIntentTarget } from "../intents/targeting.js";
 import { canAffordStamina } from "../resources/stamina.js";
-import { calculateDamage } from "../combat/damage.js";
+import { calculateDamage, effectiveDefense } from "../combat/damage.js";
 import { shuffleCardInstances } from "../cards/deckLifecycle.js";
 import {
   CARD_HAND_LIMIT,
@@ -16,10 +17,17 @@ import {
   type RuntimeSnapshot,
   type RuntimeState,
   type RngAuditRecord,
+  type StatusTemplateKey,
 } from "../engine/types.js";
 import { cloneEvent } from "../journal/EventJournal.js";
 import { modeFromEvent } from "../combat/heroModes.js";
-import { IMMOBILIZED_DURATION_MS, IMMOBILIZED_DURATION_TICKS } from "../engine/types.js";
+import {
+  ALLY_GUARD_DEFENSE_BONUS_PERCENT,
+  ALLY_GUARD_DURATION_MS,
+  ALLY_GUARD_DURATION_TICKS,
+  IMMOBILIZED_DURATION_MS,
+  IMMOBILIZED_DURATION_TICKS,
+} from "../engine/types.js";
 import { hasActiveStatus } from "../statuses/statusSystem.js";
 
 export function replayEvents(initialState: RuntimeState, events: readonly DomainEvent[]): RuntimeSnapshot {
@@ -100,7 +108,11 @@ type ReplayProgress = {
     eventGroupId: string;
     sceneRevision: number;
   } | null;
-  pendingBind: {
+  pendingStatusEffect: {
+    effectKey: "bind" | "ally_guard";
+    statusKey: StatusTemplateKey;
+    potency: number;
+    durationMs: number;
     enemyId: string;
     targetEntityId: string;
     activeIntentId: string;
@@ -121,7 +133,7 @@ function createReplayProgress(state: RuntimeState): ReplayProgress {
     pendingModeEntry: null,
     pendingModeDeal: null,
     pendingRotation: null,
-    pendingBind: null,
+    pendingStatusEffect: null,
   };
 }
 
@@ -129,7 +141,10 @@ function assertReplayTransactionsComplete(state: RuntimeState, progress: ReplayP
   if (progress.pendingCardPlay) throw new Error("Replay ended before the card play transaction completed");
   if (progress.pendingModeEntry || progress.pendingModeDeal) throw new Error("Replay ended before the mode-entry deck deal completed");
   if (progress.pendingRotation) throw new Error("Replay ended before the timed hand rotation completed");
-  if (progress.pendingBind) throw new Error("Replay ended before the bind status effect was recorded");
+  if (progress.pendingStatusEffect) {
+    const label = progress.pendingStatusEffect.effectKey === "bind" ? "bind" : "Ally Guard";
+    throw new Error(`Replay ended before the ${label} status effect was recorded`);
+  }
   assertNoDueStatuses(state, state.serverTick);
 }
 
@@ -181,10 +196,10 @@ function applyReplayEvent(
   if (progress.pendingRotation && event.eventGroupId !== progress.pendingRotation.eventGroupId) {
     throw new Error("Replay hand rotation transaction crossed an event-group boundary");
   }
-  if (progress.pendingBind && (event.eventType !== "status.applied" && event.eventType !== "status.refreshed" ||
-    event.eventGroupId !== progress.pendingBind.eventGroupId || event.sceneRevision !== progress.pendingBind.sceneRevision ||
-    event.serverTick !== progress.pendingBind.serverTick)) {
-    throw new Error("Replay bind resolution must be followed by its status event in the same transaction");
+  if (progress.pendingStatusEffect && (event.eventType !== "status.applied" && event.eventType !== "status.refreshed" ||
+    event.eventGroupId !== progress.pendingStatusEffect.eventGroupId || event.sceneRevision !== progress.pendingStatusEffect.sceneRevision ||
+    event.serverTick !== progress.pendingStatusEffect.serverTick)) {
+    throw new Error(`Replay ${progress.pendingStatusEffect.effectKey} resolution must be followed by its status event in the same transaction`);
   }
   if (event.eventGroupId !== progress.currentGroup || event.sceneRevision !== progress.currentGroupRevision || event.eventIndex !== progress.expectedEventIndex) {
     throw new Error("Replay event group, revision, or eventIndex is inconsistent");
@@ -357,10 +372,19 @@ function applyTargetSelected(state: RuntimeState, event: Extract<DomainEvent, { 
   const active = state.activeIntents.get(event.payload.activeIntentId);
   const enemy = state.entities.get(event.payload.enemyId);
   const target = state.entities.get(event.payload.targetEntityId);
+  const template = active ? state.intentTemplates.get(active.templateKey) : undefined;
+  const guardSelection = active && enemy?.kind === "enemy" && template?.effect.handler === "ally_guard"
+    ? selectIntentTarget(state, enemy, template, active.activeIntentId)
+    : null;
   if (!active || !enemy || enemy.kind !== "enemy" || !target || target.aliveState !== "active" ||
     active.ownerEntityId !== enemy.id || !isInBounds(event.payload.targetCell) ||
     target.position.x !== event.payload.targetCell.x || target.position.y !== event.payload.targetCell.y ||
-    (event.replay && event.replay.seedRef !== event.payload.seedRef)) {
+    (event.replay && event.replay.seedRef !== event.payload.seedRef) ||
+    (template?.effect.handler === "ally_guard" && (!guardSelection ||
+      guardSelection.target.id !== target.id || guardSelection.targetCell.x !== event.payload.targetCell.x ||
+      guardSelection.targetCell.y !== event.payload.targetCell.y || guardSelection.policy !== event.payload.selectionPolicy ||
+      guardSelection.tieBreak !== event.payload.tieBreak || active.seedRef === null ||
+      active.seedRef !== event.payload.seedRef || event.replay?.seedRef !== active.seedRef))) {
     throw new Error("Replay intent.target_selected payload is inconsistent");
   }
   active.targetEntityId = target.id;
@@ -397,13 +421,22 @@ function applyIntentResolved(
   active.state = "resolved";
   state.activeIntents.delete(active.activeIntentId);
   enemy.activeIntentId = null;
-  if (template.effect.handler === "bind") {
+  if (template.effect.handler === "bind" || template.effect.handler === "ally_guard") {
     const targetEntityId = event.payload.targetEntityId;
     const target = targetEntityId ? state.entities.get(targetEntityId) : undefined;
-    if (progress.pendingBind || !target || target.aliveState !== "active" || target.hp.current <= 0) {
-      throw new Error("Replay bind resolution has no valid active target");
+    const isBind = template.effect.handler === "bind";
+    const statusKey: StatusTemplateKey = isBind ? "immobilized" : "ally_guard";
+    const potency = isBind ? 1 : ALLY_GUARD_DEFENSE_BONUS_PERCENT;
+    const durationMs = isBind ? IMMOBILIZED_DURATION_MS : ALLY_GUARD_DURATION_MS;
+    if (progress.pendingStatusEffect || !target || target.aliveState !== "active" || target.hp.current <= 0 ||
+      (isBind && target.kind !== "hero") || (!isBind && target.kind !== "enemy")) {
+      throw new Error(`Replay ${template.effect.handler} resolution has no valid active target`);
     }
-    progress.pendingBind = {
+    progress.pendingStatusEffect = {
+      effectKey: template.effect.handler,
+      statusKey,
+      potency,
+      durationMs,
       enemyId: enemy.id,
       targetEntityId: target.id,
       activeIntentId: active.activeIntentId,
@@ -419,33 +452,36 @@ function applyStatusApplied(
   event: Extract<DomainEvent, { eventType: "status.applied" }>,
   progress: ReplayProgress,
 ): void {
-  const pending = progress.pendingBind;
+  const pending = progress.pendingStatusEffect;
   const target = state.entities.get(event.payload.entityId);
   const source = pending ? state.entities.get(pending.enemyId) : undefined;
   const timer = event.payload.timer;
   const expectedLayerId = pending
-    ? `status:${pending.targetEntityId}:immobilized:${pending.enemyId}:${pending.activeIntentId}`
+    ? `status:${pending.targetEntityId}:${pending.statusKey}:${pending.enemyId}:${pending.activeIntentId}`
     : "";
+  const expectedDurationTicks = pending?.statusKey === "immobilized" ? IMMOBILIZED_DURATION_TICKS : ALLY_GUARD_DURATION_TICKS;
   if (!pending || !target || !source || source.kind !== "enemy" || target.id !== pending.targetEntityId ||
-    event.actorId !== pending.enemyId || event.causedByRequestId !== null || event.payload.statusKey !== "immobilized" ||
+    event.actorId !== pending.enemyId || event.causedByRequestId !== null || event.payload.statusKey !== pending.statusKey ||
+    (pending.statusKey === "immobilized" && target.kind !== "hero") ||
+    (pending.statusKey === "ally_guard" && target.kind !== "enemy") ||
     event.payload.layerId !== expectedLayerId || event.serverTick !== pending.serverTick ||
-    timer.startedAtTick !== event.serverTick || timer.resolvesAtTick !== event.serverTick + IMMOBILIZED_DURATION_TICKS ||
-    timer.durationMs !== IMMOBILIZED_DURATION_MS || timer.remainingMs !== IMMOBILIZED_DURATION_MS || timer.paused !== false ||
-    (event.payload.publicPotency !== undefined && event.payload.publicPotency !== 1) ||
-    target.statuses.some((layer) => layer.templateKey === "immobilized" && layer.expiresAtTick >= event.serverTick)) {
-    throw new Error("Replay status.applied does not match a valid bind intent");
+    timer.startedAtTick !== event.serverTick || timer.resolvesAtTick !== event.serverTick + expectedDurationTicks ||
+    timer.durationMs !== pending.durationMs || timer.remainingMs !== pending.durationMs || timer.paused !== false ||
+    event.payload.publicPotency !== pending.potency ||
+    target.statuses.some((layer) => layer.templateKey === pending.statusKey && layer.expiresAtTick >= event.serverTick)) {
+    throw new Error(`Replay status.applied does not match a valid ${pending?.effectKey ?? "status"} intent`);
   }
   target.statuses.push({
     id: event.payload.layerId,
-    templateKey: "immobilized",
+    templateKey: pending.statusKey,
     sourceEntityId: source.id,
-    potency: event.payload.publicPotency ?? 1,
+    potency: pending.potency,
     stacks: 1,
     appliedAtTick: event.serverTick,
     expiresAtTick: timer.resolvesAtTick,
     refreshPolicy: "refresh_duration",
   });
-  progress.pendingBind = null;
+  progress.pendingStatusEffect = null;
 }
 
 function applyStatusRefreshed(
@@ -453,23 +489,27 @@ function applyStatusRefreshed(
   event: Extract<DomainEvent, { eventType: "status.refreshed" }>,
   progress: ReplayProgress,
 ): void {
-  const pending = progress.pendingBind;
+  const pending = progress.pendingStatusEffect;
   const target = state.entities.get(event.payload.entityId);
   const source = pending ? state.entities.get(pending.enemyId) : undefined;
   const layer = target?.statuses.find((candidate) => candidate.id === event.payload.layerId);
   const timer = event.payload.timer;
+  const expectedDurationTicks = pending?.statusKey === "immobilized" ? IMMOBILIZED_DURATION_TICKS : ALLY_GUARD_DURATION_TICKS;
   if (!pending || !target || !source || source.kind !== "enemy" || target.id !== pending.targetEntityId ||
-    event.actorId !== pending.enemyId || event.causedByRequestId !== null || event.payload.statusKey !== "immobilized" ||
-    !layer || layer.templateKey !== "immobilized" || layer.refreshPolicy !== "refresh_duration" ||
-    layer.expiresAtTick < event.serverTick || event.serverTick !== pending.serverTick ||
-    timer.startedAtTick !== event.serverTick || timer.resolvesAtTick !== event.serverTick + IMMOBILIZED_DURATION_TICKS ||
-    timer.durationMs !== IMMOBILIZED_DURATION_MS || timer.remainingMs !== IMMOBILIZED_DURATION_MS || timer.paused !== false ||
-    (event.payload.publicPotency !== undefined && event.payload.publicPotency !== 1)) {
-    throw new Error("Replay status.refreshed does not match an existing bind status layer");
+    event.actorId !== pending.enemyId || event.causedByRequestId !== null || event.payload.statusKey !== pending.statusKey ||
+    (pending.statusKey === "immobilized" && target.kind !== "hero") ||
+    (pending.statusKey === "ally_guard" && target.kind !== "enemy") ||
+    !layer || layer.templateKey !== pending.statusKey || layer.refreshPolicy !== "refresh_duration" ||
+    layer.potency !== pending.potency || layer.stacks !== 1 || layer.expiresAtTick < event.serverTick ||
+    event.serverTick !== pending.serverTick || timer.startedAtTick !== event.serverTick ||
+    timer.resolvesAtTick !== event.serverTick + expectedDurationTicks || timer.durationMs !== pending.durationMs ||
+    timer.remainingMs !== pending.durationMs || timer.paused !== false ||
+    event.payload.publicPotency !== layer.potency) {
+    throw new Error(`Replay status.refreshed does not match an existing ${pending?.effectKey ?? "status"} status layer`);
   }
   layer.appliedAtTick = event.serverTick;
   layer.expiresAtTick = timer.resolvesAtTick;
-  progress.pendingBind = null;
+  progress.pendingStatusEffect = null;
 }
 
 function applyStatusExpired(state: RuntimeState, event: Extract<DomainEvent, { eventType: "status.expired" }>): void {
@@ -505,8 +545,9 @@ function applyHpChanged(
   }
   if (event.eventVersion === 2) {
     const { payload } = event;
+    const expectedDefense = effectiveDefense(entity, event.serverTick);
     if (payload.formulaVersion !== DAMAGE_FORMULA_VERSION || payload.kind !== "damage" ||
-      payload.defense !== entity.defense) {
+      payload.defense !== expectedDefense) {
       throw new Error("Replay hp.changed v2 formula/source payload is inconsistent");
     }
     const calculation = calculateDamage({ rawDamage: payload.rawDamage, defense: payload.defense, multiplier: payload.multiplier });

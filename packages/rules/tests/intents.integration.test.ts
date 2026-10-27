@@ -278,12 +278,14 @@ describe("deterministic enemy intent simulation", () => {
         { ...hero("hero-a", 2, 2), threat: 20 },
         { ...hero("hero-z", 6, 2), threat: 20 },
         enemy("shooter-1", 0, 2, "slag_shooter"),
+        enemy("extinguisher-1", 5, 5, "extinguisher"),
+        enemy("guard-ally-1", 6, 5, "quarantine_chaser"),
       ],
       heroIdByActorId: { "actor-a": "hero-a", "actor-z": "hero-z" },
-      initialIntentByEnemyId: { "shooter-1": "ranged_shot" },
+      initialIntentByEnemyId: { "shooter-1": "ranged_shot", "extinguisher-1": "ally_guard" },
     });
     const engine = createSimulationEngine(config);
-    engine.advanceTicks(200);
+    engine.advanceTicks(300);
     const actual = {
       rootSeed: config.rootSeed,
       serverTick: engine.snapshot().serverTick,

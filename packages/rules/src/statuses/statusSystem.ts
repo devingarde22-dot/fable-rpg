@@ -1,5 +1,8 @@
 import { eventBase, type PendingJournalEvent } from "../intents/events.js";
 import {
+  ALLY_GUARD_DEFENSE_BONUS_PERCENT,
+  ALLY_GUARD_DURATION_MS,
+  ALLY_GUARD_DURATION_TICKS,
   IMMOBILIZED_DURATION_MS,
   IMMOBILIZED_DURATION_TICKS,
   type EntityRuntime,
@@ -56,6 +59,62 @@ export function applyImmobilized(
           paused: false,
         },
         publicPotency: 1,
+      },
+      replay: null,
+    },
+  };
+}
+
+export function applyAllyGuard(
+  state: RuntimeState,
+  target: EntityRuntime,
+  source: EntityRuntime,
+  activeIntentId: string,
+  serverTick: number,
+  defenseBonusPercent: number,
+  durationMs: number,
+): PendingJournalEvent {
+  if (defenseBonusPercent !== ALLY_GUARD_DEFENSE_BONUS_PERCENT || durationMs !== ALLY_GUARD_DURATION_MS) {
+    throw new Error(`Ally Guard must use ${ALLY_GUARD_DEFENSE_BONUS_PERCENT}% defense for ${ALLY_GUARD_DURATION_MS} ms`);
+  }
+  const existing = target.statuses
+    .filter((layer) => layer.templateKey === "ally_guard" && layer.expiresAtTick >= serverTick)
+    .sort((a, b) => compareText(a.id, b.id))[0];
+  const expiresAtTick = serverTick + ALLY_GUARD_DURATION_TICKS;
+  const layer: StatusLayer = existing ?? {
+    id: `status:${target.id}:ally_guard:${source.id}:${activeIntentId}`,
+    templateKey: "ally_guard",
+    sourceEntityId: source.id,
+    potency: ALLY_GUARD_DEFENSE_BONUS_PERCENT,
+    stacks: 1,
+    appliedAtTick: serverTick,
+    expiresAtTick,
+    refreshPolicy: "refresh_duration",
+  };
+  const eventType = existing ? "status.refreshed" : "status.applied";
+  if (existing) {
+    existing.appliedAtTick = serverTick;
+    existing.expiresAtTick = expiresAtTick;
+  } else {
+    target.statuses.push(layer);
+  }
+
+  return {
+    event: {
+      ...eventBase(state, serverTick, source.id, null),
+      eventType,
+      payload: {
+        entityId: target.id,
+        statusKey: "ally_guard",
+        layerId: layer.id,
+        timer: {
+          startedAtTick: serverTick,
+          resolvesAtTick: expiresAtTick,
+          durationMs: ALLY_GUARD_DURATION_MS,
+          remainingMs: ALLY_GUARD_DURATION_MS,
+          paused: false,
+        },
+        publicPotency: ALLY_GUARD_DEFENSE_BONUS_PERCENT,
       },
       replay: null,
     },

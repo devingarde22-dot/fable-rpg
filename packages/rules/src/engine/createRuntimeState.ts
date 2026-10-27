@@ -1,6 +1,7 @@
 import { createGrid, cellIndex, isInBounds } from "../grid/Grid.js";
 import { cloneIntentTemplate, buildEnemyRegistry, buildIntentRegistry } from "../intents/registry.js";
 import {
+  ALLY_GUARD_DEFENSE_BONUS_PERCENT,
   CARD_ROTATION_INTERVAL_TICKS,
   GRID_HEIGHT,
   GRID_WIDTH,
@@ -235,20 +236,27 @@ export function cloneActiveIntent(intent: ActiveIntent): ActiveIntent {
 
 function isRuntimeHandler(handler: string): boolean {
   return handler === "move_close" || handler === "melee_strike" || handler === "ranged_shot" ||
-    handler === "hold_position" || handler === "bind";
+    handler === "hold_position" || handler === "bind" || handler === "ally_guard";
 }
 
 function cloneAndValidateStatusLayers(layers: readonly StatusLayer[], entityId: string): StatusLayer[] {
   const seenIds = new Set<string>();
+  const seenStatusKeys = new Set<string>();
   return layers.map((layer) => {
-    if (!layer.id || seenIds.has(layer.id) || layer.templateKey !== "immobilized" ||
-      !Number.isFinite(layer.potency) || layer.potency <= 0 || !Number.isInteger(layer.stacks) || layer.stacks !== 1 ||
+    const expectedPotency = layer.templateKey === "immobilized"
+      ? 1
+      : layer.templateKey === "ally_guard"
+        ? ALLY_GUARD_DEFENSE_BONUS_PERCENT
+        : null;
+    if (!layer.id || seenIds.has(layer.id) || expectedPotency === null || seenStatusKeys.has(layer.templateKey) ||
+      layer.potency !== expectedPotency || !Number.isInteger(layer.stacks) || layer.stacks !== 1 ||
       !Number.isInteger(layer.appliedAtTick) || layer.appliedAtTick < 0 ||
       !Number.isInteger(layer.expiresAtTick) || layer.expiresAtTick <= layer.appliedAtTick ||
       layer.refreshPolicy !== "refresh_duration") {
       throw new Error(`Entity ${entityId} has an invalid status layer ${layer.id}`);
     }
     seenIds.add(layer.id);
+    seenStatusKeys.add(layer.templateKey);
     return cloneStatusLayer(layer);
   });
 }

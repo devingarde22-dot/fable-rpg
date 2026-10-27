@@ -1,5 +1,11 @@
 import { cellIndex, isInBounds } from "../grid/Grid.js";
-import { CARD_HAND_LIMIT, GRID_HEIGHT, GRID_WIDTH, type RuntimeState } from "./types.js";
+import {
+  ALLY_GUARD_DEFENSE_BONUS_PERCENT,
+  CARD_HAND_LIMIT,
+  GRID_HEIGHT,
+  GRID_WIDTH,
+  type RuntimeState,
+} from "./types.js";
 
 export function assertRuntimeInvariants(state: RuntimeState): void {
   if (state.serverTick < 0 || state.sceneRevision < 0 || state.nextServerSequence < 1) {
@@ -36,16 +42,26 @@ export function assertRuntimeInvariants(state: RuntimeState): void {
       throw new Error(`Entity ${entity.id} has invalid combat values`);
     }
     const statusIds = new Set<string>();
+    const statusKeys = new Set<string>();
     for (const status of entity.statuses) {
-      if (!status.id || statusIds.has(status.id) || status.templateKey !== "immobilized" ||
-        (status.sourceEntityId !== null && !state.entities.has(status.sourceEntityId)) ||
-        !Number.isFinite(status.potency) || status.potency <= 0 || status.stacks !== 1 ||
+      const sourceEntity = status.sourceEntityId === null ? null : state.entities.get(status.sourceEntityId);
+      const expectedPotency = status.templateKey === "immobilized"
+        ? 1
+        : status.templateKey === "ally_guard"
+          ? ALLY_GUARD_DEFENSE_BONUS_PERCENT
+          : null;
+      if (!status.id || statusIds.has(status.id) ||
+        (status.sourceEntityId !== null && (!sourceEntity || sourceEntity.kind !== "enemy")) ||
+        (status.templateKey === "immobilized" && entity.kind !== "hero") ||
+        (status.templateKey === "ally_guard" && entity.kind !== "enemy") ||
+        expectedPotency === null || statusKeys.has(status.templateKey) || status.potency !== expectedPotency || status.stacks !== 1 ||
         !Number.isInteger(status.appliedAtTick) || status.appliedAtTick < 0 ||
         !Number.isInteger(status.expiresAtTick) || status.expiresAtTick <= status.appliedAtTick ||
         status.expiresAtTick < state.serverTick || status.refreshPolicy !== "refresh_duration") {
         throw new Error(`Entity ${entity.id} has an invalid status layer ${status.id}`);
       }
       statusIds.add(status.id);
+      statusKeys.add(status.templateKey);
     }
     if (entity.kind === "hero") {
       if (typeof entity.canEnterRangedMode !== "boolean") throw new Error(`Hero ${entity.id} has invalid ranged-mode capability`);
