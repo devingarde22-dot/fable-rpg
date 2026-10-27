@@ -1,39 +1,33 @@
-# Fable — Development Context Repository
+# Fable — RPG Engine Repository
 
-This public repository is the canonical context pack for the Fable game project.
+This public repository contains the active Fable codebase. The separate public context pack is [`devingarde22-dot/fable-context`](https://github.com/devingarde22-dot/fable-context); use it for project context, not as the code remote.
 
 ## How an AI developer should read this repository
 
 Read in this order:
 
-1. `docs/README.md`
-2. `docs/00-product-constitution.md`
-3. `docs/01-glossary.md`
-4. `docs/02-confirmed-rules.md`
-5. `docs/04-step-b-baseline.md`
+1. `README.md`
+2. `docs/README.md`
+3. `docs/00-product-constitution.md`
+4. `docs/01-glossary.md`
+5. `docs/02-confirmed-rules.md`
 6. `docs/03-system-contracts.md`
-7. `docs/05-vertical-slice.md`
-8. `docs/14-step-c-core-engine.md`
-9. `packages/contracts/*.json`
+7. `docs/04-step-b-baseline.md`
+8. `docs/05-vertical-slice.md`
+9. `docs/14-step-c-core-engine.md`
 10. `docs/12-step-a-repository-and-monorepo.md`
-11. `docs/13-ai-task-starter.md`
+11. `packages/contracts/*.json`
+12. `docs/15-step-c-intent-simulation.md`
+13. `docs/16-step-c-retreat-resolution.md`
+14. `docs/17-development-log-and-handoff.md`
 
-Markdown contracts and JSON Schemas are the source of truth. `reference/gdd-site/index.html` is only a visual overview.
+Markdown contracts and JSON Schemas are the source of truth. If a document conflicts with a confirmed rule or schema, stop and report the conflict instead of inventing behavior.
 
-## Current implementation task
+## Current project status
 
-The project is now moving to **Step C — Core Engine & State Machine**. The normative specification is [`docs/14-step-c-core-engine.md`](docs/14-step-c-core-engine.md).
+Step C increments 1–3 are implemented and accepted. PR [#1](https://github.com/devingarde22-dot/fable-rpg/pull/1) has been merged to `main`. The current implementation and next-step constraints are summarized in [`docs/17-development-log-and-handoff.md`](docs/17-development-log-and-handoff.md).
 
-The Step C headless Core Engine lives in `packages/rules` per DR-C-001. Do not implement React, WebSocket transport, PostgreSQL persistence or AI Copilot until the relevant Step C Definition of Done passes.
-
-The first implementation increment is deliberately small:
-
-1. 9×9 grid and collision;
-2. `player.move`;
-3. 20 Hz clock and 250 ms input windows;
-4. deterministic ordering: players → enemies → environment;
-5. in-memory event journal and replay;
-6. then modes, intents, cards, HP, stamina and statuses.
+The headless Core Engine lives in `packages/rules` per DR-C-001. No next gameplay increment is approved by default. For any new gameplay work, prepare a PLAN first and wait for the user's explicit approval before implementation.
 
 ## Project rules
 
@@ -47,12 +41,14 @@ The first implementation increment is deliberately small:
 ## Repository layout
 
 ```text
-docs/                  normative design and implementation documents
+docs/                  normative design, decision records, and implementation handoff
 packages/contracts/    JSON Schema contracts
+packages/rules/        headless Core Engine and pure rules
+packages/content/      validated immutable content catalog
 dev/                   existing TypeScript/Drizzle/room examples
 reference/gdd-site/    optional visual GDD overview
 ```
 
-## Starter prompt
+## Starter material
 
-Use [`docs/13-ai-task-starter.md`](docs/13-ai-task-starter.md) for the exact prompt and file priority when starting an AI coding session.
+[`docs/13-ai-task-starter.md`](docs/13-ai-task-starter.md) is a reusable starter for an early Step A repository/bootstrap task. For the current implementation state and continuation instructions, read [`docs/17-development-log-and-handoff.md`](docs/17-development-log-and-handoff.md) instead.

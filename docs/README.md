@@ -23,6 +23,7 @@
 17. [Step C — Core Engine & State Machine](./14-step-c-core-engine.md) — серверные сущности, tick loop, scheduler, режимы, intents, replay и acceptance tests.
 18. [DR-C-002 — Enemy Registry + Deterministic Intent Simulation](./15-step-c-intent-simulation.md) — подтверждённая схема intent, активный enemy roster, timers, RNG, fallback и golden replay requirements.
 19. [DR-C-003 — Deterministic Retreat Resolution](./16-step-c-retreat-resolution.md) — retreat attacks, mode/contact transitions and replay.
+20. [Журнал разработки и AI handoff](./17-development-log-and-handoff.md) — repository routing, выполненные инкременты, DR, тесты и правила продолжения.
 
 ## Правило использования
 
@@ -65,7 +66,7 @@ docs/03-system-contracts.md
 docs/05-vertical-slice.md
 ```
 
-Текущая задача Step C: реализовать headless simulation для одной сцены 9×9 с движением, `move_close`, `melee_strike`, `ranged_shot`, HP, стаминой, status layers, fixed seed и event journal. Нормативная спецификация: `docs/14-step-c-core-engine.md`.
+Step C increments 1–3 реализованы и приняты; PR [#1](https://github.com/devingarde22-dot/fable-rpg/pull/1) слит в `main`. Следующую игровую задачу не выводить из этого исторического context pack: сначала дождаться scope от пользователя, подготовить PLAN и получить подтверждение. См. [журнал разработки и AI handoff](./17-development-log-and-handoff.md).
 
 ## Machine-readable contracts
 
