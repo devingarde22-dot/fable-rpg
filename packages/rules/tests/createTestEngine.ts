@@ -6,6 +6,7 @@ import type {
   IntentTemplate,
   RuntimeSnapshot,
   SimulationEngineConfig,
+  StatusLayer,
 } from "../src/engine/types.js";
 import { testCardTemplates } from "./fixtures/testCards.js";
 
@@ -93,6 +94,44 @@ export const testIntentTemplates: readonly IntentTemplate[] = [
     fallbackKeys: [],
     visibility: "public",
   },
+  {
+    kind: "intent_template",
+    key: "test_bind_once",
+    version: 1,
+    status: "confirmed",
+    icon: "bind",
+    durationMs: 15_000,
+    conditions: { preconditions: ["target_available"] },
+    effect: { handler: "bind", parameters: { statusKey: "immobilized", durationMs: 15_000 } },
+    targetRules: {
+      policy: "nearest_player",
+      fallbackPolicies: [],
+      range: { minInclusive: 1, maxInclusive: 8 },
+      lineOfSight: "not_required",
+      filters: { ...partyTargetFilters, excludedStatuses: ["immobilized"] },
+    },
+    fallbackKeys: ["hold_position"],
+    visibility: "public",
+  },
+  {
+    kind: "intent_template",
+    key: "test_bind_refresh",
+    version: 1,
+    status: "confirmed",
+    icon: "bind",
+    durationMs: 15_000,
+    conditions: { preconditions: ["target_available"] },
+    effect: { handler: "bind", parameters: { statusKey: "immobilized", durationMs: 15_000 } },
+    targetRules: {
+      policy: "nearest_player",
+      fallbackPolicies: [],
+      range: { minInclusive: 1, maxInclusive: 8 },
+      lineOfSight: "not_required",
+      filters: partyTargetFilters,
+    },
+    fallbackKeys: ["hold_position"],
+    visibility: "public",
+  },
 ];
 
 export const testEnemyTemplates: readonly EnemyTemplate[] = [
@@ -120,6 +159,30 @@ export const testEnemyTemplates: readonly EnemyTemplate[] = [
     intentKeys: ["ranged_shot", "hold_position"],
     initialIntentKey: "ranged_shot",
   },
+  {
+    kind: "enemy_template",
+    key: "test_binding_enemy",
+    version: 1,
+    status: "confirmed",
+    hp: 900,
+    defense: 20,
+    basicAttack: { handler: "melee_strike", rawDamage: 140 },
+    role: "TEST_ONLY / NON_BALANCE status fixture",
+    intentKeys: ["test_bind_once", "hold_position"],
+    initialIntentKey: "test_bind_once",
+  },
+  {
+    kind: "enemy_template",
+    key: "test_refreshing_bind_enemy",
+    version: 1,
+    status: "confirmed",
+    hp: 900,
+    defense: 20,
+    basicAttack: { handler: "melee_strike", rawDamage: 140 },
+    role: "TEST_ONLY / NON_BALANCE status refresh fixture",
+    intentKeys: ["test_bind_refresh", "hold_position"],
+    initialIntentKey: "test_bind_refresh",
+  },
 ];
 
 export function hero(
@@ -129,7 +192,7 @@ export function hero(
   mode: "movement" | "melee" | "ranged" | null = "movement",
   canEnterRangedMode = false,
   maxStamina = 3,
-  cards: Partial<HeroCardsRuntime> = {},
+  cards: Partial<HeroCardsRuntime> & { statuses?: StatusLayer[] } = {},
 ): EntityRuntime {
   return {
     id,
@@ -149,7 +212,7 @@ export function hero(
     },
     defense: 20,
     threat: 0,
-    statuses: [],
+    statuses: (cards.statuses ?? []).map((status) => ({ ...status })),
     mode,
     canEnterRangedMode,
     activeIntentId: null,

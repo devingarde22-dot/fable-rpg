@@ -13,6 +13,7 @@ import { resolveRetreat } from "../combat/retreatResolution.js";
 import { resolveStaminaRegeneration } from "../resources/stamina.js";
 import { resolvePlayCard } from "../cards/playCard.js";
 import { resolveDueHandRotations, resolveModeEntryDeck, stopHandRotation } from "../cards/deckLifecycle.js";
+import { hasActiveStatus, resolveDueStatusExpirations } from "../statuses/statusSystem.js";
 import { cleanupDeadEnemies } from "./cleanup.js";
 import { assertRuntimeInvariants } from "./invariants.js";
 import { cloneRuntimeState, createRuntimeState, snapshotState } from "./createRuntimeState.js";
@@ -146,6 +147,8 @@ export class HeadlessSimulationEngine implements SimulationEngine {
         pending.push(...resolveStaminaRegeneration(this.runtime, this.runtime.serverTick));
       } else if (phase === "cards") {
         pending.push(...resolveDueHandRotations(this.runtime, this.runtime.serverTick));
+      } else if (phase === "statuses") {
+        pending.push(...resolveDueStatusExpirations(this.runtime, this.runtime.serverTick));
       }
       // Environment has no active effects in this increment; its phase remains explicit and ordered.
     }
@@ -213,6 +216,7 @@ export class HeadlessSimulationEngine implements SimulationEngine {
     if (!hero || hero.kind !== "hero" || hero.aliveState !== "active") return reject("AUTH_FORBIDDEN");
     if (command.clientRevision !== this.runtime.sceneRevision) return reject("STALE_SCENE_REVISION");
     if (hero.mode !== "movement") return reject("INVALID_MODE");
+    if (hasActiveStatus(hero, "immobilized", this.runtime.serverTick)) return reject("ENTITY_UNABLE_TO_ACT");
 
     const validated = validateMove(this.runtime.scene.cells, hero.position, command.payload.direction, reservations);
     if (!validated.ok) return reject(validated.code);

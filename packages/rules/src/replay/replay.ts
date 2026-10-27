@@ -19,13 +19,15 @@ import {
 } from "../engine/types.js";
 import { cloneEvent } from "../journal/EventJournal.js";
 import { modeFromEvent } from "../combat/heroModes.js";
+import { IMMOBILIZED_DURATION_MS, IMMOBILIZED_DURATION_TICKS } from "../engine/types.js";
+import { hasActiveStatus } from "../statuses/statusSystem.js";
 
 export function replayEvents(initialState: RuntimeState, events: readonly DomainEvent[]): RuntimeSnapshot {
   const state = cloneRuntimeState(initialState);
   state.phase = "active";
   const progress = createReplayProgress(state);
   for (const sourceEvent of events) applyReplayEvent(state, cloneEvent(sourceEvent), progress);
-  assertReplayTransactionsComplete(progress);
+  assertReplayTransactionsComplete(state, progress);
   return snapshotState(state);
 }
 
@@ -60,8 +62,9 @@ export function replayJournalRecords(initialState: RuntimeState, records: readon
     state.serverTick = record.serverTick;
     lastTickMark = record.serverTick;
     assertRuntimeInvariants(state);
+    assertNoDueStatuses(state, record.serverTick);
   }
-  assertReplayTransactionsComplete(progress);
+  assertReplayTransactionsComplete(state, progress);
   return snapshotState(state);
 }
 
@@ -97,6 +100,14 @@ type ReplayProgress = {
     eventGroupId: string;
     sceneRevision: number;
   } | null;
+  pendingBind: {
+    enemyId: string;
+    targetEntityId: string;
+    activeIntentId: string;
+    serverTick: number;
+    eventGroupId: string;
+    sceneRevision: number;
+  } | null;
 };
 
 function createReplayProgress(state: RuntimeState): ReplayProgress {
@@ -110,13 +121,22 @@ function createReplayProgress(state: RuntimeState): ReplayProgress {
     pendingModeEntry: null,
     pendingModeDeal: null,
     pendingRotation: null,
+    pendingBind: null,
   };
 }
 
-function assertReplayTransactionsComplete(progress: ReplayProgress): void {
+function assertReplayTransactionsComplete(state: RuntimeState, progress: ReplayProgress): void {
   if (progress.pendingCardPlay) throw new Error("Replay ended before the card play transaction completed");
   if (progress.pendingModeEntry || progress.pendingModeDeal) throw new Error("Replay ended before the mode-entry deck deal completed");
   if (progress.pendingRotation) throw new Error("Replay ended before the timed hand rotation completed");
+  if (progress.pendingBind) throw new Error("Replay ended before the bind status effect was recorded");
+  assertNoDueStatuses(state, state.serverTick);
+}
+
+function assertNoDueStatuses(state: RuntimeState, serverTick: number): void {
+  if ([...state.entities.values()].some((entity) => entity.statuses.some((layer) => layer.expiresAtTick <= serverTick))) {
+    throw new Error("Replay ended a tick with an expired status layer still active");
+  }
 }
 
 function applyReplayEvent(
@@ -161,6 +181,11 @@ function applyReplayEvent(
   if (progress.pendingRotation && event.eventGroupId !== progress.pendingRotation.eventGroupId) {
     throw new Error("Replay hand rotation transaction crossed an event-group boundary");
   }
+  if (progress.pendingBind && (event.eventType !== "status.applied" && event.eventType !== "status.refreshed" ||
+    event.eventGroupId !== progress.pendingBind.eventGroupId || event.sceneRevision !== progress.pendingBind.sceneRevision ||
+    event.serverTick !== progress.pendingBind.serverTick)) {
+    throw new Error("Replay bind resolution must be followed by its status event in the same transaction");
+  }
   if (event.eventGroupId !== progress.currentGroup || event.sceneRevision !== progress.currentGroupRevision || event.eventIndex !== progress.expectedEventIndex) {
     throw new Error("Replay event group, revision, or eventIndex is inconsistent");
   }
@@ -198,7 +223,16 @@ function applyReplayEvent(
       applyIntentCancelled(state, event);
       break;
     case "intent.resolved":
-      applyIntentResolved(state, event);
+      applyIntentResolved(state, event, progress);
+      break;
+    case "status.applied":
+      applyStatusApplied(state, event, progress);
+      break;
+    case "status.refreshed":
+      applyStatusRefreshed(state, event, progress);
+      break;
+    case "status.expired":
+      applyStatusExpired(state, event);
       break;
     case "hp.changed":
       applyHpChanged(state, event, progress);
@@ -268,6 +302,9 @@ function applyMovement(state: RuntimeState, event: Extract<DomainEvent, { eventT
   const entity = state.entities.get(event.payload.entityId);
   if (!entity || entity.aliveState === "removed" || !isInBounds(event.payload.from) || !isInBounds(event.payload.to)) {
     throw new Error("Replay movement references invalid entity or cell");
+  }
+  if (entity.kind === "hero" && hasActiveStatus(entity, "immobilized", event.serverTick)) {
+    throw new Error("Replay movement violates an active immobilized status");
   }
   if (entity.position.x !== event.payload.from.x || entity.position.y !== event.payload.from.y) {
     throw new Error("Replay movement from-cell does not match current entity position");
@@ -344,7 +381,11 @@ function applyIntentCancelled(state: RuntimeState, event: Extract<DomainEvent, {
   enemy.activeIntentId = null;
 }
 
-function applyIntentResolved(state: RuntimeState, event: Extract<DomainEvent, { eventType: "intent.resolved" }>): void {
+function applyIntentResolved(
+  state: RuntimeState,
+  event: Extract<DomainEvent, { eventType: "intent.resolved" }>,
+  progress: ReplayProgress,
+): void {
   const active = state.activeIntents.get(event.payload.activeIntentId);
   const enemy = state.entities.get(event.payload.enemyId);
   const template = active ? state.intentTemplates.get(active.templateKey) : undefined;
@@ -356,6 +397,93 @@ function applyIntentResolved(state: RuntimeState, event: Extract<DomainEvent, { 
   active.state = "resolved";
   state.activeIntents.delete(active.activeIntentId);
   enemy.activeIntentId = null;
+  if (template.effect.handler === "bind") {
+    const targetEntityId = event.payload.targetEntityId;
+    const target = targetEntityId ? state.entities.get(targetEntityId) : undefined;
+    if (progress.pendingBind || !target || target.aliveState !== "active" || target.hp.current <= 0) {
+      throw new Error("Replay bind resolution has no valid active target");
+    }
+    progress.pendingBind = {
+      enemyId: enemy.id,
+      targetEntityId: target.id,
+      activeIntentId: active.activeIntentId,
+      serverTick: event.serverTick,
+      eventGroupId: event.eventGroupId,
+      sceneRevision: event.sceneRevision,
+    };
+  }
+}
+
+function applyStatusApplied(
+  state: RuntimeState,
+  event: Extract<DomainEvent, { eventType: "status.applied" }>,
+  progress: ReplayProgress,
+): void {
+  const pending = progress.pendingBind;
+  const target = state.entities.get(event.payload.entityId);
+  const source = pending ? state.entities.get(pending.enemyId) : undefined;
+  const timer = event.payload.timer;
+  const expectedLayerId = pending
+    ? `status:${pending.targetEntityId}:immobilized:${pending.enemyId}:${pending.activeIntentId}`
+    : "";
+  if (!pending || !target || !source || source.kind !== "enemy" || target.id !== pending.targetEntityId ||
+    event.actorId !== pending.enemyId || event.causedByRequestId !== null || event.payload.statusKey !== "immobilized" ||
+    event.payload.layerId !== expectedLayerId || event.serverTick !== pending.serverTick ||
+    timer.startedAtTick !== event.serverTick || timer.resolvesAtTick !== event.serverTick + IMMOBILIZED_DURATION_TICKS ||
+    timer.durationMs !== IMMOBILIZED_DURATION_MS || timer.remainingMs !== IMMOBILIZED_DURATION_MS || timer.paused !== false ||
+    (event.payload.publicPotency !== undefined && event.payload.publicPotency !== 1) ||
+    target.statuses.some((layer) => layer.templateKey === "immobilized" && layer.expiresAtTick >= event.serverTick)) {
+    throw new Error("Replay status.applied does not match a valid bind intent");
+  }
+  target.statuses.push({
+    id: event.payload.layerId,
+    templateKey: "immobilized",
+    sourceEntityId: source.id,
+    potency: event.payload.publicPotency ?? 1,
+    stacks: 1,
+    appliedAtTick: event.serverTick,
+    expiresAtTick: timer.resolvesAtTick,
+    refreshPolicy: "refresh_duration",
+  });
+  progress.pendingBind = null;
+}
+
+function applyStatusRefreshed(
+  state: RuntimeState,
+  event: Extract<DomainEvent, { eventType: "status.refreshed" }>,
+  progress: ReplayProgress,
+): void {
+  const pending = progress.pendingBind;
+  const target = state.entities.get(event.payload.entityId);
+  const source = pending ? state.entities.get(pending.enemyId) : undefined;
+  const layer = target?.statuses.find((candidate) => candidate.id === event.payload.layerId);
+  const timer = event.payload.timer;
+  if (!pending || !target || !source || source.kind !== "enemy" || target.id !== pending.targetEntityId ||
+    event.actorId !== pending.enemyId || event.causedByRequestId !== null || event.payload.statusKey !== "immobilized" ||
+    !layer || layer.templateKey !== "immobilized" || layer.refreshPolicy !== "refresh_duration" ||
+    layer.expiresAtTick < event.serverTick || event.serverTick !== pending.serverTick ||
+    timer.startedAtTick !== event.serverTick || timer.resolvesAtTick !== event.serverTick + IMMOBILIZED_DURATION_TICKS ||
+    timer.durationMs !== IMMOBILIZED_DURATION_MS || timer.remainingMs !== IMMOBILIZED_DURATION_MS || timer.paused !== false ||
+    (event.payload.publicPotency !== undefined && event.payload.publicPotency !== 1)) {
+    throw new Error("Replay status.refreshed does not match an existing bind status layer");
+  }
+  layer.appliedAtTick = event.serverTick;
+  layer.expiresAtTick = timer.resolvesAtTick;
+  progress.pendingBind = null;
+}
+
+function applyStatusExpired(state: RuntimeState, event: Extract<DomainEvent, { eventType: "status.expired" }>): void {
+  if (event.actorId !== null || event.causedByRequestId !== null) throw new Error("Replay status.expired cannot be command-caused");
+  const nextDue = [...state.entities.values()]
+    .flatMap((entity) => entity.statuses
+      .filter((layer) => layer.expiresAtTick <= event.serverTick)
+      .map((layer) => ({ entity, layer })))
+    .sort((a, b) => compareText(a.entity.id, b.entity.id) || compareText(a.layer.id, b.layer.id))[0];
+  if (!nextDue || nextDue.entity.id !== event.payload.entityId || nextDue.layer.id !== event.payload.layerId ||
+    nextDue.layer.templateKey !== event.payload.statusKey || nextDue.layer.expiresAtTick !== event.serverTick) {
+    throw new Error("Replay status.expired does not match the next deterministic due layer");
+  }
+  nextDue.entity.statuses.splice(nextDue.entity.statuses.indexOf(nextDue.layer), 1);
 }
 
 function applyHpChanged(

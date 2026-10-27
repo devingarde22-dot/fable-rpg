@@ -35,6 +35,18 @@ export function assertRuntimeInvariants(state: RuntimeState): void {
     if (!Number.isFinite(entity.defense) || entity.defense < 0 || !Number.isFinite(entity.threat)) {
       throw new Error(`Entity ${entity.id} has invalid combat values`);
     }
+    const statusIds = new Set<string>();
+    for (const status of entity.statuses) {
+      if (!status.id || statusIds.has(status.id) || status.templateKey !== "immobilized" ||
+        (status.sourceEntityId !== null && !state.entities.has(status.sourceEntityId)) ||
+        !Number.isFinite(status.potency) || status.potency <= 0 || status.stacks !== 1 ||
+        !Number.isInteger(status.appliedAtTick) || status.appliedAtTick < 0 ||
+        !Number.isInteger(status.expiresAtTick) || status.expiresAtTick <= status.appliedAtTick ||
+        status.expiresAtTick < state.serverTick || status.refreshPolicy !== "refresh_duration") {
+        throw new Error(`Entity ${entity.id} has an invalid status layer ${status.id}`);
+      }
+      statusIds.add(status.id);
+    }
     if (entity.kind === "hero") {
       if (typeof entity.canEnterRangedMode !== "boolean") throw new Error(`Hero ${entity.id} has invalid ranged-mode capability`);
       if (!Number.isInteger(entity.cards.revision) || entity.cards.revision < 0) {

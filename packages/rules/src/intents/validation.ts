@@ -26,7 +26,7 @@ export function validateIntent(
     return { ok: false, reason: "target_invalid" };
   }
   const target = selected.target;
-  if (!isEligibleTarget(state.scene.cells, enemy, target, template)) return { ok: false, reason: "target_invalid" };
+  if (!isEligibleTarget(state.scene.cells, enemy, target, template, state.serverTick)) return { ok: false, reason: "target_invalid" };
   if (template.targetRules.lineOfSight === "required" && !hasLineOfSight(state.scene.cells, enemy.position, target.position)) {
     return { ok: false, reason: "los_blocked" };
   }
@@ -46,7 +46,7 @@ export function validateIntent(
 export function isIntentStillValid(state: RuntimeState, enemy: EntityRuntime, active: ActiveIntent, template: IntentTemplate): IntentValidation {
   const selectedTarget = active.targetEntityId ? state.entities.get(active.targetEntityId) : null;
   if (template.effect.handler === "hold_position") return { ok: true, target: null };
-  if (!selectedTarget || !isEligibleTarget(state.scene.cells, enemy, selectedTarget, template)) {
+  if (!selectedTarget || !isEligibleTarget(state.scene.cells, enemy, selectedTarget, template, state.serverTick)) {
     return { ok: false, reason: "target_invalid" };
   }
   if (template.targetRules.lineOfSight === "required" && !hasLineOfSight(state.scene.cells, enemy.position, selectedTarget.position)) {

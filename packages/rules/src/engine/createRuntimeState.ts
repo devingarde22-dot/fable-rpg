@@ -12,6 +12,7 @@ import {
   type RuntimeState,
   type RuntimeSnapshot,
   type SimulationEngineConfig,
+  type StatusLayer,
 } from "./types.js";
 import { assertRuntimeInvariants } from "./invariants.js";
 
@@ -38,7 +39,7 @@ export function createRuntimeState(config: SimulationEngineConfig): RuntimeState
         hp: { current: template.hp, max: template.hp },
         defense: template.defense,
         threat: source.threat,
-        statuses: [...source.statuses],
+        statuses: cloneAndValidateStatusLayers(source.statuses, source.id),
         position: { ...source.position },
         activeIntentId: null,
       };
@@ -66,7 +67,7 @@ export function createRuntimeState(config: SimulationEngineConfig): RuntimeState
               ? initialServerTick + CARD_ROTATION_INTERVAL_TICKS
               : null),
         },
-        statuses: [...source.statuses],
+        statuses: cloneAndValidateStatusLayers(source.statuses, source.id),
         position: { ...source.position },
         activeIntentId: null,
       };
@@ -213,14 +214,14 @@ export function cloneEntity(entity: EntityRuntime): EntityRuntime {
         revision: entity.cards.revision,
         nextHandRotationAtTick: entity.cards.nextHandRotationAtTick,
       },
-      statuses: [...entity.statuses],
+      statuses: entity.statuses.map(cloneStatusLayer),
     };
   }
   return {
     ...entity,
     position: { ...entity.position },
     hp: { ...entity.hp },
-    statuses: [...entity.statuses],
+    statuses: entity.statuses.map(cloneStatusLayer),
   };
 }
 
@@ -233,7 +234,27 @@ export function cloneActiveIntent(intent: ActiveIntent): ActiveIntent {
 }
 
 function isRuntimeHandler(handler: string): boolean {
-  return handler === "move_close" || handler === "melee_strike" || handler === "ranged_shot" || handler === "hold_position";
+  return handler === "move_close" || handler === "melee_strike" || handler === "ranged_shot" ||
+    handler === "hold_position" || handler === "bind";
+}
+
+function cloneAndValidateStatusLayers(layers: readonly StatusLayer[], entityId: string): StatusLayer[] {
+  const seenIds = new Set<string>();
+  return layers.map((layer) => {
+    if (!layer.id || seenIds.has(layer.id) || layer.templateKey !== "immobilized" ||
+      !Number.isFinite(layer.potency) || layer.potency <= 0 || !Number.isInteger(layer.stacks) || layer.stacks !== 1 ||
+      !Number.isInteger(layer.appliedAtTick) || layer.appliedAtTick < 0 ||
+      !Number.isInteger(layer.expiresAtTick) || layer.expiresAtTick <= layer.appliedAtTick ||
+      layer.refreshPolicy !== "refresh_duration") {
+      throw new Error(`Entity ${entityId} has an invalid status layer ${layer.id}`);
+    }
+    seenIds.add(layer.id);
+    return cloneStatusLayer(layer);
+  });
+}
+
+function cloneStatusLayer(layer: StatusLayer): StatusLayer {
+  return { ...layer };
 }
 
 function buildCardTemplateRegistry(templates: readonly CardTemplate[]): Map<string, CardTemplate> {

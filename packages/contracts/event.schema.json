@@ -1166,17 +1166,182 @@
               "type": "string"
             },
             "statusKey": {
-              "type": "string"
+              "const": "immobilized"
             },
             "layerId": {
               "type": "string"
             },
             "timer": {
-              "$ref": "#/$defs/timer"
+              "allOf": [
+                {
+                  "$ref": "#/$defs/timer"
+                },
+                {
+                  "properties": {
+                    "durationMs": {
+                      "const": 15000
+                    },
+                    "remainingMs": {
+                      "const": 15000
+                    },
+                    "paused": {
+                      "const": false
+                    }
+                  }
+                }
+              ]
             },
             "publicPotency": {
-              "type": "number",
-              "minimum": 0
+              "const": 1
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocolVersion",
+        "schemaVersion",
+        "eventId",
+        "eventVersion",
+        "campaignId",
+        "sessionId",
+        "sceneId",
+        "sceneRevision",
+        "serverTick",
+        "serverSequence",
+        "eventGroupId",
+        "eventIndex",
+        "causedByRequestId",
+        "actorId",
+        "replay",
+        "eventType",
+        "payload"
+      ],
+      "properties": {
+        "protocolVersion": {
+          "const": "fable.protocol.v1"
+        },
+        "schemaVersion": {
+          "const": 1
+        },
+        "eventId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "eventVersion": {
+          "const": 1
+        },
+        "campaignId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sessionId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sceneId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sceneRevision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "serverTick": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "serverSequence": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "eventGroupId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "eventIndex": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "causedByRequestId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "actorId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "replay": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "required": [
+            "seedRef"
+          ],
+          "properties": {
+            "seedRef": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "eventType": {
+          "const": "status.refreshed"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "entityId",
+            "statusKey",
+            "layerId",
+            "timer"
+          ],
+          "properties": {
+            "entityId": {
+              "type": "string"
+            },
+            "statusKey": {
+              "const": "immobilized"
+            },
+            "layerId": {
+              "type": "string"
+            },
+            "timer": {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/timer"
+                },
+                {
+                  "properties": {
+                    "durationMs": {
+                      "const": 15000
+                    },
+                    "remainingMs": {
+                      "const": 15000
+                    },
+                    "paused": {
+                      "const": false
+                    }
+                  }
+                }
+              ]
+            },
+            "publicPotency": {
+              "const": 1
             }
           }
         }
@@ -1298,7 +1463,7 @@
               "type": "string"
             },
             "statusKey": {
-              "type": "string"
+              "const": "immobilized"
             },
             "layerId": {
               "type": "string"

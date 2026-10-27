@@ -365,7 +365,7 @@ Stamina regen использует только authoritative ticks: 1 един�
 
 В фиксированном порядке:
 
-1. удалить expired status layers;
+1. удалить due status layers по `entityId`, затем `layerId`; emit `status.expired` once per layer;
 2. завершить immobilized/unconscious timers;
 3. очистить resolved/cancelled intents;
 4. применить mode transitions, отложенные до конца resolution;
@@ -572,9 +572,9 @@ intent.cancelled(reason)
 |---|---|---|
 | `quarantine_chaser` | `move_close`, `melee_strike`, `hold_position` | `move_close`, `melee_strike`, `hold_position` |
 | `slag_shooter` | `ranged_shot`, `reposition` (draft/deferred), `hold_position` | `ranged_shot`, `hold_position` |
-| `extinguisher` | `bind`, `ally_guard`, `move_close` | catalog only; not in active runtime fixture |
+| `extinguisher` | `bind`, `ally_guard`, `move_close` | production content remains catalog-only; `bind` is exercised only by TEST_ONLY / NON_BALANCE fixtures |
 
-`reposition`, `bind`, and `ally_guard` remain non-active handlers in this increment. Enemy-specific timers/effects and RNG/version details are defined in DR-C-002.
+`bind` is now an active runtime handler only for the bounded `immobilized` effect specified in [DR-C-008](./22-step-c-status-immobilized.md). Production `extinguisher` catalog behavior remains unchanged. `reposition` and `ally_guard` remain non-active handlers. Enemy-specific timers/effects and RNG/version details are defined in DR-C-002.
 
 ---
 
@@ -665,7 +665,7 @@ Engine хранит `nextRegenAtTick`, а projection строит circular timer
 ```ts
 export type StatusLayer = {
   id: string;
-  templateKey: string;
+  templateKey: "immobilized"; // current implemented status key; see DR-C-008
   sourceEntityId: EntityId | null;
   potency: number;
   stacks: number;
@@ -675,11 +675,16 @@ export type StatusLayer = {
 };
 ```
 
-Минимальная длительность обычного combat status — 15 секунд (`300 ticks`), кроме explicitly configured reaction/animation locks. Повторное наложение может складывать duration, но potency использует template stack policy и не растёт бесконечно.
+Runtime layer shape and creation/clone invariants are specified in [DR-C-008](./22-step-c-status-immobilized.md). The current `StatusTemplateKey` is the closed union `"immobilized"`; the shared `StatusRefreshPolicy` type lists future policy values, but only `"refresh_duration"` is enabled for this status.
 
-Step C statuses:
+`immobilized` lasts 300 ticks. Refresh resets its deadline to the latest successful application tick + 300; it does not add duration, stacks or potency. The existing layer ID and original source are preserved. Status cleanup runs after player/enemy/environment/resource/card phases; the status is effective through gameplay resolution on its due tick and is then removed with `status.expired`. This exact boundary is covered by integration tests.
 
-- `immobilized`: запрещает movement; default 15s;
+Implemented in this Step C increment:
+
+- `immobilized`: blocks `player.move`; 15 seconds / 300 ticks; only test-backed `bind` applies it.
+
+Future, not implemented by Increment 8:
+
 - `unconscious`: запрещает любое действие на configured duration;
 - `last_chance`: +20% all stats while surrounded, if enabled by ruleset;
 - `ally_guard`: +20% defense;
@@ -707,9 +712,11 @@ card.discarded
 intent.started
 intent.target_selected       // if target policy requires explicit target
 intent.resolved
-hp.changed v2 / status.applied  // effects after intent resolution; v1 remains replayable
+hp.changed v2 / status.applied / status.refreshed  // effects after resolution; bind status event immediately follows intent.resolved
 intent.cancelled(owner_removed) → scene.entity_removed  // if a zero-HP enemy owns an active intent
 ```
+
+`status.expired` is emitted in the post-gameplay status cleanup phase. Bind event ordering, fixed timer validation and replay requirements are defined in [DR-C-008](./22-step-c-status-immobilized.md).
 
 Event envelope получает:
 

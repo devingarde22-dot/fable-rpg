@@ -52,7 +52,7 @@ describe("authoritative scheduler", () => {
     engine.submit(moveCommand("player-1", "right", { sequence: 2 }));
     engine.submit(moveCommand("player-2", "left", { actorId: "actor-2", sequence: 1 }));
     const result = engine.advanceTicks(5).at(-1);
-    expect(phases).toEqual(Array.from({ length: 5 }, () => ["players", "enemies", "environment", "resources", "cards"]).flat());
+    expect(phases).toEqual(Array.from({ length: 5 }, () => ["players", "enemies", "environment", "resources", "cards", "statuses"]).flat());
     expect(result?.commandResults.map((entry) => entry.status)).toEqual(["accepted", "accepted"]);
     expect(result?.events.map((event) => event.causedByRequestId)).toEqual(["player-2", "player-1"]);
     expect(result?.events.map((event) => event.eventIndex)).toEqual([0, 1]);

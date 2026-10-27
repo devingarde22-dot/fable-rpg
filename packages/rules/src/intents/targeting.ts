@@ -2,6 +2,7 @@ import { cellIndex } from "../grid/Grid.js";
 import { DeterministicRng } from "../rng/DeterministicRng.js";
 import type { ActiveIntent, CellRuntime, EntityRuntime, IntentTemplate, RuntimeState, TargetPolicy } from "../engine/types.js";
 import { chebyshevDistance, hasLineOfSight } from "./geometry.js";
+import { hasActiveStatus } from "../statuses/statusSystem.js";
 
 export type SelectedTarget = {
   target: EntityRuntime;
@@ -44,11 +45,12 @@ export function isEligibleTarget(
   enemy: EntityRuntime,
   candidate: EntityRuntime,
   template: IntentTemplate,
+  serverTick = 0,
 ): boolean {
   const filters = template.targetRules.filters;
   if (!filters.factions.includes(candidate.faction) || !filters.aliveStates.includes(candidate.aliveState) || candidate.hp.current === 0) return false;
-  if (filters.requiredStatuses.some((status) => !candidate.statuses.includes(status))) return false;
-  if (filters.excludedStatuses.some((status) => candidate.statuses.includes(status))) return false;
+  if (filters.requiredStatuses.some((status) => !hasActiveStatus(candidate, status, serverTick))) return false;
+  if (filters.excludedStatuses.some((status) => hasActiveStatus(candidate, status, serverTick))) return false;
   if (candidate.id === enemy.id) return false;
   const distance = chebyshevDistance(enemy.position, candidate.position);
   const range = template.targetRules.range;
@@ -66,7 +68,7 @@ function rankedCandidatesForPolicy(
 ): EntityRuntime[] {
   const cells = state.scene.cells;
   const candidates = [...state.entities.values()].filter((candidate) =>
-    isEligibleTarget(cells, enemy, candidate, template) &&
+    isEligibleTarget(cells, enemy, candidate, template, state.serverTick) &&
     (policy !== "nearest_visible_player" || hasLineOfSight(cells, enemy.position, candidate.position)));
   if (policy === "current_target") return candidates.filter((candidate) => candidate.id === currentTargetId);
   return candidates.sort((a, b) => compareEntityId(a.id, b.id));

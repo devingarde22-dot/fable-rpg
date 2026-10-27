@@ -19,6 +19,20 @@ export type ResourceValue = { current: number; max: number };
 export type StaminaRuntime = ResourceValue & { nextRegenAtTick: number | null };
 export type HeroMode = "movement" | "melee" | "ranged";
 export type ModeChangedValue = "out_of_combat" | HeroMode;
+export type StatusTemplateKey = "immobilized";
+export type StatusRefreshPolicy = "refresh_duration" | "add_duration" | "diminishing_potency" | "replace";
+export type StatusLayer = {
+  id: string;
+  templateKey: StatusTemplateKey;
+  sourceEntityId: EntityId | null;
+  potency: number;
+  stacks: number;
+  appliedAtTick: number;
+  expiresAtTick: number;
+  refreshPolicy: StatusRefreshPolicy;
+};
+export const IMMOBILIZED_DURATION_MS = 15_000 as const;
+export const IMMOBILIZED_DURATION_TICKS = IMMOBILIZED_DURATION_MS / TICK_DURATION_MS;
 export type CardTemplate = {
   key: string;
   version: number;
@@ -113,7 +127,7 @@ type RuntimeEntityBase = {
   hp: ResourceValue;
   defense: number;
   threat: number;
-  statuses: string[];
+  statuses: StatusLayer[];
 };
 
 export type HeroRuntime = RuntimeEntityBase & {
@@ -321,6 +335,30 @@ export type DomainEvent =
   | (EventBase & {
       eventType: "stamina.changed";
       payload: { heroId: EntityId; current: number; maximum: number; reason: "card_cost" | "regeneration" };
+    })
+  | (EventBase & {
+      eventType: "status.applied";
+      payload: {
+        entityId: EntityId;
+        statusKey: StatusTemplateKey;
+        layerId: string;
+        timer: { startedAtTick: number; resolvesAtTick: number; durationMs: number; remainingMs: number; paused: false };
+        publicPotency?: number;
+      };
+    })
+  | (EventBase & {
+      eventType: "status.refreshed";
+      payload: {
+        entityId: EntityId;
+        statusKey: StatusTemplateKey;
+        layerId: string;
+        timer: { startedAtTick: number; resolvesAtTick: number; durationMs: number; remainingMs: number; paused: false };
+        publicPotency?: number;
+      };
+    })
+  | (EventBase & {
+      eventType: "status.expired";
+      payload: { entityId: EntityId; statusKey: StatusTemplateKey; layerId: string };
     })
   | (EventBase & {
       eventType: "intent.started";
