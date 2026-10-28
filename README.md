@@ -27,6 +27,7 @@ Read in this order:
 19. `docs/23-step-c-ally-guard.md`
 20. `docs/25-step-c-increment-10-full-headless-slice.md`
 21. `docs/17-development-log-and-handoff.md`
+22. `docs/29-step-c-audit-work-log-2026-10-28.md`
 
 Markdown contracts and JSON Schemas are the source of truth. If a document conflicts with a confirmed rule or schema, stop and report the conflict instead of inventing behavior.
 
