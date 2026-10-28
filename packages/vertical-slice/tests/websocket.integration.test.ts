@@ -323,7 +323,7 @@ describe("WebSocket transport", () => {
     });
   });
 
-  it("rejects schema-invalid commands and enforces the token bucket", async () => {
+  it("rejects valid command bursts over the token-bucket limit without changing state", async () => {
     const server = createServer({ capacity: 1, refillPerSecond: 0.001 });
     const player = await openClient(server);
     try {
@@ -333,18 +333,49 @@ describe("WebSocket transport", () => {
 
       const acceptedPromise = nextMessages(player, 3);
       player.send(JSON.stringify({ type: "command", command: { kind: "player.move", requestId: "rate-1", direction: "right" } }));
-      await acceptedPromise;
+      const accepted = await acceptedPromise;
+      expect(accepted.some((message) => message.type === "command.result" && message.result.status === "accepted")).toBe(true);
+      const stateAfterAcceptedCommand = server.slice.engine.snapshot();
 
       const rejectedPromise = nextMessages(player, 1);
-      player.send(JSON.stringify({ type: "command", command: { kind: "player.move", requestId: "rate-2", direction: "right", extra: true } }));
-      const [rejected] = await rejectedPromise;
-      expect(rejected?.type).toBe("transport.error");
-      if (rejected?.type === "transport.error") expect(rejected.reason).toContain("schema_validation_failed");
-
-      const rateLimitedPromise = nextMessages(player, 1);
-      player.send(JSON.stringify({ type: "command", command: { kind: "player.move", requestId: "rate-3", direction: "right" } }));
-      const [rateLimited] = await rateLimitedPromise;
+      player.send(JSON.stringify({ type: "command", command: { kind: "player.move", requestId: "rate-2", direction: "right" } }));
+      const [rateLimited] = await rejectedPromise;
       expect(rateLimited).toEqual({ type: "transport.error", reason: "rate_limited" });
+      expect(server.slice.engine.snapshot()).toEqual(stateAfterAcceptedCommand);
+    } finally {
+      await closeClient(player);
+    }
+  });
+
+  it("rejects malformed JSON, unknown message/command types and invalid parameters without consuming rate limit", async () => {
+    const server = createServer({ capacity: 1, refillPerSecond: 0.001 });
+    const player = await openClient(server);
+    try {
+      const initialMessagesPromise = nextMessages(player, 2);
+      player.send(JSON.stringify({ type: "hello", campaignId, role: "player", token: "player-token", actorId: "player-1" }));
+      await initialMessagesPromise;
+      const initialState = server.slice.engine.snapshot();
+      const invalidInputs = [
+        "{not-json",
+        JSON.stringify({ type: "unknown" }),
+        JSON.stringify({ type: "command", command: { kind: "player.teleport", requestId: "unknown-command" } }),
+        JSON.stringify({ type: "command", command: { kind: "player.move", requestId: "bad-direction", direction: "diagonal" } }),
+      ];
+
+      for (const input of invalidInputs) {
+        const rejectionPromise = nextMessages(player, 1);
+        player.send(input);
+        const [rejected] = await rejectionPromise;
+        expect(rejected?.type).toBe("transport.error");
+        if (rejected?.type === "transport.error") expect(rejected.reason).toContain("schema_validation_failed");
+      }
+
+      expect(server.slice.engine.snapshot()).toEqual(initialState);
+      const validCommandPromise = nextMessages(player, 3);
+      player.send(JSON.stringify({ type: "command", command: { kind: "player.move", requestId: "valid-after-invalid", direction: "right" } }));
+      const validMessages = await validCommandPromise;
+      expect(validMessages.some((message) => message.type === "command.result" && message.result.status === "accepted")).toBe(true);
+      expect(server.slice.engine.snapshot()).not.toEqual(initialState);
     } finally {
       await closeClient(player);
     }
