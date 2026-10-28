@@ -121,4 +121,83 @@ describe("Extinguisher bind uptime", () => {
     }
     expect(selectedHero).toBe(true);
   });
+
+  it("measures four-hero uptime and simultaneous immobilization over 120 seconds", () => {
+    const heroIds = ["hero-1", "hero-2", "hero-3", "hero-4"];
+    const createMultiHeroEngine = () => createSimulationEngine(testConfig({
+      rootSeed: `${SEED}-four-heroes`,
+      entities: [
+        hero("hero-1", 2, 2), hero("hero-2", 3, 2),
+        hero("hero-3", 2, 3), hero("hero-4", 3, 3),
+        enemy("extinguisher-1", 4, 2, "extinguisher"),
+      ],
+      initialIntentByEnemyId: {},
+    }));
+    const engine = createMultiHeroEngine();
+    let firstAppliedTick: number | null = null;
+    const observations = new Map(heroIds.map((id) => [id, new Set<number>()]));
+    const applications = new Map(heroIds.map((id) => [id, [] as number[]]));
+    const observationEndTick = () => firstAppliedTick! + OBSERVATION_TICKS;
+
+    while (firstAppliedTick === null || engine.snapshot().serverTick < observationEndTick()) {
+      const result = engine.advanceOneTick();
+      for (const event of result.events) {
+        if ((event.eventType === "status.applied" || event.eventType === "status.refreshed") &&
+          heroIds.includes(event.payload.entityId) && event.payload.statusKey === "immobilized") {
+          firstAppliedTick ??= event.serverTick;
+          applications.get(event.payload.entityId)!.push(event.serverTick);
+        }
+      }
+      if (firstAppliedTick !== null) {
+        const tick = engine.snapshot().serverTick;
+        if (tick > firstAppliedTick && tick <= observationEndTick()) {
+          for (const id of heroIds) {
+            if (engine.snapshot().entities.find((entity) => entity.id === id)?.statuses
+              .some((status) => status.templateKey === "immobilized")) observations.get(id)!.add(tick);
+          }
+        }
+      }
+    }
+
+    const start = firstAppliedTick! + 1;
+    const endExclusive = firstAppliedTick! + OBSERVATION_TICKS + 1;
+    const windowCount = endExclusive - start - FAIRNESS_PERIOD_TICKS + 1;
+    const windowMinima = new Map<string, number>();
+    for (const id of heroIds) {
+      const immobilized = observations.get(id)!;
+      let minimum = Number.POSITIVE_INFINITY;
+      for (let window = 0; window < windowCount; window += 1) {
+        let run = 0;
+        let longest = 0;
+        for (let tick = start + window; tick < start + window + FAIRNESS_PERIOD_TICKS; tick += 1) {
+          run = immobilized.has(tick) ? 0 : run + 1;
+          longest = Math.max(longest, run);
+        }
+        minimum = Math.min(minimum, longest);
+      }
+      windowMinima.set(id, minimum);
+    }
+    let overlapTicks = 0;
+    for (let tick = start; tick < endExclusive; tick += 1) {
+      if (heroIds.filter((id) => observations.get(id)!.has(tick)).length >= 2) overlapTicks += 1;
+    }
+    const overlapRatio = overlapTicks / OBSERVATION_TICKS;
+    console.info(`Four-hero sliding fairness: ${windowCount} windows; ${heroIds.map((id) => `${id}=${windowMinima.get(id)} ticks (${windowMinima.get(id)! / TICKS_PER_SECOND}s)`).join(", ")}; overlap ${overlapTicks}/${OBSERVATION_TICKS}=${overlapRatio} (${(overlapRatio * 100).toFixed(2)}%)`);
+
+    const replay = createMultiHeroEngine();
+    const replayApplications = new Map(heroIds.map((id) => [id, [] as number[]]));
+    for (let i = 0; i < engine.snapshot().serverTick; i += 1) {
+      for (const event of replay.advanceOneTick().events) {
+        if ((event.eventType === "status.applied" || event.eventType === "status.refreshed") &&
+          heroIds.includes(event.payload.entityId) && event.payload.statusKey === "immobilized") {
+          replayApplications.get(event.payload.entityId)!.push(event.serverTick);
+        }
+      }
+    }
+    expect(stateHash(replay.state)).toBe(stateHash(engine.state));
+    expect(replayApplications).toEqual(applications);
+    expect(windowCount).toBe(1_801);
+    expect([...windowMinima.values()]).toHaveLength(4);
+    expect([...windowMinima.values()].every((ticks) => ticks >= FAIRNESS_WINDOW_TICKS)).toBe(true);
+  });
 });
