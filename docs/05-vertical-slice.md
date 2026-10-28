@@ -1,9 +1,9 @@
 # Fable — Vertical Slice: Quarantine Gates
 
-**Версия:** 0.1  
-**Статус:** CONFIRMED SCOPE / TUNING VALUES  
-**Reference party:** 4 игрока + GM  
-**Debug party:** 3 героя допускается для быстрой симуляции  
+**Версия:** 0.1
+**Статус:** CONFIRMED SCOPE / TUNING VALUES
+**Reference party:** 4 игрока + GM
+**Debug party:** 3 героя допускается для быстрой симуляции
 **Старт:** Миревальт, Аверенн
 
 **Уточнение для Increment 10:** headless acceptance, party 2–4, четыре стартовые клетки, in-memory city-save/rollback, outcomes, TEST_ONLY defense cards и исключение `reposition` определены в [DR-C-010](./25-step-c-increment-10-full-headless-slice.md). Для этого increment DR-C-010 имеет приоритет над устаревшими ограничениями этой reference fixture; более широкий product/UI scope документа остаётся вне headless implementation.
@@ -105,7 +105,7 @@ GM запускает обязательную сцену. TV показывае
 
 Игрок нажимает стрелку. Сервер проверяет свободную соседнюю клетку, перемещает героя на 1 метр и отправляет `scene.entity_moved`.
 
-**Проверки:** нельзя пройти через врага, союзника, стену или статую; два игрока не занимают одну клетку; stale command отклоняется.
+**Проверки:** нельзя пройти через врага, союзника, стену или статую; два игрока не занимают одну клетку; старый transport `clientRevision` сам по себе не отклоняет player command — legality перепроверяется по live state при применении согласно DR-C-011.
 
 ### Шаг 4 — первый intent
 
@@ -115,13 +115,13 @@ GM запускает обязательную сцену. TV показывае
 
 ### Шаг 5 — вход в бой
 
-Игрок, подошедший к врагу, входит в ближний бой и получает карты. Дальний герой может нажать кнопку дальнего боя, если в его фильтрованной колоде есть разрешённые дальние карты. Режим перемещения заменяется персональным battle projection.
+Игрок, подошедший к врагу, входит в ближний бой и получает карты. В текущем Step C дальний герой может запросить дальний бой, если authoritative `hero.canEnterRangedMode === true`; mode-filtered deck deal происходит после перехода и не является вторым entry gate. Режим перемещения заменяется персональным battle projection.
 
 **Проверки:** 5 карт + 1 защита; карта с положительной стоимостью не играется без стамины; карта 0 может быть сыграна при 0.
 
 ### Шаг 6 — карты и цели
 
-Игрок разыгрывает карту. Для не-АОЕ карты при нескольких врагах открывается выбор targetId. Для дальней карты сервер повторно проверяет дальность и LoS. Магия в ближнем бою получает -50% к урону, но не к силе статуса.
+Игрок разыгрывает карту. Для current direct-damage card сервер требует targetId и повторно проверяет mode, Chebyshev distance, LoS, stamina и карту в authoritative hand. Magic в melee и status-potency rule не реализованы: `CardTemplate` не содержит category/magic marker; они требуют отдельного Decision Record.
 
 **Проверки:** клиент не задаёт итоговый урон; server event содержит formula version и raw/final values в GM projection.
 
@@ -136,7 +136,7 @@ GM запускает обязательную сцену. TV показывае
 GM выбирает один из исходов:
 
 - `success` — победа и consequence;
-- `retreat` — узел закрыт, лут закрыт, сюжетная сцена может быть перенесена;
+- `retreat` — reward заблокирован, узел остаётся открытым для повторного прохождения согласно DR-C-010;
 - `defeat` — узел закрыт, награда закрыта, партия возвращается и может повторить маршрут;
 - `gm_abort` — техническое/административное закрытие с явной причиной.
 
@@ -154,10 +154,9 @@ Baseline damage formula:
 mitigation = 100 / (100 + targetDefense)
 mitigatedDamage = ceil(rawDamage × mitigation)
 finalDamage = ceil(mitigatedDamage × multiplier)
-criticalDamage = ceil(finalDamage × 1.5)
 ```
 
-Текущий HP/damage pipeline использует `fable.damage.v1`; карты и критические удары остаются за пределами Step C Increment 4. Damage events и cleanup следуют [DR-C-004](./18-step-c-hp-damage-resolution.md).
+Текущий HP/damage pipeline использует `fable.damage.v1`; direct-damage cards используют его по DR-C-006. Критические удары и miss не реализованы. Damage events и cleanup следуют [DR-C-004](./18-step-c-hp-damage-resolution.md).
 
 Целевые значения для 4 игроков:
 

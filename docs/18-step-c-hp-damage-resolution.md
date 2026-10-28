@@ -2,8 +2,8 @@
 
 - **Status:** `CONFIRMED`
 - **Decision date:** 2026-10-27
-- **Scope:** Step C Increment 4 — unified HP/damage pipeline for active enemy intents and retreat basic attacks
-- **Package boundary:** `packages/rules` owns deterministic calculation, HP mutation, cleanup, journal events and replay; `packages/content` supplies immutable enemy and intent damage values.
+- **Scope:** Step C Increment 4 unified the pipeline for active enemy intents and retreat attacks. DR-C-006 later confirmed direct-damage card use of the same pipeline; it does not change `fable.damage.v1`.
+- **Package boundary:** `packages/rules` owns deterministic calculation, HP mutation, cleanup, journal events and replay; `packages/content` and registered card templates supply immutable damage values.
 
 ## Decision
 
@@ -36,8 +36,9 @@ The pipeline is used by:
 
 - enemy intent handlers `melee_strike` and `ranged_shot`, with multiplier `1`;
 - retreat basic attacks using `melee_strike`, sorted by ascending `enemyId`, with multiplier `1 / attackOrder` (1-based order).
+- direct-damage cards accepted under [DR-C-006](./20-step-c-card-play.md), with the template's validated `rawDamage` and `multiplier`.
 
-Future card effects may become another source, but cards, decks and card damage handlers remain out of scope. They must not be represented as active handlers in this increment.
+Future damage categories, magic channels, hit/miss/critical outcomes, healing, and additional card effects remain outside this decision. They require their own versioned rules; do not reinterpret the existing multiplier as a hidden hit or magic mechanic.
 
 ### HP and alive-state lifecycle
 
@@ -52,11 +53,11 @@ Runtime HP remains `{current, max}` and `aliveState` remains the lifecycle discr
 
 New damage events use `hp.changed` **eventVersion 2**. The event preserves the existing `entityId`, `current`, `maximum`, `kind: "damage"` and optional `publicAmount`, and adds:
 
-- `source`: either `{kind:"enemy_intent", enemyId, activeIntentId, handler}` or `{kind:"retreat_attack", enemyId, attackOrder}`;
+- `source`: `{kind:"enemy_intent", enemyId, activeIntentId, handler}`, `{kind:"retreat_attack", enemyId, attackOrder}`, or the validated direct-card source `{kind:"card", heroId, cardInstanceId, cardTemplateKey}`;
 - `formulaVersion: "fable.damage.v1"`;
 - `rawDamage`, `defense`, `multiplier` и `finalDamage`.
 
-Envelope `actorId` сохраняет существующую семантику и указывает на attacking enemy entity для обоих источников. Поле `source` дополнительно идентифицирует handler/active intent либо retreat attack order.
+Envelope `actorId` сохраняет существующую семантику и указывает на attacking enemy или card-playing hero. Поле `source` дополнительно идентифицирует handler/active intent, retreat attack order либо card instance/template.
 
 The existing `hp.changed` eventVersion 1 remains valid for historical replay. New damage mutations emit version 2. The authoritative event/journal is not itself a role projection: formula/source fields must be restricted to GM/audit views and omitted from player/TV projections unless separately permitted.
 
@@ -90,4 +91,4 @@ The acceptance criterion is exact equality between live and replay snapshots and
 
 ## Verification
 
-Tests cover formula boundaries and staged rounding; active melee/ranged intents; retreat ordering and coefficients; HP clamping and zero-HP lifecycle; immediate exclusion of pending-removal enemies; cancellation/removal event ordering; event schema v2 plus removal schema; historical v1 replay; and exact live/replay stateHash parity. No card, deck, status, stun, crit or miss behavior is added.
+Tests cover formula boundaries and staged rounding; active melee/ranged intents; direct-damage card transactions; retreat ordering and coefficients; HP clamping and zero-HP lifecycle; immediate exclusion of pending-removal enemies; cancellation/removal event ordering; event schema v2 plus removal schema; historical v1 replay; and exact live/replay stateHash parity. Magic, hit/miss/critical, healing and other future damage categories are not added.

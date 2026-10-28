@@ -1,7 +1,7 @@
 # Fable — Balance Sheet
 
-**Версия:** 0.1  
-**Статус:** CONFIRMED BASELINE / TUNING  
+**Версия:** 0.1
+**Статус:** CONFIRMED BASELINE / TUNING
 **Reference party:** 4 игрока + GM
 
 ## 1. Цель
@@ -27,14 +27,16 @@ melee_reentry_lock_s: 15
 
 ## 3. Формулы
 
+Текущая executable formula определена в [DR-C-004](./18-step-c-hp-damage-resolution.md) и имеет версию `fable.damage.v1`:
+
 ```text
 mitigation = 100 / (100 + targetDefense)
-finalDamage = ceil(rawDamage × mitigation × hitMultiplier)
-criticalDamage = ceil(finalDamage × 1.5)
+mitigatedDamage = ceil(rawDamage × mitigation)
+finalDamage = ceil(mitigatedDamage × multiplier)
 heal = ceil(baseHeal + maxHP × healPercent)
 ```
 
-`hitMultiplier` равен 1 при обычном попадании и 0 при обычном промахе. Частичный промах является специальным свойством карты и не включается автоматически.
+`multiplier` не округляется до умножения. В текущем Step C нет `hitMultiplier`, hit/miss/critical roll или magic damage channel; эти product mechanics требуют отдельных Decision Records до добавления в balance/content/runtime. Любое изменение float-semantics текущей формулы также требует versioned decision и replay-compatibility plan.
 
 ## 4. Enemy profiles
 

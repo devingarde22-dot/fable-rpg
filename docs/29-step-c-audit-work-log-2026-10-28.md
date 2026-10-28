@@ -1,6 +1,6 @@
 # Step C audit and follow-up work log — 2026-10-28
 
-**Статус:** работа опубликована отдельными ветками и PR; ни одна из этих веток не слита в `main`. На момент подготовки лога `origin/main` остаётся на Increment 10 merge commit `b619c77`.
+**Статус:** исторический work log. На момент его подготовки follow-up branches были отдельными; PR #9–#13 затем интегрированы PR #14, а audited current `main` достиг `7770d04` после PR #15–#18. Для текущего состояния см. [verified combat-rules inventory](./30-verified-combat-rules-inventory.md) и [handoff](./17-development-log-and-handoff.md).
 
 ## Краткий итог
 
@@ -65,12 +65,12 @@ Boundary test фиксирует фазовый порядок. На expiry tick
 
 ## GitHub / merge status
 
-- [PR #10](https://github.com/devingarde22-dot/fable-rpg/pull/10) — DR-C-011, A1.
-- [PR #11](https://github.com/devingarde22-dot/fable-rpg/pull/11) — DR-C-012, A2.
-- [PR #12](https://github.com/devingarde22-dot/fable-rpg/pull/12) — B documentation sync and this work log.
-- [PR #13](https://github.com/devingarde22-dot/fable-rpg/pull/13) — C audit report.
+- [PR #10](https://github.com/devingarde22-dot/fable-rpg/pull/10) — DR-C-011, A1 — **merged through PR #14**.
+- [PR #11](https://github.com/devingarde22-dot/fable-rpg/pull/11) — DR-C-012, A2 — **merged through PR #14**.
+- [PR #12](https://github.com/devingarde22-dot/fable-rpg/pull/12) — B documentation sync and this work log — **merged through PR #14**.
+- [PR #13](https://github.com/devingarde22-dot/fable-rpg/pull/13) — C audit report — **merged through PR #14**.
 
-Все изменения остаются на feature branches и в открытых PR. Ни один PR не слит; `main` остаётся на `b619c77` до отдельного решения пользователя.
+This work log preserves the pre-merge evidence. It is not a statement that those branches remain open or that `main` remains at `b619c77`.
 
 ## Вопросы, не решённые этой работой
 

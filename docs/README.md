@@ -28,6 +28,7 @@
 20. [Increment 10 — Full Headless Vertical Slice (DR-C-010)](./25-step-c-increment-10-full-headless-slice.md)
 21. [Журнал разработки и AI handoff](./17-development-log-and-handoff.md)
 22. [Step C audit work log — 2026-10-28](./29-step-c-audit-work-log-2026-10-28.md)
+23. [Verified combat-rules inventory](./30-verified-combat-rules-inventory.md)
 
 ## Полный каталог документов
 
@@ -64,6 +65,8 @@
 29. [Step C audit work log — 2026-10-28](./29-step-c-audit-work-log-2026-10-28.md)
 30. [DR-C-011 — Scene Revision внутри input window](./26-step-c-scene-revision-window-semantics.md)
 31. [DR-C-012 — Extinguisher bind uptime](./27-step-c-extinguisher-bind-uptime.md)
+32. [Step C read-only audit — historical snapshot](./28-step-c-read-only-audit-2026-10-28.md)
+33. [Verified combat-rules inventory](./30-verified-combat-rules-inventory.md)
 
 ## Правило использования
 
@@ -106,7 +109,7 @@ docs/03-system-contracts.md
 docs/05-vertical-slice.md
 ```
 
-Step C increments 1–10 слиты в `main`; Increment 10 принят через [PR #8](https://github.com/devingarde22-dot/fable-rpg/pull/8), merge commit `b619c77`. [PR #9](https://github.com/devingarde22-dot/fable-rpg/pull/9) — открытый follow-up по idempotency команд. Прежний defense-slot-only proposal superseded. См. [журнал разработки и AI handoff](./17-development-log-and-handoff.md).
+Аудированный `main` — `7770d04` (PR #18). PR #9–#13 вошли через PR #14; PR #15–#18 также merged. Единственный открытый PR #4 — legacy stacked branch, уже достижимая из `main`. Для текущей реализации и открытых product decisions см. [журнал разработки и AI handoff](./17-development-log-and-handoff.md) и [verified combat-rules inventory](./30-verified-combat-rules-inventory.md).
 
 ## Machine-readable contracts
 

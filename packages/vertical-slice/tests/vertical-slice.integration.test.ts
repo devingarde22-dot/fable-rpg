@@ -43,6 +43,11 @@ describe("player/GM vertical slice", () => {
     gm.drain();
 
     gm.send({ kind: "gm.pause", requestId: "pause-1", paused: true });
+    const pauseUpdates = player.drain();
+    const playerProjections = pauseUpdates.filter((message) => message.type === "projection");
+    expect(playerProjections).toHaveLength(1);
+    expect(playerProjections[0]?.type === "projection" ? playerProjections[0].projection.projection : undefined).toBe("player");
+    expect(pauseUpdates.some((message) => message.type === "projection" && message.projection.projection === "gm")).toBe(false);
     const messages = player.send({ kind: "player.move", requestId: "move-paused", direction: "right" });
 
     expect(messages).toContainEqual({ type: "command.result", requestId: "move-paused", result: { status: "rejected", reason: "scene_paused" } });
