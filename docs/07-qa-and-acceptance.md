@@ -68,11 +68,17 @@
 **When:** тот же command приходит повторно.  
 **Then:** state не меняется второй раз, возвращается прежний result или `DUPLICATE_REQUEST`.
 
-### QA-004 — Stale revision
+### QA-004 — Scene cursor и card revision
 
-**Given:** clientRevision старше текущего sceneRevision.  
-**When:** игрок пытается сыграть карту.  
-**Then:** command отклонена, HP/stamina/cards не изменились.
+**Given:** `player.move` приходит с устаревшим `clientRevision`, но действие законно в актуальном состоянии.
+
+**When:** сервер применяет команду при закрытии input window.
+
+**Then:** один только старый scene cursor не вызывает `STALE_SCENE_REVISION`; команда принимается, если всё ещё законна. Если состояние изменилось так, что действие больше незаконно, сервер возвращает соответствующую apply-time ошибку без gameplay-мутации и domain event.
+
+**И также:** карта приходит с устаревшим `clientCardRevision`.
+
+**Then:** `STALE_CARD_REVISION`; HP, stamina, card containers, `sceneRevision` и domain-event journal не меняются.
 
 ### QA-005 — Ranged telegraph
 

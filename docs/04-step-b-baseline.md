@@ -26,7 +26,7 @@ Rule IDs: `PARTY-001`, `PARTY-002`, `PARTY-003`, `TIME-001`, `GM-001`.
 
 ### B-002 — sceneRevision и clientRevision
 
-`sceneRevision` — authoritative revision сцены. `clientRevision` — копия последней известной `sceneRevision`, присланная client для optimistic concurrency. Для каждой state-changing command требуется точное равенство `clientRevision === current sceneRevision` на момент принятия в scheduler. Stale command не становится бесплатным действием. Одна atomic command/batch увеличивает revision ровно один раз; все события этой группы получают одну post-commit `sceneRevision`, а порядок внутри группы задаётся `eventIndex`.
+`sceneRevision` — authoritative revision сцены. `clientRevision` — копия последней известной `sceneRevision`, присланная client для optimistic concurrency. `clientRevision` остаётся transport metadata и не gate-ит player commands. `player.move` и mode actions проверяются по актуальному состоянию при применении; `player.play_card` при применении строго требует точную `clientCardRevision`. Stale command не становится бесплатным действием. Одна atomic command/batch увеличивает revision ровно один раз; все события этой группы получают одну post-commit `sceneRevision`, а порядок внутри группы задаётся `eventIndex`.
 
 `clientCardRevision` остаётся отдельной revision player card projection и не заменяет `clientRevision`.
 

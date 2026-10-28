@@ -107,9 +107,9 @@ export class HeadlessSimulationEngine implements SimulationEngine {
     const heroId = this.runtime.heroIdByActorId.get(command.actorId);
     const hero = heroId ? this.runtime.entities.get(heroId) : undefined;
     if (!hero || hero.kind !== "hero" || hero.aliveState !== "active") return rejected("AUTH_FORBIDDEN");
-    if (command.clientRevision !== this.runtime.sceneRevision) return rejected("STALE_SCENE_REVISION");
-    if (command.command === "player.move" && hero.mode !== "movement") return rejected("INVALID_MODE");
-    if (command.command === "player.enter_ranged_mode" && !hero.canEnterRangedMode) return rejected("CARD_NOT_AVAILABLE");
+    // Player commands do not use the global scene revision as an admission gate.
+    // Their action-specific preconditions are revalidated against live state on apply;
+    // cards additionally bind to the hand/deck revision in resolvePlayCard.
 
     const windowId = windowIdAtTick(this.runtime.serverTick);
     if (this.runtime.scene.inputWindow.windowId !== windowId) {
@@ -313,7 +313,6 @@ export class HeadlessSimulationEngine implements SimulationEngine {
       pendingEvents: [],
     });
     if (!hero || hero.kind !== "hero" || hero.aliveState !== "active") return reject("AUTH_FORBIDDEN");
-    if (command.clientRevision !== this.runtime.sceneRevision) return reject("STALE_SCENE_REVISION");
     if (hero.mode !== "movement") return reject("INVALID_MODE");
     if (hasActiveStatus(hero, "immobilized", this.runtime.serverTick)) return reject("ENTITY_UNABLE_TO_ACT");
 
@@ -362,8 +361,6 @@ export class HeadlessSimulationEngine implements SimulationEngine {
       pendingEvents: [],
     });
     if (!hero || hero.kind !== "hero" || hero.aliveState !== "active") return reject("AUTH_FORBIDDEN");
-    if (command.clientRevision !== this.runtime.sceneRevision) return reject("STALE_SCENE_REVISION");
-
     const cause = { requestId: command.requestId, actorId: command.actorId };
     const pendingEvents: PendingJournalEvent[] = [];
     if (command.command === "player.enter_movement_mode") {

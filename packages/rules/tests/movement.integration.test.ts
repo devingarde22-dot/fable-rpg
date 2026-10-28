@@ -90,22 +90,45 @@ describe("player.move integration", () => {
     expect(engine.snapshot().sceneRevision).toBe(1);
   });
 
-  it("rejects stale revision, unauthorized actor, invalid mode, and duplicate request", () => {
+  it("rechecks legality at window close and journals an apply-time rejection as no domain event", () => {
+    const engine = createSimulationEngine(testConfig({ entities: [hero("hero-1", 1, 1, null)] }));
+    const before = engine.snapshot();
+    const beforeEvents = engine.events();
+    const requestId = "apply-time-invalid-mode";
+
+    expect(engine.submit(moveCommand(requestId, "right"))).toMatchObject({ status: "queued" });
+    expect(engine.advanceTicks(5).at(-1)?.commandResults).toMatchObject([
+      { requestId, status: "rejected", code: "INVALID_MODE" },
+    ]);
+
+    expect(gameplayState(engine.snapshot())).toEqual(gameplayState(before));
+    expect(engine.events()).toEqual(beforeEvents);
+    expect(engine.events().some((event) => event.causedByRequestId === requestId)).toBe(false);
+    const records = engine.journalRecords();
+    expect(records.some((record) => record.kind === "input_window" &&
+      record.inputWindow.commands.some((command) => command.requestId === requestId))).toBe(true);
+    expect(records.some((record) => record.kind === "event" && record.event.causedByRequestId === requestId)).toBe(false);
+    expect(engine.snapshot().sceneRevision).toBe(before.sceneRevision);
+  });
+
+  it("admits moves independent of scene revision while enforcing actor, mode, and duplicate checks", () => {
     const engine = createSimulationEngine(testConfig({
       entities: [hero("hero-1", 1, 1), hero("hero-2", 4, 4, null)],
       heroIdByActorId: { "actor-1": "hero-1", "actor-2": "hero-2" },
     }));
-    const beforeStale = engine.snapshot();
-    expect(engine.submit(moveCommand("stale", "right", { revision: 99 }))).toMatchObject({ status: "rejected", code: "STALE_SCENE_REVISION" });
-    expect(gameplayState(engine.snapshot())).toEqual(gameplayState(beforeStale));
+    expect(engine.submit(moveCommand("stale", "right", { revision: 99 }))).toMatchObject({ status: "queued" });
     expect(engine.events()).toHaveLength(0);
     expect(engine.submit(moveCommand("unauth", "right", { actorId: "unknown" }))).toMatchObject({ status: "rejected", code: "AUTH_FORBIDDEN" });
-    expect(engine.submit(moveCommand("mode", "right", { actorId: "actor-2" }))).toMatchObject({ status: "rejected", code: "INVALID_MODE" });
+    expect(engine.submit(moveCommand("mode", "right", { actorId: "actor-2" }))).toMatchObject({ status: "queued" });
     const accepted = engine.submit(moveCommand("same", "right"));
     expect(accepted.status).toBe("queued");
     expect(engine.submit(moveCommand("same", "right"))).toMatchObject({ status: "duplicate", requestId: "same" });
-    engine.advanceTicks(5);
-    expect(engine.events()).toHaveLength(1);
+    const applied = engine.advanceTicks(5).at(-1);
+    expect(applied?.commandResults.find((result) => result.requestId === "mode"))
+      .toMatchObject({ status: "rejected", code: "INVALID_MODE" });
+    expect(applied?.commandResults.find((result) => result.requestId === "same"))
+      .toMatchObject({ status: "accepted" });
+    expect(engine.events()).toHaveLength(2);
     expect(engine.snapshot().sceneRevision).toBe(1);
   });
 

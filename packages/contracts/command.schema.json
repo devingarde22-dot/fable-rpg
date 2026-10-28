@@ -43,7 +43,8 @@
         },
         "clientRevision": {
           "type": "integer",
-          "minimum": 0
+          "minimum": 0,
+          "description": "Required transport metadata; player.move is validated against live state when applied and is not gated by sceneRevision."
         },
         "role": {
           "const": "player"
@@ -110,7 +111,8 @@
         },
         "clientRevision": {
           "type": "integer",
-          "minimum": 0
+          "minimum": 0,
+          "description": "Required transport metadata; player commands are not gated by sceneRevision. Cards use clientCardRevision for strict revision validation when applied."
         },
         "role": {
           "const": "player"
@@ -193,7 +195,8 @@
         },
         "clientRevision": {
           "type": "integer",
-          "minimum": 0
+          "minimum": 0,
+          "description": "Required transport metadata; player mode actions validate live state when applied and are not gated by sceneRevision."
         },
         "role": {
           "const": "player"
@@ -249,7 +252,8 @@
         },
         "clientRevision": {
           "type": "integer",
-          "minimum": 0
+          "minimum": 0,
+          "description": "Required transport metadata; player mode actions validate live state when applied and are not gated by sceneRevision."
         },
         "role": {
           "const": "player"
@@ -305,7 +309,8 @@
         },
         "clientRevision": {
           "type": "integer",
-          "minimum": 0
+          "minimum": 0,
+          "description": "Required transport metadata; admission policy is defined by the GM command contract."
         },
         "role": {
           "const": "gm"
@@ -378,7 +383,8 @@
         },
         "clientRevision": {
           "type": "integer",
-          "minimum": 0
+          "minimum": 0,
+          "description": "Required transport metadata; admission policy is defined by the GM command contract."
         },
         "role": {
           "const": "gm"
@@ -450,7 +456,8 @@
         },
         "clientRevision": {
           "type": "integer",
-          "minimum": 0
+          "minimum": 0,
+          "description": "Required transport metadata; admission policy is defined by the GM command contract."
         },
         "role": {
           "const": "gm"
@@ -530,7 +537,8 @@
         },
         "clientRevision": {
           "type": "integer",
-          "minimum": 0
+          "minimum": 0,
+          "description": "Required transport metadata; admission policy is defined by the GM command contract."
         },
         "role": {
           "const": "gm"
@@ -600,7 +608,8 @@
         },
         "clientRevision": {
           "type": "integer",
-          "minimum": 0
+          "minimum": 0,
+          "description": "Required transport metadata; admission policy is defined by the GM command contract."
         },
         "role": {
           "const": "gm"
@@ -674,7 +683,8 @@
         },
         "clientRevision": {
           "type": "integer",
-          "minimum": 0
+          "minimum": 0,
+          "description": "Required transport metadata; admission policy is defined by the GM command contract."
         },
         "role": {
           "const": "gm"

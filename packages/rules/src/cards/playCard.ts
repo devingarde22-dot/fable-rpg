@@ -21,7 +21,6 @@ export function resolvePlayCard(state: RuntimeState, command: InternalPlayCardCo
   const heroId = state.heroIdByActorId.get(command.actorId);
   const hero = heroId ? state.entities.get(heroId) : undefined;
   if (!hero || hero.kind !== "hero" || hero.aliveState !== "active" || hero.hp.current <= 0) return { ok: false, code: "ENTITY_UNABLE_TO_ACT" };
-  if (command.clientRevision !== state.sceneRevision) return { ok: false, code: "STALE_SCENE_REVISION" };
   if (command.payload.clientCardRevision !== hero.cards.revision) return { ok: false, code: "STALE_CARD_REVISION" };
 
   const handIndex = hero.cards.hand.findIndex((card) => card.instanceId === command.payload.cardInstanceId);
