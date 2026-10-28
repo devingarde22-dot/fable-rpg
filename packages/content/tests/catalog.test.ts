@@ -20,6 +20,11 @@ describe("validated content catalog", () => {
       expect(template.durationMs).toBeGreaterThanOrEqual(3000);
       expect(template.durationMs % 50).toBe(0);
     }
+    const bind = INTENT_TEMPLATES.find((template) => template.key === "bind");
+    expect(bind?.version).toBe(2);
+    expect(bind?.durationMs).toBe(12_000);
+    expect(bind?.effect.parameters.durationMs).toBe(15_000);
+    expect(bind?.targetRules.filters.excludedStatuses).toContain("immobilized");
   });
 
   it("rejects durations that are below the minimum or not aligned to 50 ms", () => {

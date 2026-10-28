@@ -1,45 +1,34 @@
 # DR-C-012 — Extinguisher bind eligibility и uptime
 
-**Статус:** `DRAFT — AWAITING USER CONFIRMATION`
-**Область:** выбор целей и длительность контроля существующим `extinguisher`; новые враги, intents и карты не добавляются.
+**Статус:** `APPROVED — IMPLEMENTED`
+**Область:** только eligibility существующего `extinguisher` intent `bind`; новые враги, intents, cards и карты не добавляются.
 
-## Наблюдаемое поведение
+## Решение пользователя
 
-В текущих подтверждённых значениях `bind` разрешается каждые 12 секунд, накладывая `immobilized` на 15 секунд. Runtime priority Extinguisher выбирает первый допустимый intent в порядке `bind → ally_guard → move_close → hold_position`. В текущем `bind` target filter не исключает уже обездвиженную цель. Поэтому один активный Extinguisher может обновлять тот же статус каждые 12 секунд; пока bind доступен, приоритет не даёт перейти к следующему намерению.
+Выбран **вариант A**: уже `immobilized` герой исключается из eligible targets для `bind` через `targetRules.filters.excludedStatuses`. Интервал `bind` остаётся 12 секунд, длительность `immobilized` — 15 секунд согласно [DR-C-008](./22-step-c-status-immobilized.md) и [docs/05](./05-vertical-slice.md). Production roster, runtime priority и fallback-порядок не меняются.
 
-Ожидаемый failing integration test запускает одного героя и одного Extinguisher с фиксированным seed и измеряет 120 секунд после первого bind. Предварительный fairness-критерий для решения: герой должен иметь в этом интервале хотя бы одно непрерывное окно из 5 тиков (250 ms) без `immobilized`. Это предложение, не подтверждённое правило. Тест в `packages/rules/tests/extinguisher-bind-uptime.integration.test.ts` фиксирует его и, как ожидается, падает на текущих настройках 12/15 секунд.
+Пользовательский предварительный критерий для детерминированной проверки: в каждом скользящем 30-секундном интервале за 120 секунд после первого bind должен найтись хотя бы один непрерывный свободный от `immobilized` период в 10 секунд. Если критерий не выполняется, его нельзя молча ослаблять.
 
-## Варианты
+## Реализация и версионирование
 
-| Вариант | Что изменится | Влияние на контракты, replay и `stateHash` | Компромисс |
-|---|---|---|---|
-| **A. Не выбирать цель, пока она immobilized** | Добавить `immobilized` в `bind.targetRules.filters.excludedStatuses`. Если все подходящие герои заняты контролем, runtime проверит следующий intent в утверждённом порядке: `ally_guard`, затем `move_close`, затем допустимый fallback. Статус истечёт по текущему 15-секундному правилу, если до того времени нет другого допустимого bind. | JSON Schema уже описывает `excludedStatuses`; wire shape не меняется. Изменится подтверждённое content значение/версия и журнал intent selection; replay должен использовать историческую content version. State hash меняется только через другие выбранные intents/status state, не через новую форму runtime state. | Минимальная правка и ясная защита от непрерывного повторного bind; длительность контроля зависит от числа источников bind и повторной доступности цели. |
-| **B. Ввести отдельную временную защиту от повторного bind** | После bind временно исключать цель на заданный cooldown/иммунитет, включая период после истечения статуса; точную длительность и область действия надо выбрать. | Потребуется правило о новом authoritative timer/status и его event lifecycle. Для нового runtime поля нужны contracts/events, reducer, rollback и `stateHash`; вариант через существующий status layer потребует определить, является ли он gameplay-visible и как replay его проверяет. | Лучше контролирует повторный контроль, но добавляет новую механику и больше surface area.
-| **C. Изменить только длительность/частоту существующего bind** | Изменить intent interval и/или 15-секундную длительность статуса так, чтобы повтор не обновлял статус до истечения. Точные значения должны быть утверждены; совпадение на boundary важно, потому что intent resolves до status cleanup. | Схема shape может остаться прежней, но изменятся versioned content values, event timers, expected replay transcripts и их hashes. Старые replay должны ссылаться на старую версию content, а не пересчитываться по новой. | Самый прямой числовой способ, но меняет баланс/контент и может оставить длительную неподвижность.
+Production template `bind` обновлён с version 1 до **version 2**, так как подтверждённое значение target filter изменилось. Добавлено только `immobilized` в `excludedStatuses`; длительности 12/15 секунд и schema/wire shape не изменены. Существующие test-only templates остались без изменений. Replay/повторное исполнение использует соответствующий набор content templates; runtime state shape и `stateHash` не менялись.
 
-## Требуемое решение пользователя
+Когда все допустимые цели для bind заняты контролем, существующий порядок выбора продолжает проверять следующий доступный intent; для одиночного героя в тесте это существующий fallback `hold_position` после того, как `ally_guard` и `move_close` невалидны. Нового fallback или игрового content нет.
 
-1. Нужен ли критерий «минимум одно свободное окно 250 ms в течение 120 секунд непрерывного контакта»? Это тестовый safety threshold, а не утверждение, что герой обязан свободно двигаться чаще.
-2. Какой вариант выбрать: A, B или C? Для B — какая длительность защиты; для C — какие новые длительности bind/статуса?
-3. Разрешаем ли менять подтверждённое content значение `bind.targetRules.filters.excludedStatuses`, если выбран A?
+## Детерминированные результаты
 
-До ответа существующие runtime priority, content templates, status duration, intents и gameplay handlers не изменяются.
+Engine integration запускает одного героя и одного Extinguisher с фиксированным seed на полные 120 секунд после первого применения. Повторные применения не происходят чаще интервала 12 секунд; проверяется применение/refresh через реальные engine events, а не значения только из template. В каждом из четырёх 30-секундных интервалов свободное окно превышает порог 10 секунд; критерий **выполняется**, оснований менять его нет. При интервале bind 12 секунд и контроле 15 секунд наблюдаемая периодичность после первого цикла оставляет примерно 27 секунд без immobilized между следующими применениями.
 
-## Тесты после выбора
+Boundary-тест подтверждает порядок фаз: на точном expiry tick (tick 540 в фиксированном сценарии) `enemies` phase видит героя ещё `immobilized`; новый `bind` героя не выбирает, а запускается действительный существующий fallback `hold_position`. Затем на первом последующем intent-selection времени (tick 840 в данном сценарии, после разрешения 15-секундного hold_position) герой снова выбирается целью bind. Статус истекает штатно в tick 540 и не обновляется на boundary.
 
-- Fixed-seed integration: один герой под повторным давлением одного Extinguisher; проверить согласованный минимальный free-action interval, число bind/refresh и выбранный fallback.
-- Повторить с 2–4 героями, чтобы подтвердить, что цель и союзник выбираются детерминированно и `ally_guard` остаётся следующим допустимым вариантом.
-- Exact-tick boundary tests: intent resolution до status cleanup, истечение/refresh на boundary и отсутствие лишнего `status.expired`.
-- Детерминированный transcript и journal replay/stateHash parity с выбранной content version; tampered target/timer/fallback по-прежнему отвергаются.
-- JSON Schema/content validation; отсутствие изменений production roster, имен новых карт и wire schema, если решение не требует отдельного runtime timer.
+Повторная симуляция с тем же seed и конфигурацией совпадает по `stateHash` и последовательности ticks status applied/refreshed. Полный replay/journal паритет покрывается соответствующими существующими replay integration тестами.
+
+## Проверки
+
+- Исходный failing test подтвердил непрерывный refresh и отсутствие даже 250 ms свободного окна до изменения.
+- После изменения focused uptime integration: **2/2** теста проходят; полный набор rules, запущенный с focused командой: **161/161** тестов проходит.
+- Полные `pnpm check`, `pnpm build`, content/contract validation и `git diff --check` выполняются отдельно для этого изменения.
 
 ## Rule IDs
 
 `TIME-001`, `TIME-003`, `TIME-004`, `TIME-005`; связанные решения: DR-C-002, DR-C-008 и DR-C-009.
-
-## Источники
-
-- [Step C — Extinguisher priority и active registry](./14-step-c-core-engine.md#первый-registry)
-- [Quarantine Gates — intent values](./05-vertical-slice.md#23-intent-values)
-- [DR-C-008 — bind/immobilized duration и refresh](./22-step-c-status-immobilized.md)
-- [DR-C-009 — Ally Guard runtime](./23-step-c-ally-guard.md)
