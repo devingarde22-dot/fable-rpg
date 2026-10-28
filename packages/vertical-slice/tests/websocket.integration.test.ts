@@ -2,29 +2,41 @@ import { afterEach, describe, expect, it } from "vitest";
 import WebSocket from "ws";
 import {
   createVerticalSliceWebSocketServer,
+  createVerticalSliceWebSocketServerFromPersistence,
   createVerticalSliceEngine,
   InMemoryAuthProvider,
   InMemoryCampaignMembershipStore,
+  InMemorySlicePersistence,
   PlayerGmVerticalSlice,
   type SliceRole,
+  type SlicePersistence,
+  type WebSocketHello,
+  type WebSocketCommand,
   type WebSocketServerMessage,
 } from "../src/index.js";
 import type { DomainEvent, SimulationEngine } from "../../rules/src/index.js";
 
 const servers: Array<ReturnType<typeof createVerticalSliceWebSocketServer>> = [];
 const campaignId = "campaign-vertical-slice";
+const auth = new InMemoryAuthProvider(new Map<string, { id: string; roles: readonly SliceRole[] }>([
+  ["player-token", { id: "identity-player-1", roles: ["player"] }],
+  ["gm-token", { id: "identity-gm", roles: ["gm"] }],
+]));
+const membership = new InMemoryCampaignMembershipStore([
+  { campaignId, identityId: "identity-player-1", role: "player", actorId: "player-1" },
+  { campaignId, identityId: "identity-gm", role: "gm" },
+]);
 
-function createServer(rateLimit?: { capacity?: number; refillPerSecond?: number }, slice?: PlayerGmVerticalSlice) {
+function createServer(
+  rateLimit?: { capacity?: number; refillPerSecond?: number },
+  slice?: PlayerGmVerticalSlice,
+  persistence?: SlicePersistence,
+) {
   const options = {
     ...(slice ? { slice } : {}),
-    auth: new InMemoryAuthProvider(new Map<string, { id: string; roles: readonly SliceRole[] }>([
-      ["player-token", { id: "identity-player-1", roles: ["player"] }],
-      ["gm-token", { id: "identity-gm", roles: ["gm"] }],
-    ])),
-    membership: new InMemoryCampaignMembershipStore([
-      { campaignId, identityId: "identity-player-1", role: "player", actorId: "player-1" },
-      { campaignId, identityId: "identity-gm", role: "gm" },
-    ]),
+    auth,
+    membership,
+    ...(persistence ? { persistence } : {}),
     ...(rateLimit ? { rateLimit } : {}),
   };
   const server = createVerticalSliceWebSocketServer(options);
@@ -151,11 +163,104 @@ async function closeClient(socket: WebSocket): Promise<void> {
   });
 }
 
+async function closeServer(server: ReturnType<typeof createVerticalSliceWebSocketServer>): Promise<void> {
+  const index = servers.indexOf(server);
+  if (index !== -1) servers.splice(index, 1);
+  await server.close();
+}
+
+async function createRestoredServer(persistence: InMemorySlicePersistence) {
+  const engine = createVerticalSliceEngine();
+  const server = await createVerticalSliceWebSocketServerFromPersistence({
+    campaignId,
+    persistence,
+    auth,
+    membership,
+    restoreConfig: {
+      enemyTemplates: [...engine.state.enemyTemplates.values()],
+      intentTemplates: [...engine.state.intentTemplates.values()],
+    },
+  });
+  servers.push(server);
+  return server;
+}
+
+async function expectSessionRecoveryAfterRestart(
+  role: SliceRole,
+  token: string,
+  actorId: string | undefined,
+  command: WebSocketCommand["command"],
+): Promise<void> {
+  const persistence = new InMemorySlicePersistence();
+  const server = createServer(undefined, undefined, persistence);
+  let originalSocket: WebSocket | null = await openClient(server);
+  let restoredServer: ReturnType<typeof createVerticalSliceWebSocketServer> | null = null;
+  let restoredSocket: WebSocket | null = null;
+  let originalSessionId = "";
+
+  try {
+    const hello: WebSocketHello = {
+      type: "hello",
+      campaignId,
+      role,
+      token,
+      ...(actorId ? { actorId } : {}),
+    };
+    const initialMessagesPromise = nextMessages(originalSocket, 2);
+    originalSocket.send(JSON.stringify(hello));
+    const initialMessages = await initialMessagesPromise;
+    const ready = initialMessages.find((message) => message.type === "room.ready");
+    const initialProjection = initialMessages.find((message) => message.type === "projection");
+    if (ready?.type !== "room.ready" || initialProjection?.type !== "projection") {
+      throw new Error("Expected initial room.ready and projection messages");
+    }
+    originalSessionId = ready.sessionId;
+    const resumeToken = ready.resumeToken;
+    if (!resumeToken) throw new Error("Expected a resumable session token");
+
+    const updateCount = role === "player" ? 3 : 2;
+    const updateMessagesPromise = nextMessages(originalSocket, updateCount);
+    originalSocket.send(JSON.stringify({ type: "command", command }));
+    const updateMessages = await updateMessagesPromise;
+    const updatedProjection = updateMessages.find((message) => message.type === "projection");
+    expect(updatedProjection?.type).toBe("projection");
+    if (updatedProjection?.type !== "projection") throw new Error("Expected updated projection");
+
+    await closeClient(originalSocket);
+    originalSocket = null;
+    await closeServer(server);
+
+    restoredServer = await createRestoredServer(persistence);
+    restoredSocket = await openClient(restoredServer);
+    const reconnectHello: WebSocketHello = { ...hello, resumeToken };
+    const restoredMessagesPromise = nextMessages(restoredSocket, 2);
+    restoredSocket.send(JSON.stringify(reconnectHello));
+    const restoredMessages = await restoredMessagesPromise;
+    const restoredReady = restoredMessages.find((message) => message.type === "room.ready");
+    const restoredProjection = restoredMessages.find((message) => message.type === "projection");
+
+    expect(restoredReady?.type).toBe("room.ready");
+    if (restoredReady?.type !== "room.ready") throw new Error("Expected restored room.ready");
+    expect(restoredReady.sessionId).toBe(originalSessionId);
+    expect(restoredReady.resumeToken).toBe(resumeToken);
+    expect(restoredProjection?.type).toBe("projection");
+    if (restoredProjection?.type !== "projection") throw new Error("Expected restored projection");
+    expect(restoredProjection.projection).toEqual(updatedProjection.projection);
+    expect(restoredProjection.projection.projection).toBe(role);
+  } finally {
+    if (originalSocket) await closeClient(originalSocket);
+    if (restoredSocket) await closeClient(restoredSocket);
+    if (servers.includes(server)) await closeServer(server);
+    if (restoredServer && servers.includes(restoredServer)) await closeServer(restoredServer);
+  }
+}
+
 describe("WebSocket transport", () => {
   it("authenticates membership, routes a move and supports reconnect", async () => {
     const server = createServer();
     const player = await openClient(server);
     let resumeToken = "";
+    let originalSessionId = "";
     try {
       const initialMessagesPromise = nextMessages(player, 2);
       player.send(JSON.stringify({ type: "hello", campaignId, role: "player", token: "player-token", actorId: "player-1" }));
@@ -163,6 +268,7 @@ describe("WebSocket transport", () => {
       const ready = initialMessages[0];
       const projection = initialMessages[1];
       if (!ready || !projection || ready.type !== "room.ready") throw new Error("Expected ready and projection messages");
+      originalSessionId = ready.sessionId;
       resumeToken = ready.resumeToken ?? "";
       expect(resumeToken).not.toBe("");
       expect(projection.type).toBe("projection");
@@ -182,11 +288,31 @@ describe("WebSocket transport", () => {
       const reconnectMessagesPromise = nextMessages(reconnect, 2);
       reconnect.send(JSON.stringify({ type: "hello", campaignId, role: "player", token: "player-token", actorId: "player-1", resumeToken }));
       const reconnectMessages = await reconnectMessagesPromise;
-      expect(reconnectMessages.some((message) => message.type === "room.ready")).toBe(true);
+      const reconnectReady = reconnectMessages.find((message) => message.type === "room.ready");
+      expect(reconnectReady?.type).toBe("room.ready");
+      if (reconnectReady?.type !== "room.ready") throw new Error("Expected room.ready after reconnect");
+      expect(reconnectReady.sessionId).toBe(originalSessionId);
+      expect(reconnectReady.resumeToken).toBe(resumeToken);
       expect(reconnectMessages.some((message) => message.type === "projection")).toBe(true);
     } finally {
       await closeClient(reconnect);
     }
+  });
+
+  it("recovers the Player session and latest projection after WebSocket drop and server restart", async () => {
+    await expectSessionRecoveryAfterRestart("player", "player-token", "player-1", {
+      kind: "player.move",
+      requestId: "player-reconnect-move",
+      direction: "right",
+    });
+  });
+
+  it("recovers the GM session and paused state after WebSocket drop and server restart", async () => {
+    await expectSessionRecoveryAfterRestart("gm", "gm-token", undefined, {
+      kind: "gm.pause",
+      requestId: "gm-reconnect-pause",
+      paused: true,
+    });
   });
 
   it("rejects schema-invalid commands and enforces the token bucket", async () => {
