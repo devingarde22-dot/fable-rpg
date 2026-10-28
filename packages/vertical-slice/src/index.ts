@@ -1,28 +1,68 @@
 import { CONTENT_VERSION, ENEMY_TEMPLATES, INTENT_TEMPLATES } from "../../content/src/index.js";
 import {
   createSimulationEngine,
+  type CardInstance,
   type Cell,
   type Direction,
   type DomainEvent,
   type EntityRuntime,
+  type HeroRuntime,
   type InternalCommand,
   type RuntimeSnapshot,
   type SimulationEngine,
+  type StatusLayer,
   type SubmitResult,
+  type Terrain,
 } from "../../rules/src/index.js";
 
-export type SliceRole = "gm" | "player";
+export type SliceRole = "gm" | "player" | "tv";
 export type SliceCommand =
   | { kind: "player.move"; requestId: string; direction: Direction; clientRevision?: number }
   | { kind: "gm.pause"; requestId: string; paused: boolean }
   | { kind: "gm.end_expedition"; requestId: string; outcome: "success" | "retreat" | "defeat" | "gm_abort"; reason: string };
 
-type PublicEntity = {
+export type PublicEntity = {
   id: string;
   kind: EntityRuntime["kind"];
   position: Cell;
   hp: { current: number; max: number };
   aliveState: EntityRuntime["aliveState"];
+};
+
+export type TvIntentTelegraph = {
+  enemyId: string;
+  activeIntentId: string;
+  icon: string;
+  timer: {
+    startedAtTick: number;
+    resolvesAtTick: number;
+    durationMs: number;
+    remainingMs: number;
+  };
+  targetCell: Cell | null;
+  publicTargetCell?: Cell | null;
+};
+
+export type TvProjection = {
+  protocolVersion: "fable.protocol.v1";
+  projection: "tv";
+  campaignId: string;
+  sessionId: string;
+  sceneId: string;
+  sceneRevision: number;
+  serverTick: number;
+  timePaused: boolean;
+  rulesetVersion: "fable.ruleset.0.1";
+  contentVersion: typeof CONTENT_VERSION;
+  grid: {
+    width: number;
+    height: number;
+  };
+  terrain: Array<{ cell: Cell; terrain: Terrain }>;
+  blockedCells: Cell[];
+  entities: PublicEntity[];
+  activeIntents: TvIntentTelegraph[];
+  availableCommands: readonly [];
 };
 
 export type PlayerProjection = {
@@ -39,10 +79,23 @@ export type PlayerProjection = {
   subjectPlayerId: string;
   entities: PublicEntity[];
   availableCommands: readonly ["player.move"];
+  hand: readonly CardInstance[];
+  defenseSlot: CardInstance | null;
+  stamina: { current: number; max: number };
+  statuses: readonly StatusLayer[];
 };
 
-export type GmProjection = Omit<PlayerProjection, "projection" | "subjectPlayerId" | "availableCommands"> & {
+export type GmProjection = {
+  protocolVersion: "fable.protocol.v1";
   projection: "gm";
+  campaignId: string;
+  sessionId: string;
+  sceneId: string;
+  sceneRevision: number;
+  serverTick: number;
+  timePaused: boolean;
+  rulesetVersion: "fable.ruleset.0.1";
+  contentVersion: typeof CONTENT_VERSION;
   entities: PublicEntity[];
   activeIntents: RuntimeSnapshot["activeIntents"];
   outcome: RuntimeSnapshot["outcome"];
@@ -58,7 +111,7 @@ export type ProjectedDomainEvent = DomainEvent | PlayerDomainEvent;
 
 export type SliceMessage =
   | { type: "room.ready"; role: SliceRole; sessionId: string; campaignId?: string; resumeToken?: string }
-  | { type: "projection"; projection: PlayerProjection | GmProjection }
+  | { type: "projection"; projection: PlayerProjection | GmProjection | TvProjection }
   | { type: "events"; events: readonly ProjectedDomainEvent[] }
   | { type: "command.result"; requestId: string; result: SubmitResult | { status: "accepted"; sceneRevision: number } | { status: "rejected"; reason: string } };
 
@@ -67,7 +120,7 @@ export type SliceConnection = {
   readonly sessionId: string;
   readonly actorId: string | null;
   send(command: SliceCommand): SliceMessage[];
-  projection(): PlayerProjection | GmProjection;
+  projection(): PlayerProjection | GmProjection | TvProjection;
   drain(): SliceMessage[];
 };
 
@@ -161,12 +214,11 @@ export class PlayerGmVerticalSlice {
     this.sessions.delete(sessionId);
   }
 
-  projectionFor(sessionId: string): PlayerProjection | GmProjection {
+  projectionFor(sessionId: string): PlayerProjection | GmProjection | TvProjection {
     const session = this.sessions.get(sessionId);
     if (!session) throw new Error(`Unknown session ${sessionId}`);
     const snapshot = this.engine.snapshot();
     const subjectHeroId = snapshot.heroIdByActorId.find(([actor]) => actor === session.actorId)?.[1];
-    const entities = snapshot.entities.filter((entity) => session.role === "gm" || entity.kind === "enemy" || entity.id === subjectHeroId).map(publicEntity);
     const base = {
       protocolVersion: "fable.protocol.v1" as const,
       campaignId: snapshot.campaignId,
@@ -177,20 +229,74 @@ export class PlayerGmVerticalSlice {
       timePaused: snapshot.paused,
       rulesetVersion: "fable.ruleset.0.1" as const,
       contentVersion: CONTENT_VERSION,
-      entities,
     };
-    if (session.role === "gm") return {
-      ...base,
-      projection: "gm" as const,
-      activeIntents: snapshot.activeIntents,
-      outcome: snapshot.outcome,
-      availableCommands: ["player.move", "gm.pause", "gm.end_expedition"] as const,
-    };
+    if (session.role === "gm") {
+      return {
+        ...base,
+        projection: "gm" as const,
+        entities: snapshot.entities.map(publicEntity),
+        activeIntents: snapshot.activeIntents,
+        outcome: snapshot.outcome,
+        availableCommands: ["player.move", "gm.pause", "gm.end_expedition"] as const,
+      };
+    }
+    if (session.role === "tv") {
+      const terrain = snapshot.scene.cells
+        .filter((cell) => cell.terrain !== "floor" || cell.blocksMovement)
+        .map((cell) => ({ cell: { x: cell.x, y: cell.y }, terrain: cell.terrain }));
+      const blockedCells = snapshot.scene.cells
+        .filter((cell) => cell.blocksMovement)
+        .map((cell) => ({ x: cell.x, y: cell.y }));
+      const activeIntents: TvIntentTelegraph[] = snapshot.activeIntents.map((intent) => {
+        const template = INTENT_TEMPLATES.find((t) => t.key === intent.templateKey);
+        const icon = template?.icon ?? "attack";
+        const durationMs = template?.durationMs ?? 0;
+        const remainingTicks = Math.max(0, intent.resolvesAtTick - snapshot.serverTick);
+        const remainingMs = remainingTicks * 50;
+        return {
+          enemyId: intent.ownerEntityId,
+          activeIntentId: intent.activeIntentId,
+          icon,
+          timer: {
+            startedAtTick: intent.startedAtTick,
+            resolvesAtTick: intent.resolvesAtTick,
+            durationMs,
+            remainingMs,
+          },
+          targetCell: intent.publicTargetCell ? { ...intent.publicTargetCell } : null,
+          ...(intent.publicTargetCell ? { publicTargetCell: { ...intent.publicTargetCell } } : {}),
+        };
+      });
+      return {
+        ...base,
+        projection: "tv" as const,
+        grid: {
+          width: snapshot.scene.width,
+          height: snapshot.scene.height,
+        },
+        terrain,
+        blockedCells,
+        entities: snapshot.entities.map(publicEntity),
+        activeIntents,
+        availableCommands: [] as const,
+      };
+    }
+    const entities = snapshot.entities
+      .filter((entity) => entity.kind === "enemy" || entity.id === subjectHeroId)
+      .map(publicEntity);
+    const subjectHero = snapshot.entities.find(
+      (entity): entity is HeroRuntime => entity.id === subjectHeroId && entity.kind === "hero",
+    );
     return {
       ...base,
       projection: "player" as const,
       subjectPlayerId: session.actorId ?? "",
+      entities,
       availableCommands: ["player.move"] as const,
+      hand: subjectHero ? subjectHero.cards.hand.map((c) => ({ ...c })) : [],
+      defenseSlot: subjectHero?.cards.defenseSlot ? { ...subjectHero.cards.defenseSlot } : null,
+      stamina: subjectHero ? { current: subjectHero.stamina.current, max: subjectHero.stamina.max } : { current: 0, max: 0 },
+      statuses: subjectHero ? subjectHero.statuses.map((s) => ({ ...s })) : [],
     };
   }
 
@@ -263,9 +369,15 @@ export class PlayerGmVerticalSlice {
     if (events.length === 0) return;
     const snapshot = this.engine.snapshot();
     for (const session of this.sessions.values()) {
-      const projected = session.role === "gm" ? events : events
-        .map((event) => projectEventForPlayer(event, snapshot, session.actorId))
-        .filter((event): event is PlayerDomainEvent => event !== null);
+      const projected = session.role === "gm"
+        ? events
+        : session.role === "tv"
+          ? events
+              .map((event) => projectEventForTv(event, snapshot))
+              .filter((event): event is PlayerDomainEvent => event !== null)
+          : events
+              .map((event) => projectEventForPlayer(event, snapshot, session.actorId))
+              .filter((event): event is PlayerDomainEvent => event !== null);
       if (projected.length > 0) session.outbox.push({ type: "events", events: projected });
     }
   }
@@ -352,6 +464,104 @@ function projectEventForPlayer(event: DomainEvent, snapshot: RuntimeSnapshot, ac
   }
 }
 
+function projectEventForTv(event: DomainEvent, snapshot: RuntimeSnapshot): PlayerDomainEvent | null {
+  const isPublicEntity = (entityId: string): boolean => snapshot.entities.some((entity) => entity.id === entityId);
+  const redact = (payload: Record<string, unknown>): PlayerDomainEvent => ({ ...event, actorId: null, replay: null, payload });
+
+  switch (event.eventType) {
+    case "scene.entity_moved":
+      return isPublicEntity(event.payload.entityId) ? redact(event.payload) : null;
+    case "card.played":
+      return isPublicEntity(event.payload.heroId) || isPublicEntity(event.payload.targetEntityId)
+        ? redact({ heroId: event.payload.heroId, mode: event.payload.mode, targetCell: event.payload.targetCell })
+        : null;
+    case "card.effect_applied":
+    case "protection.applied":
+    case "protection.triggered":
+    case "protection.expired":
+    case "card.drawn":
+    case "card.discarded":
+    case "deck.shuffled":
+    case "deck.rotation_resolved":
+    case "mode.changed":
+    case "stamina.changed":
+      return null;
+    case "status.applied":
+    case "status.refreshed":
+    case "status.expired":
+      return isPublicEntity(event.payload.entityId) ? redact(event.payload) : null;
+    case "intent.started":
+      return isPublicEntity(event.payload.enemyId) ? redact({
+        enemyId: event.payload.enemyId,
+        activeIntentId: event.payload.activeIntentId,
+        timer: event.payload.timer,
+        icon: event.payload.icon,
+        ...(event.payload.publicTargetCell ? { publicTargetCell: event.payload.publicTargetCell } : {}),
+      }) : null;
+    case "intent.cancelled":
+      return isPublicEntity(event.payload.enemyId) ? redact({ enemyId: event.payload.enemyId, activeIntentId: event.payload.activeIntentId }) : null;
+    case "intent.resolved":
+      return isPublicEntity(event.payload.enemyId) ? redact({ enemyId: event.payload.enemyId, activeIntentId: event.payload.activeIntentId }) : null;
+    case "intent.target_selected":
+      return null;
+    case "hp.changed": {
+      if (!isPublicEntity(event.payload.entityId)) return null;
+      const payload = {
+        entityId: event.payload.entityId,
+        current: event.payload.current,
+        maximum: event.payload.maximum,
+        kind: event.payload.kind,
+        ...(event.payload.publicAmount === undefined ? {} : { publicAmount: event.payload.publicAmount }),
+      };
+      return redact(payload);
+    }
+    case "checkpoint.created":
+      return null;
+    case "rollback.applied":
+      return redact({ restoredRevision: event.payload.restoredRevision });
+    case "campaign.outcome_confirmed":
+      return redact({ outcome: event.payload.outcome, rewardUnlocked: event.payload.rewardUnlocked });
+    case "scene.entity_removed":
+      return isPublicEntity(event.payload.entityId) ? redact(event.payload) : null;
+    default:
+      return null;
+  }
+}
+
+export type AuthIdentity = { id: string; roles: readonly SliceRole[] };
+export type AuthProvider = { authenticate(token: string): AuthIdentity | null | Promise<AuthIdentity | null> };
+export type CampaignMembership = { campaignId: string; identityId: string; role: SliceRole; actorId?: string };
+export type CampaignMembershipStore = { canJoin(identity: AuthIdentity, membership: { campaignId: string; role: SliceRole; actorId?: string }): boolean | Promise<boolean> };
+export type ResumeSession = {
+  resumeToken: string;
+  campaignId: string;
+  sessionId: string;
+  identityId: string;
+  role: SliceRole;
+  actorId: string | null;
+  updatedAt: number;
+};
+
+export class InMemoryAuthProvider implements AuthProvider {
+  constructor(private readonly tokens: ReadonlyMap<string, AuthIdentity>) {}
+  authenticate(token: string): AuthIdentity | null {
+    return this.tokens.get(token) ?? null;
+  }
+}
+
+export class InMemoryCampaignMembershipStore implements CampaignMembershipStore {
+  constructor(private readonly memberships: readonly CampaignMembership[]) {}
+  canJoin(identity: AuthIdentity, membership: { campaignId: string; role: SliceRole; actorId?: string }): boolean {
+    return this.memberships.some(
+      (candidate) =>
+        candidate.campaignId === membership.campaignId &&
+        candidate.identityId === identity.id &&
+        candidate.role === membership.role &&
+        (membership.actorId === undefined || candidate.actorId === membership.actorId),
+    );
+  }
+}
+
 export {
   createVerticalSliceWebSocketServer,
   createVerticalSliceWebSocketServerFromPersistence,
@@ -367,17 +577,10 @@ export type {
   WebSocketErrorLogger,
 } from "./websocket.js";
 export {
-  InMemoryAuthProvider,
-  InMemoryCampaignMembershipStore,
   InMemorySlicePersistence,
   TokenBucketRateLimiter,
 } from "./security.js";
 export type {
-  AuthIdentity,
-  AuthProvider,
-  CampaignMembership,
-  CampaignMembershipStore,
-  ResumeSession,
   SlicePersistence,
   CommandReceipt,
 } from "./security.js";
