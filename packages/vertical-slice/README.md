@@ -1,6 +1,6 @@
 # Fable player/GM vertical slice
 
-`@fable/vertical-slice` — минимальный in-memory adapter поверх `@fable/rules`. Он показывает полный серверный поток без UI и внешней сети:
+`@fable/vertical-slice` — active Player/GM/TV adapter поверх `@fable/rules`: in-memory reference flow, WebSocket transport, role-filtered projections/events, and durable SQLite persistence. It demonstrates the server flow without a browser UI; SQLite is the current durable store for the single-process slice.
 
 ```text
 player command → role check → HeadlessSimulationEngine → domain events → role-filtered projection
@@ -16,8 +16,9 @@ GM command     → role check → pause/outcome control → projections
 - `player.move` через реальный 250 ms input window;
 - GM pause/resume;
 - GM expedition outcome;
-- event broadcast и command result;
-- integration tests на role checks, visibility, movement, pause и outcome.
+- role-filtered event broadcast and command results;
+- in-memory reference persistence and durable `SqliteSlicePersistence`;
+- integration tests for role checks, visibility, movement, pause, outcome, reconnect, crash recovery, and request retry.
 
 ## WebSocket transport
 
@@ -67,7 +68,7 @@ pnpm build
 
 ## Сознательные ограничения
 
-По умолчанию используются deny-by-default auth/membership providers. Встроенные `InMemorySlicePersistence` и `TokenBucketRateLimiter` предназначены для slice; production должен подставить DB/Redis-backed persistence и внешний identity provider. Все входящие envelopes проходят AJV JSON Schema validation до auth/command routing. Полная production hardening (JWT/OIDC verification, TLS termination и distributed rate limiting) остаётся отдельной задачей.
+По умолчанию используются deny-by-default auth/membership providers. `InMemorySlicePersistence` предназначена для тестов и ephemeral-сценариев. `SqliteSlicePersistence` — выбранная durable persistence для текущего slice и первого single-process/single-node playable deployment; для сохранения между перезапусками сервер должен передать явный путь к файлу на persistent storage (конструктор по умолчанию использует `:memory:`). SQLite использует Node `node:sqlite` / `DatabaseSync`, WAL и не является shared multi-writer storage для нескольких application replicas. PostgreSQL/Drizzle из `docs/09-database-schema.md` — future target design, не активный runtime; см. [DR-INFRA-001](../../docs/31-database-persistence-decision.md). Все входящие envelopes проходят AJV JSON Schema validation до auth/command routing. Production hardening (внешний JWT/OIDC identity provider, TLS termination, backup/restore, persistent-volume configuration и distributed rate limiting при нескольких replicas) остаётся отдельной задачей.
 
 Если persistence store уже содержит snapshot, server можно поднять с восстановленным authoritative engine:
 
