@@ -352,7 +352,11 @@ function projectEventForPlayer(event: DomainEvent, snapshot: RuntimeSnapshot, ac
   }
 }
 
-export { createVerticalSliceWebSocketServer } from "./websocket.js";
+export {
+  createVerticalSliceWebSocketServer,
+  createVerticalSliceWebSocketServerFromPersistence,
+  createVerticalSliceRestoreConfig,
+} from "./websocket.js";
 export type {
   VerticalSliceWebSocketServer,
   WebSocketClientMessage,
@@ -368,7 +372,6 @@ export {
   InMemorySlicePersistence,
   TokenBucketRateLimiter,
 } from "./security.js";
-export { createVerticalSliceWebSocketServerFromPersistence } from "./websocket.js";
 export type {
   AuthIdentity,
   AuthProvider,
@@ -376,5 +379,7 @@ export type {
   CampaignMembershipStore,
   ResumeSession,
   SlicePersistence,
+  CommandReceipt,
 } from "./security.js";
+export { SqliteSlicePersistence } from "./sqlitePersistence.js";
 export type { VerticalSliceWebSocketOptions } from "./websocket.js";

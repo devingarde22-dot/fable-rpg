@@ -2,8 +2,9 @@ import { createServer, type Server as HttpServer } from "node:http";
 import { randomUUID } from "node:crypto";
 import { Ajv } from "ajv";
 import { WebSocketServer, WebSocket, type RawData } from "ws";
+import { ENEMY_TEMPLATES, INTENT_TEMPLATES } from "../../content/src/index.js";
 import { PlayerGmVerticalSlice, type SliceCommand, type SliceConnection, type SliceRole, type SliceMessage } from "./index.js";
-import { createSimulationEngineFromSnapshot, type SimulationEngineRestoreConfig } from "../../rules/src/index.js";
+import { createSimulationEngineFromSnapshot, type CachedCommandResult, type SimulationEngineRestoreConfig } from "../../rules/src/index.js";
 import { transportMessageSchema } from "./transportSchema.js";
 import {
   InMemoryAuthProvider,
@@ -150,13 +151,24 @@ export function createVerticalSliceWebSocketServer(options: VerticalSliceWebSock
       for (const message of session.connection.drain()) send(socket, message, session);
     }
   };
-  const persist = () => {
-    try {
-      void Promise.resolve(persistence.saveSnapshot(campaignId, slice.engine.snapshot())).catch(() => undefined);
-    } catch {
-      // Persistence failure must not crash the authoritative transport loop.
-    }
-  };
+  try {
+    void Promise.resolve(persistence.loadSnapshot(campaignId))
+      .then((existing) => {
+        if (!existing) {
+          return Promise.resolve(persistence.saveSnapshot(campaignId, slice.engine.snapshot()))
+            .then(() => {
+              const initialEvents = slice.engine.events();
+              if (initialEvents.length > 0) {
+                const eventsToSave = initialEvents.map((e) => (e.campaignId === campaignId ? e : { ...e, campaignId }));
+                return persistence.appendEvents(eventsToSave);
+              }
+            });
+        }
+      })
+      .catch(() => undefined);
+  } catch {
+    // Persistence initialization must not crash the transport loop.
+  }
   const validationReason = () => validateMessage.errors?.map((error) => `${error.instancePath || "message"} ${error.message ?? "invalid"}`).join("; ") ?? "invalid message";
   const logConnectionError = (reason: ConnectionErrorReason, role?: SliceRole, sessionId?: string) => {
     logError({
@@ -245,9 +257,66 @@ export function createVerticalSliceWebSocketServer(options: VerticalSliceWebSock
       }
       if (!session.rateLimiter.consume()) { reject("rate_limited"); return; }
       try {
-        for (const response of session.connection.send(message.command)) send(socket, response, session);
+        const existingReceipt = await Promise.resolve(
+          persistence.loadCommandReceipt(message.command.requestId, campaignId),
+        ).catch(() => null);
+        if (existingReceipt) {
+          send(socket, {
+            type: "projection",
+            projection: session.connection.projection(),
+          }, session);
+          send(socket, {
+            type: "command.result",
+            requestId: message.command.requestId,
+            result: {
+              status: "duplicate",
+              requestId: message.command.requestId,
+              original: existingReceipt.result as CachedCommandResult,
+            },
+          }, session);
+          flush();
+          return;
+        }
+
+        const beforeEventCount = slice.engine.events().length;
+        const responses = session.connection.send(message.command);
+        for (const response of responses) send(socket, response, session);
         flush();
-        persist();
+
+        const newEvents = slice.engine.events().slice(beforeEventCount);
+        const commandResultMsg = responses.find(
+          (response) => response.type === "command.result" && response.requestId === message.command.requestId,
+        );
+
+        try {
+          if (newEvents.length > 0) {
+            const eventsToSave = newEvents.map((e) => (e.campaignId === campaignId ? e : { ...e, campaignId }));
+            await Promise.resolve(persistence.appendEvents(eventsToSave));
+          }
+          if (commandResultMsg && commandResultMsg.type === "command.result") {
+            const resultObj = commandResultMsg.result as Record<string, unknown>;
+            if (resultObj.status !== "duplicate") {
+              await Promise.resolve(persistence.saveCommandReceipt({
+                requestId: message.command.requestId,
+                campaignId,
+                sessionId: session.sessionId,
+                sceneId: slice.engine.state.scene.id,
+                actorId: session.connection.actorId,
+                command: message.command.kind,
+                status: (resultObj.status as string) ?? "accepted",
+                clientRevision: "clientRevision" in message.command ? (message.command.clientRevision as number) : null,
+                requestPayload: message.command,
+                result: commandResultMsg.result,
+                errorCode: "code" in resultObj ? (resultObj.code as string) : null,
+                createdAt: Date.now(),
+                updatedAt: Date.now(),
+              }));
+            }
+          }
+          await Promise.resolve(persistence.saveSnapshot(campaignId, slice.engine.snapshot()));
+        } catch {
+          // Persistence failure must not crash the authoritative transport loop.
+        }
       } catch {
         logCommandError(session, "command_execution_failed", message.command.kind);
         reject("command_execution_failed");
@@ -277,16 +346,28 @@ export function createVerticalSliceWebSocketServer(options: VerticalSliceWebSock
   };
 }
 
+export function createVerticalSliceRestoreConfig(): SimulationEngineRestoreConfig {
+  return {
+    enemyTemplates: ENEMY_TEMPLATES.filter((template) => template.key === "quarantine_chaser"),
+    intentTemplates: INTENT_TEMPLATES.filter((template) => ["move_close", "melee_strike", "hold_position"].includes(template.key)),
+    terrain: [
+      { cell: { x: 4, y: 2 }, terrain: "wall" },
+      { cell: { x: 4, y: 3 }, terrain: "wall" },
+    ],
+  };
+}
+
 export async function createVerticalSliceWebSocketServerFromPersistence(
   options: Omit<VerticalSliceWebSocketOptions, "slice" | "campaignId"> & {
     campaignId: string;
-    restoreConfig: SimulationEngineRestoreConfig;
+    restoreConfig?: SimulationEngineRestoreConfig;
   },
 ): Promise<VerticalSliceWebSocketServer> {
   const persistence = options.persistence ?? new InMemorySlicePersistence();
   const snapshot = await persistence.loadSnapshot(options.campaignId);
+  const restoreConfig = options.restoreConfig ?? createVerticalSliceRestoreConfig();
   const slice = snapshot
-    ? new PlayerGmVerticalSlice(createSimulationEngineFromSnapshot(snapshot, options.restoreConfig))
+    ? new PlayerGmVerticalSlice(createSimulationEngineFromSnapshot(snapshot, restoreConfig))
     : new PlayerGmVerticalSlice();
   return createVerticalSliceWebSocketServer({ ...options, persistence, slice });
 }
