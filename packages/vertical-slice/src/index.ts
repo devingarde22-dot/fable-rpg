@@ -359,6 +359,8 @@ export type {
   WebSocketCommand,
   WebSocketHello,
   WebSocketServerMessage,
+  WebSocketErrorLog,
+  WebSocketErrorLogger,
 } from "./websocket.js";
 export {
   InMemoryAuthProvider,

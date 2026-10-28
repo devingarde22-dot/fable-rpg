@@ -21,6 +21,37 @@ export type WebSocketCommand = { type: "command"; command: SliceCommand };
 export type WebSocketClientMessage = WebSocketHello | WebSocketCommand;
 export type WebSocketServerMessage = SliceMessage | { type: "transport.error"; reason: string };
 
+type ConnectionErrorReason =
+  | "invalid_message"
+  | "hello_required"
+  | "campaign_not_found"
+  | "auth_failed"
+  | "resume_not_authorized"
+  | "campaign_membership_required"
+  | "session_already_connected"
+  | "connection_setup_failed"
+  | "socket_error";
+type CommandErrorReason = "invalid_message" | "invalid_command_envelope" | "command_execution_failed";
+export type WebSocketErrorLog =
+  | {
+      level: "error";
+      event: "websocket.connection_error";
+      campaignId: string;
+      reason: ConnectionErrorReason;
+      role?: SliceRole;
+      sessionId?: string;
+    }
+  | {
+      level: "error";
+      event: "websocket.command_error";
+      campaignId: string;
+      reason: CommandErrorReason;
+      role: SliceRole;
+      sessionId: string;
+      commandKind?: SliceCommand["kind"];
+    };
+export type WebSocketErrorLogger = (record: WebSocketErrorLog) => void;
+
 type ClientSession = {
   sessionId: string;
   connection: SliceConnection;
@@ -36,6 +67,7 @@ export type VerticalSliceWebSocketOptions = {
   membership?: CampaignMembershipStore;
   persistence?: SlicePersistence;
   rateLimit?: { capacity?: number; refillPerSecond?: number };
+  logger?: WebSocketErrorLogger;
 };
 
 function json(data: unknown): string { return JSON.stringify(data); }
@@ -62,6 +94,17 @@ function isCommandMessage(value: unknown): value is WebSocketCommand {
   return message.type === "command" && isSliceCommand(message.command);
 }
 
+function safeConnectionFailureReason(error: unknown): ConnectionErrorReason {
+  const reason = error instanceof Error ? error.message : "";
+  if (
+    reason === "auth_failed" ||
+    reason === "resume_not_authorized" ||
+    reason === "campaign_membership_required" ||
+    reason === "session_already_connected"
+  ) return reason;
+  return "connection_setup_failed";
+}
+
 export type VerticalSliceWebSocketServer = {
   readonly httpServer: HttpServer;
   readonly websocketServer: WebSocketServer;
@@ -76,6 +119,10 @@ export function createVerticalSliceWebSocketServer(options: VerticalSliceWebSock
   const auth = options.auth ?? new InMemoryAuthProvider(new Map());
   const membership = options.membership ?? new InMemoryCampaignMembershipStore([]);
   const persistence = options.persistence ?? new InMemorySlicePersistence();
+  const logger = options.logger ?? ((record: WebSocketErrorLog) => console.error(JSON.stringify(record)));
+  const logError = (record: WebSocketErrorLog) => {
+    try { logger(record); } catch { /* A diagnostics sink must not affect the transport loop. */ }
+  };
   const ajv = new Ajv({ allErrors: true, strict: true });
   const validateMessage = ajv.compile(transportMessageSchema);
   const httpServer = createServer((request, response) => {
@@ -111,6 +158,27 @@ export function createVerticalSliceWebSocketServer(options: VerticalSliceWebSock
     }
   };
   const validationReason = () => validateMessage.errors?.map((error) => `${error.instancePath || "message"} ${error.message ?? "invalid"}`).join("; ") ?? "invalid message";
+  const logConnectionError = (reason: ConnectionErrorReason, role?: SliceRole, sessionId?: string) => {
+    logError({
+      level: "error",
+      event: "websocket.connection_error",
+      campaignId,
+      reason,
+      ...(role ? { role } : {}),
+      ...(sessionId ? { sessionId } : {}),
+    });
+  };
+  const logCommandError = (session: ClientSession, reason: CommandErrorReason, commandKind?: SliceCommand["kind"]) => {
+    logError({
+      level: "error",
+      event: "websocket.command_error",
+      campaignId,
+      role: session.connection.role,
+      sessionId: session.sessionId,
+      reason,
+      ...(commandKind ? { commandKind } : {}),
+    });
+  };
 
   httpServer.on("upgrade", (request, socket, head) => {
     if (request.url !== "/ws") { socket.destroy(); return; }
@@ -123,12 +191,24 @@ export function createVerticalSliceWebSocketServer(options: VerticalSliceWebSock
     socket.on("message", async (data) => {
       const message = parseMessage(data);
       if (!validateMessage(message)) {
+        if (session) logCommandError(session, "invalid_message");
+        else logConnectionError("invalid_message");
         reject(`schema_validation_failed: ${validationReason()}`);
         return;
       }
       if (!session) {
-        if (!isHello(message)) { reject("first message must be hello"); socket.close(1008, "hello required"); return; }
-        if (message.campaignId !== campaignId) { reject("campaign_not_found"); socket.close(1008, "campaign mismatch"); return; }
+        if (!isHello(message)) {
+          logConnectionError("hello_required");
+          reject("first message must be hello");
+          socket.close(1008, "hello required");
+          return;
+        }
+        if (message.campaignId !== campaignId) {
+          logConnectionError("campaign_not_found", message.role);
+          reject("campaign_not_found");
+          socket.close(1008, "campaign mismatch");
+          return;
+        }
         try {
           const identity = await auth.authenticate(message.token);
           if (!identity || !identity.roles.includes(message.role)) throw new Error("auth_failed");
@@ -151,25 +231,33 @@ export function createVerticalSliceWebSocketServer(options: VerticalSliceWebSock
           await persistence.saveSession({ resumeToken, campaignId, sessionId, identityId: identity.id, role: message.role, actorId: actorId ?? null, updatedAt: Date.now() });
           flush();
         } catch (error) {
-          reject(error instanceof Error ? error.message : "connection rejected");
+          const reason = safeConnectionFailureReason(error);
+          logConnectionError(reason, message.role);
+          reject(reason);
           socket.close(1008, "connection rejected");
         }
         return;
       }
-      if (!isCommandMessage(message)) { reject("invalid command envelope"); return; }
+      if (!isCommandMessage(message)) {
+        logCommandError(session, "invalid_command_envelope");
+        reject("invalid command envelope");
+        return;
+      }
       if (!session.rateLimiter.consume()) { reject("rate_limited"); return; }
       try {
         for (const response of session.connection.send(message.command)) send(socket, response, session);
         flush();
         persist();
-      } catch (error) {
-        reject(error instanceof Error ? error.message : "command rejected");
+      } catch {
+        logCommandError(session, "command_execution_failed", message.command.kind);
+        reject("command_execution_failed");
       }
     });
     socket.on("close", () => {
       if (session) { slice.disconnect(session.sessionId); clients.delete(socket); }
     });
     socket.on("error", () => {
+      logConnectionError("socket_error", session?.connection.role, session?.sessionId);
       if (session) { slice.disconnect(session.sessionId); clients.delete(socket); }
     });
   });
