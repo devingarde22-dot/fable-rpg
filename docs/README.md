@@ -32,6 +32,7 @@
 26. [Increment 10 — Full Headless Vertical Slice (DR-C-010)](./25-step-c-increment-10-full-headless-slice.md) — реализован, проверен и слит в `main` через PR #8.
 27. [Предыдущий Increment 10 defense-slot proposal](./24-step-c-increment-10-proposal.md) — superseded исторический кандидат.
 28. [Журнал разработки и AI handoff](./17-development-log-and-handoff.md) — repository routing, выполненные инкременты, DR, тесты и правила продолжения.
+29. [Step C audit work log — 2026-10-28](./29-step-c-audit-work-log-2026-10-28.md) — решения A1/A2, latency measurement, проверки, audit findings и статус отдельных PR.
 
 ## Правило использования
 
