@@ -215,6 +215,14 @@ describe("headless campaign loop", () => {
     expect(result).toMatchObject({ outcome: "retreat", rewardUnlocked: false, nodeState: "open", retryAllowed: true });
     expect(run.location).toBe("city");
     expect(stateHashFromSnapshot(run.engine.replayJournal())).toBe(stateHashFromSnapshot(run.engine.snapshot()));
+
+    run.enterRoute("avenrenn-road");
+    run.enterNode("quarantine-gates");
+    run.startScene();
+    expect(run.location).toBe("scene");
+    expect(run.engine.snapshot()).toMatchObject({ phase: "active", outcome: null, paused: false });
+    expect(run.confirmOutcome("retreat")).toMatchObject({ outcome: "retreat", nodeState: "open", retryAllowed: true });
+    expect(run.location).toBe("city");
   });
 
   it("requires all heroes critically injured for defeat and allows technical gm_abort without a reward", () => {

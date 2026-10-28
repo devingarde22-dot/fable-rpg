@@ -280,7 +280,7 @@ export type RuntimeState = {
   nextServerSequence: number;
   rootSeed: string;
   phase: "loading" | "active" | "ended";
-  paused: false;
+  paused: boolean;
   outcome: CampaignOutcome | null;
 };
 
@@ -469,7 +469,8 @@ export type DomainEvent =
 export type JournalRecord =
   | { kind: "event"; event: DomainEvent; rngAudit: readonly RngAuditRecord[] }
   | { kind: "tick"; serverTick: number; sceneRevision: number; inputWindow: InputWindowRuntime }
-  | { kind: "input_window"; serverTick: number; inputWindow: InputWindowRuntime };
+  | { kind: "input_window"; serverTick: number; inputWindow: InputWindowRuntime }
+  | { kind: "pause"; paused: boolean; serverTick: number; sceneRevision: number };
 
 export type RuntimeSnapshot = {
   campaignId: string;
@@ -483,12 +484,13 @@ export type RuntimeSnapshot = {
   nextServerSequence: number;
   rootSeed: string;
   phase: "loading" | "active" | "ended";
-  paused: false;
+  paused: boolean;
   outcome: CampaignOutcome | null;
 };
 
 export type EngineErrorCode =
   | "SCHEMA_INVALID"
+  | "SCENE_PAUSED"
   | "AUTH_FORBIDDEN"
   | "STALE_SCENE_REVISION"
   | "DUPLICATE_REQUEST"

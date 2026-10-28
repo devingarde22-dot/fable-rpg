@@ -139,7 +139,6 @@ function publicEntity(entity: EntityRuntime): PublicEntity {
 export class PlayerGmVerticalSlice {
   readonly engine: SimulationEngine;
   private readonly sessions = new Map<string, Session>();
-  private paused = false;
 
   constructor(engine = createVerticalSliceEngine()) {
     this.engine = engine;
@@ -175,7 +174,7 @@ export class PlayerGmVerticalSlice {
       sceneId: snapshot.scene.id,
       sceneRevision: snapshot.sceneRevision,
       serverTick: snapshot.serverTick,
-      timePaused: this.paused,
+      timePaused: snapshot.paused,
       rulesetVersion: "fable.ruleset.0.1" as const,
       contentVersion: CONTENT_VERSION,
       entities,
@@ -221,7 +220,7 @@ export class PlayerGmVerticalSlice {
     const beforeEvents = this.engine.events().length;
     if (command.kind === "gm.pause") {
       if (session.role !== "gm") return this.reject(session, command.requestId, "gm_role_required");
-      this.paused = command.paused;
+      this.engine.setPaused(command.paused);
       this.broadcast({ type: "projection", projection: this.projectionFor(sessionId) });
       this.broadcast({ type: "command.result", requestId: command.requestId, result: { status: "accepted", sceneRevision: this.engine.snapshot().sceneRevision } });
       return this.drainOnly(session);
@@ -235,7 +234,7 @@ export class PlayerGmVerticalSlice {
       return this.drainOnly(session);
     }
     if (session.role !== "player" || !session.actorId) return this.reject(session, command.requestId, "player_role_required");
-    if (this.paused) return this.reject(session, command.requestId, "scene_paused");
+    if (this.engine.snapshot().paused) return this.reject(session, command.requestId, "scene_paused");
     const internal: InternalCommand = {
       requestId: command.requestId,
       sessionId: this.engine.state.sessionId,

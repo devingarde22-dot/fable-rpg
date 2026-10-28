@@ -42,6 +42,7 @@ export interface SimulationEngine {
   advanceOneTick(): TickResult;
   advanceTicks(count: number): TickResult[];
   snapshot(): RuntimeSnapshot;
+  setPaused(paused: boolean): void;
   events(): readonly DomainEvent[];
   journalRecords(): readonly JournalRecord[];
   replay(events: readonly DomainEvent[]): RuntimeSnapshot;
@@ -113,6 +114,7 @@ export class HeadlessSimulationEngine implements SimulationEngine {
     };
 
     if (this.runtime.phase === "ended") return rejected("STATE_LOCKED");
+    if (this.runtime.paused) return rejected("SCENE_PAUSED");
     if (this.runtime.phase !== "active" || command.role !== "player" || command.sessionId !== this.runtime.sessionId) return rejected("AUTH_FORBIDDEN");
     const heroId = this.runtime.heroIdByActorId.get(command.actorId);
     const hero = heroId ? this.runtime.entities.get(heroId) : undefined;
@@ -134,6 +136,10 @@ export class HeadlessSimulationEngine implements SimulationEngine {
 
   advanceOneTick(): TickResult {
     if (this.runtime.phase === "ended") return {
+      serverTick: this.runtime.serverTick, closedWindowId: null, events: [], commandResults: [],
+      sceneRevision: this.runtime.sceneRevision, stateHash: stateHash(this.runtime),
+    };
+    if (this.runtime.paused) return {
       serverTick: this.runtime.serverTick, closedWindowId: null, events: [], commandResults: [],
       sceneRevision: this.runtime.sceneRevision, stateHash: stateHash(this.runtime),
     };
@@ -227,6 +233,14 @@ export class HeadlessSimulationEngine implements SimulationEngine {
     return snapshotState(this.runtime);
   }
 
+  setPaused(paused: boolean): void {
+    if (this.runtime.phase !== "active") throw new Error("Pause can only change in an active scene");
+    if (this.runtime.paused === paused) return;
+    this.runtime.paused = paused;
+    this.journal.appendPause(paused, this.runtime.serverTick, this.runtime.sceneRevision);
+    assertRuntimeInvariants(this.runtime);
+  }
+
   events(): readonly DomainEvent[] {
     return this.journal.events();
   }
@@ -302,7 +316,20 @@ export class HeadlessSimulationEngine implements SimulationEngine {
           payload: { heroId: hero.id, protectionId: protection.id, kind: protection.kind, reason: "battle_ended" }, replay: null } });
       }
       hero.protections = [];
+      hero.statuses = [];
+      hero.cards.nextHandRotationAtTick = null;
+      if (hero.mode !== null) {
+        pendingEvents.push(modeChangedEvent(this.runtime, hero, hero.mode, null, "scene_end", this.runtime.serverTick, {
+          requestId: null,
+          actorId: null,
+        }));
+        hero.mode = null;
+      }
     }
+    this.runtime.scene.contactImmunityUntilTick.clear();
+    this.runtime.activeIntents.clear();
+    for (const enemy of enemies) if (enemy.kind === "enemy") enemy.activeIntentId = null;
+    this.runtime.paused = false;
     this.runtime.outcome = outcome;
     this.runtime.phase = "ended";
     pendingEvents.push({ event: { ...eventBase(this.runtime, this.runtime.serverTick, null, null),

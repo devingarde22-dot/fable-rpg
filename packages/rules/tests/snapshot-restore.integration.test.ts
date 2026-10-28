@@ -25,4 +25,27 @@ describe("snapshot restore", () => {
     expect(restored.advanceOneTick()).toEqual(live.advanceOneTick());
     expect(restored.snapshot()).toEqual(live.snapshot());
   });
+
+  it("persists pause across snapshot restore, freezes time, and resumes without state drift", () => {
+    const live = makeEngine();
+    live.setPaused(true);
+    const pausedSnapshot = live.snapshot();
+    expect(pausedSnapshot.paused).toBe(true);
+    expect(live.advanceTicks(20).every((tick) => tick.events.length === 0 && tick.serverTick === pausedSnapshot.serverTick)).toBe(true);
+
+    const restored = createSimulationEngineFromSnapshot(pausedSnapshot, {
+      cardTemplates: testCardTemplates,
+      terrain: testConfig().terrain ?? [],
+      enemyTemplates: testEnemyTemplates,
+      intentTemplates: testIntentTemplates,
+    });
+    expect(restored.snapshot()).toEqual(pausedSnapshot);
+    expect(restored.replayJournal()).toEqual(pausedSnapshot);
+    expect(restored.advanceOneTick().serverTick).toBe(pausedSnapshot.serverTick);
+
+    live.setPaused(false);
+    restored.setPaused(false);
+    expect(restored.advanceOneTick()).toEqual(live.advanceOneTick());
+    expect(restored.snapshot()).toEqual(live.snapshot());
+  });
 });
