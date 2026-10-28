@@ -21,6 +21,7 @@ import type {
   DomainEvent,
   EngineErrorCode,
   FinalCommandResult,
+  CachedCommandResult,
   InternalCommand,
   InternalModeCommand,
   InternalPlayCardCommand,
@@ -64,7 +65,7 @@ export class HeadlessSimulationEngine implements SimulationEngine {
   private readonly initialState: RuntimeState;
   private clock: TickClock;
   private readonly journal = new EventJournal();
-  private readonly requestResults = new Map<string, SubmitResult>();
+  private readonly requestResults = new Map<string, CachedCommandResult>();
   private readonly checkpoints = new Map<string, RuntimeState>();
   private readonly options: SimulationEngineOptions;
 
@@ -87,16 +88,20 @@ export class HeadlessSimulationEngine implements SimulationEngine {
   }
 
   submit(command: InternalCommand): SubmitResult {
-    const previous = this.requestResults.get(command.requestId);
-    if (previous) return { status: "duplicate", requestId: command.requestId, original: previous };
+    const requestId = extractRequestId(command);
+    if (!this.isValidCommand(command)) return {
+      status: "rejected", requestId, code: "SCHEMA_INVALID", sceneRevision: this.runtime.sceneRevision,
+    };
+    const key = requestKey(command);
+    const previous = this.requestResults.get(key);
+    if (previous) return { status: "duplicate", requestId, original: structuredClone(previous) };
 
     const rejected = (code: EngineErrorCode): SubmitResult => {
-      const result: SubmitResult = { status: "rejected", requestId: command.requestId, code, sceneRevision: this.runtime.sceneRevision };
-      if (typeof command?.requestId === "string" && command.requestId.length > 0) this.requestResults.set(command.requestId, result);
+      const result: SubmitResult = { status: "rejected", requestId, code, sceneRevision: this.runtime.sceneRevision };
+      this.requestResults.set(key, structuredClone(result));
       return result;
     };
 
-    if (!this.isValidCommand(command)) return rejected("SCHEMA_INVALID");
     if (this.runtime.phase === "ended") return rejected("STATE_LOCKED");
     if (this.runtime.phase !== "active" || command.role !== "player" || command.sessionId !== this.runtime.sessionId) return rejected("AUTH_FORBIDDEN");
     const heroId = this.runtime.heroIdByActorId.get(command.actorId);
@@ -113,7 +118,7 @@ export class HeadlessSimulationEngine implements SimulationEngine {
     this.runtime.scene.inputWindow.commands.push(cloneCommand(command));
     this.journal.appendInputWindow(this.runtime.serverTick, this.runtime.scene.inputWindow);
     const result: SubmitResult = { status: "queued", requestId: command.requestId, windowId };
-    this.requestResults.set(command.requestId, result);
+    this.requestResults.set(key, structuredClone(result));
     return result;
   }
 
@@ -127,6 +132,7 @@ export class HeadlessSimulationEngine implements SimulationEngine {
     const closedWindowId = closedWindowIdAtTick(this.runtime.serverTick);
     const pending: PendingJournalEvent[] = [];
     const commandResults: FinalCommandResult[] = [];
+    const commandEventIndexes: number[][] = [];
     const orderedCommands = closedWindowId === null ? [] : orderCommands(commandsInOpenWindow);
     const reservations = new Set<number>();
 
@@ -144,7 +150,9 @@ export class HeadlessSimulationEngine implements SimulationEngine {
               ? this.applyPlayCard(command)
               : this.applyModeCommand(command);
           commandResults.push(applied.result);
+          const pendingStart = pending.length;
           pending.push(...applied.pendingEvents);
+          commandEventIndexes.push(applied.pendingEvents.map((_, eventIndex) => pendingStart + eventIndex));
           if (applied.destinationCell !== undefined) reservations.add(applied.destinationCell);
         }
       } else if (phase === "enemies") {
@@ -169,13 +177,22 @@ export class HeadlessSimulationEngine implements SimulationEngine {
     this.journal.appendBatch(committed.events, committed.auditByEventId);
     this.journal.appendTick(this.runtime.serverTick, this.runtime.sceneRevision, this.runtime.scene.inputWindow);
 
-    for (const result of commandResults) {
-      if (result.status !== "accepted") continue;
-      const requestEvents = committed.events.filter((event) => event.causedByRequestId === result.requestId);
-      if (requestEvents.length > 0) {
-        result.eventIds = requestEvents.map((event) => event.eventId);
-        result.sceneRevision = requestEvents[0]?.sceneRevision ?? this.runtime.sceneRevision;
+    for (let index = 0; index < commandResults.length; index += 1) {
+      const result = commandResults[index];
+      const command = orderedCommands[index];
+      if (!result || !command) continue;
+      if (result.status === "accepted") {
+        // Keep the command's exact event slice: derived effects may name their source entity as actorId,
+        // and separate actors are allowed to use the same requestId.
+        const requestEvents = (commandEventIndexes[index] ?? [])
+          .map((eventIndex) => committed.events[eventIndex])
+          .filter((event): event is DomainEvent => event !== undefined);
+        if (requestEvents.length > 0) {
+          result.eventIds = requestEvents.map((event) => event.eventId);
+          result.sceneRevision = requestEvents[0]?.sceneRevision ?? this.runtime.sceneRevision;
+        }
       }
+      this.requestResults.set(requestKey(command), structuredClone(result));
     }
 
     assertRuntimeInvariants(this.runtime);
@@ -391,8 +408,10 @@ export class HeadlessSimulationEngine implements SimulationEngine {
 
   private isValidCommand(command: InternalCommand): boolean {
     if (!command || typeof command !== "object") return false;
-    if (typeof command.requestId !== "string" || command.requestId.length === 0 ||
-      typeof command.sessionId !== "string" || typeof command.actorId !== "string") return false;
+    if (typeof command.requestId !== "string" || command.requestId.length === 0 || command.requestId.length > 240 ||
+      typeof command.sessionId !== "string" || command.sessionId.length === 0 ||
+      typeof command.actorId !== "string" || command.actorId.length === 0) return false;
+    if (Array.from(command.requestId).length > 120) return false;
     if (command.role !== "player") return false;
     if (command.command === "player.move") {
       if (!command.payload || !["up", "down", "left", "right"].includes(command.payload.direction)) return false;
@@ -413,6 +432,16 @@ export class HeadlessSimulationEngine implements SimulationEngine {
     const keys = Object.keys(command as unknown as Record<string, unknown>).sort();
     return keys.join(",") === ["actorId", "clientRevision", "command", "payload", "requestId", "role", "serverReceiveSequence", "sessionId"].sort().join(",");
   }
+}
+
+function extractRequestId(command: unknown): string {
+  if (typeof command !== "object" || command === null || !("requestId" in command)) return "";
+  const requestId = (command as { requestId?: unknown }).requestId;
+  return typeof requestId === "string" ? requestId : "";
+}
+
+function requestKey(command: InternalCommand): string {
+  return JSON.stringify([command.sessionId, command.actorId, command.requestId]);
 }
 
 export function createSimulationEngine(config: SimulationEngineConfig, options?: SimulationEngineOptions): SimulationEngine {
