@@ -219,6 +219,7 @@ export type InternalPlayerMoveCommand = {
   role: "player";
   command: "player.move";
   payload: { direction: Direction };
+  /** Required transport cursor; player.move does not gate admission on it. */
   clientRevision: number;
   serverReceiveSequence: number;
 };
