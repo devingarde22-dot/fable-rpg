@@ -1,6 +1,6 @@
 # Fable — RPG Engine Repository
 
-This public repository contains the active Fable codebase. The separate public context pack is [`devingarde22-dot/fable-context`](https://github.com/devingarde22-dot/fable-context); use it for project context, not as the code remote.
+This public repository contains the active Fable codebase. The separate public context pack is [`devingarde22-dot/fable-context`](https://github.com/devingarde22-dot/fable-context); it is a reference for project context, not the code remote. Its overview and reading order predate the current implementation and may lag. For current rules, contracts, code, and implementation status, treat `fable-rpg` as the source of truth.
 
 ## How an AI developer should read this repository
 
@@ -22,23 +22,21 @@ Read in this order:
 14. `docs/18-step-c-hp-damage-resolution.md`
 15. `docs/19-step-c-stamina-regeneration.md`
 16. `docs/20-step-c-card-play.md`
-18. `docs/21-step-c-deck-cycle.md`
-19. `docs/22-step-c-status-immobilized.md`
-20. `docs/23-step-c-ally-guard.md`
-21. `docs/25-step-c-increment-10-full-headless-slice.md`
-22. `docs/17-development-log-and-handoff.md`
+17. `docs/21-step-c-deck-cycle.md`
+18. `docs/22-step-c-status-immobilized.md`
+19. `docs/23-step-c-ally-guard.md`
+20. `docs/25-step-c-increment-10-full-headless-slice.md`
+21. `docs/17-development-log-and-handoff.md`
 
 Markdown contracts and JSON Schemas are the source of truth. If a document conflicts with a confirmed rule or schema, stop and report the conflict instead of inventing behavior.
 
 ## Current project status
 
-Step C — Core Engine & State Machine increments 1–9 are implemented and merged into `main`. The latest merged increment is **Increment 9 — Ally Guard Runtime (DR-C-009)**, merged by PR [#7](https://github.com/devingarde22-dot/fable-rpg/pull/7) at commit `6423c19` on 2026-10-27. Increment 10 — Full Headless Vertical Slice (DR-C-010) is implemented and verified on `feat/full-headless-vertical-slice`; [PR #8](https://github.com/devingarde22-dot/fable-rpg/pull/8) is awaiting review and has not yet merged. Increments 5–7 are also present in `main` through PR [#6](https://github.com/devingarde22-dot/fable-rpg/pull/6), which includes their ancestry. Earlier milestones were merged through PR [#1](https://github.com/devingarde22-dot/fable-rpg/pull/1) (increments 1–3) and PR [#2](https://github.com/devingarde22-dot/fable-rpg/pull/2) (Increment 4).
+Step C — Core Engine & State Machine increments 1–10 are implemented and merged into `main`. Increment 10 — Full Headless Vertical Slice (DR-C-010) was merged by [PR #8](https://github.com/devingarde22-dot/fable-rpg/pull/8) at merge commit `b619c77` on 2026-10-28. Its full headless Quarantine Gates scenario covers the city-to-scene-to-outcome loop, a 2–4 hero fixture, deterministic replay, rollback, and outcome eligibility. The merged Increment 10 verification passed `pnpm check` (159 tests: 5 in `content`, 154 in `rules`) and `pnpm build`.
 
-The headless Core Engine lives in `packages/rules` per DR-C-001. Increment 10 adds a headless campaign wrapper, test-only defense-slot effects, city checkpoints/rollback, outcome eligibility, a 2–4 hero Quarantine Gates fixture, and replay/schema coverage. The full golden fight exercises the city-to-scene-to-outcome loop and deterministic replay. It adds no production cards or rewards and keeps `reposition` deferred. Verification: `pnpm check` passes (159 tests) and `pnpm build` passes.
+[PR #9](https://github.com/devingarde22-dot/fable-rpg/pull/9) is an open follow-up for command idempotency hardening: request keys are scoped by session, authenticated actor, and request ID, with saved final results and regression tests. It is separate from the already-merged Increment 10 implementation and awaits review.
 
-The confirmed Increment 10 scope and Definition of Done are documented in [`docs/25-step-c-increment-10-full-headless-slice.md`](docs/25-step-c-increment-10-full-headless-slice.md). The earlier defense-slot-only proposal in [`docs/24-step-c-increment-10-proposal.md`](docs/24-step-c-increment-10-proposal.md) is superseded.
-
-The implementation details, verification results and continuation constraints are summarized in [`docs/17-development-log-and-handoff.md`](docs/17-development-log-and-handoff.md). PR #7 remains the latest increment merged to `main`; Increment 10 is ready for review on its feature branch.
+The confirmed Increment 10 scope and Definition of Done are documented in [`docs/25-step-c-increment-10-full-headless-slice.md`](docs/25-step-c-increment-10-full-headless-slice.md). The earlier defense-slot-only proposal in [`docs/24-step-c-increment-10-proposal.md`](docs/24-step-c-increment-10-proposal.md) is superseded. See [`docs/17-development-log-and-handoff.md`](docs/17-development-log-and-handoff.md) for implementation history and continuation notes.
 
 ## Project rules
 
