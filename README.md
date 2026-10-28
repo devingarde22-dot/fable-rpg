@@ -4,16 +4,23 @@
 
 ## Verified current baseline
 
-The audited `main` baseline is [`7770d04`](https://github.com/devingarde22-dot/fable-rpg/commit/7770d04), the merge commit for PR #18 on 2026-10-28. It contains:
+The current `main` baseline is [`df627f6`](https://github.com/devingarde22-dot/fable-rpg/commit/df627f6e1d1a50599c75c51ef3a52446efeffd5a), merged PR #23 on 2026-10-28. It includes:
 
 - Step C increments 1–10 and the headless Quarantine Gates vertical slice;
-- the PR #9–#13 integration through PR #14;
-- the Player/GM WebSocket vertical slice from PR #15;
-- role-filtered domain-event projection (PR #16), corrected enemy candidate ranking (PR #17), and authoritative pause/restore/outcome lifecycle work (PR #18).
-
-In the verified maintenance worktree, `pnpm check` passed with **189 tests in 43 files** (6 content, 175 rules, 8 vertical-slice), followed by `pnpm build` and `git diff --check`. The focused vertical-slice regression suite also passed after the role-projection fan-out fix recorded in the current branch.
+- the PR #9–#13 integration through PR #14 and the Player/GM WebSocket slice from PR #15;
+- PR #19's role-specific projection fan-out fix and CI workflow;
+- PR #20's Player/GM reconnect and invalid-input/rate-limit regression coverage;
+- PR #21's safe structured diagnostics and WebSocket retry/idempotency coverage;
+- PR #22's durable SQLite persistence and crash-recovery integration tests;
+- PR #23's TV projection, Player resource projection, visibility matrix, and negative security tests.
 
 PR #4 remains open on GitHub, but its head commit `55119c` is already an ancestor of `main`; it is a legacy stacked PR, not pending implementation work. Do not merge it as new work.
+
+The latest merged PR (#23) reports `pnpm -r typecheck`, `pnpm -r lint`, and `pnpm check` passing, with **207 tests in the monorepo (26 in vertical-slice)**. These are PR-reported results; they have not been rerun as part of this documentation change.
+
+### Active persistence decision
+
+The current durable persistence implementation is `SqliteSlicePersistence` in `packages/vertical-slice/src/sqlitePersistence.ts`, using Node's built-in `node:sqlite`. SQLite is the selected store for the current vertical slice and an initial single-process/single-node playable deployment—not just a mock. The default `:memory:` mode is ephemeral; durable operation requires an explicit database file path and persistent storage. PostgreSQL/Drizzle is a future option, not the active runtime. See [DR-INFRA-001](docs/31-database-persistence-decision.md) and the [database schema target design](docs/09-database-schema.md).
 
 ## Read this repository in order
 
@@ -31,7 +38,7 @@ docs/                       normative design, decisions, status, and handoff
 packages/contracts/         canonical JSON Schemas (not a workspace package)
 packages/rules/             @fable/rules — authoritative headless simulation engine
 packages/content/           @fable/content — immutable enemy/intent content catalog
-packages/vertical-slice/    @fable/vertical-slice — Player/GM in-memory and WebSocket adapter
+packages/vertical-slice/    @fable/vertical-slice — Player/GM/TV adapter, WebSocket transport, SQLite persistence
 dev/                        obsolete examples/scaffolds; not the active runtime
 reference/gdd-site/         optional explanatory GDD site; not a normative source
 ```

@@ -33,7 +33,7 @@
 - Zod или Ajv — runtime validation;
 - JSON Schema — межсервисные контракты;
 - Colyseus или чистый WebSocket — room transport;
-- PostgreSQL + Drizzle — persistence;
+- SQLite via Node's built-in `node:sqlite` — active durable persistence for the current slice and initial single-node deployment ([DR-INFRA-001](./31-database-persistence-decision.md)); PostgreSQL + Drizzle are a possible future alternative only if deployment requirements trigger a new decision;
 - React/Vite — TV, Player, GM web clients;
 - Playwright — browser e2e;
 - фиксированный seed — replay и deterministic tests.

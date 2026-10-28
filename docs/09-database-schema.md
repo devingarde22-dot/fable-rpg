@@ -1,20 +1,42 @@
 # Fable — Database Schema
 
-**Версия:** 0.1  
-**Статус:** IMPLEMENTATION BASELINE  
-**Database:** PostgreSQL  
-**ORM:** Drizzle ORM
+**Версия:** 0.2  
+**Статус документа:** FUTURE TARGET DESIGN — NOT THE ACTIVE RUNTIME SCHEMA  
+**Предлагаемая relational database:** PostgreSQL (not selected for the active runtime)  
+**Предлагаемый ORM:** Drizzle ORM (obsolete `dev/` scaffold only)  
+**Current active persistence:** SQLite via Node's built-in `node:sqlite`; see [DR-INFRA-001](./31-database-persistence-decision.md).
 
-## 1. Правила хранения
+> **Important status distinction:** this document preserves the proposed normalized campaign/lore data model. Its PostgreSQL types, Drizzle declarations, normalized tables, and transaction sketches below are not what the current application creates or uses. The active runtime is `packages/vertical-slice/src/sqlitePersistence.ts`. Do not treat this document as an implementation baseline or build PostgreSQL migrations from it without a new decision.
 
-- PostgreSQL хранит campaign/lore/content metadata, sessions, events, commands и checkpoints.
+## 0. Active vertical-slice persistence (verified on main `df627f6`)
+
+The current durable adapter is `SqliteSlicePersistence`, implemented with Node's built-in `node:sqlite` `DatabaseSync`. It configures WAL mode and `synchronous = NORMAL`. The constructor defaults to `:memory:`; a persistent file path must be explicitly provided for data to survive process exit.
+
+The current adapter creates these tables:
+
+| Table | Purpose and current shape |
+|---|---|
+| `sessions` | Resume-session records keyed by `resume_token`; stores campaign/session/identity, role, optional actor, and update time. |
+| `snapshots` | One serialized runtime snapshot per `campaign_id`; the serializer preserves `Map` values. |
+| `command_requests` | Command receipt/result records; the current SQLite implementation declares `request_id` as the primary key and stores campaign/session/scene/actor metadata, request/result JSON, status, error code, and timestamps. |
+| `campaign_events` | Event journal rows with event identity/version, campaign/session/scene, actor/request IDs, scene revision, server tick/sequence, seed reference, payload JSON, raw event JSON, and creation time. |
+
+The adapter includes indexes for campaign/request lookups and event sequence/time. `appendEvents` batches a set of journal inserts in a SQLite transaction. Snapshot saves and command-receipt writes are separate persistence operations; do not infer a single atomic transaction spanning a command, receipt, snapshot, and journal from the existence of the event transaction.
+
+**Known contract-alignment follow-up:** the SQLite schema currently uses `request_id` as a global primary key. Earlier command/idempotency design describes scope by `(session_id, actor_id, request_id)`. Verify the intended cross-session reuse semantics and align the database constraint, adapter behavior, and regression tests before relying on that broader contract.
+
+This SQLite schema supports the current vertical slice. It does not yet implement the full normalized campaign/lore model described in the target-design sections below.
+
+## 1. Правила хранения для будущей PostgreSQL-модели
+
+- В целевой PostgreSQL-модели PostgreSQL будет хранить campaign/lore/content metadata, sessions, events, commands и checkpoints.
 - Быстро меняющееся authoritative scene state живёт в simulation room и периодически фиксируется snapshot/checkpoint.
 - Event journal append-only.
 - JSONB разрешён для versioned state payload, но ключевые связи и idempotency должны быть нормализованы.
 - Все content records имеют `version` и `status`.
 - Удаление campaign cascades только там, где это безопасно; audit/event history не удаляется обычным GM действием.
 
-## 2. Core tables
+## 2. Core tables (proposed target)
 
 ### `users`
 
@@ -165,7 +187,7 @@ scene_revision, payload jsonb, generated_at
 
 It is a cache, not source of truth.
 
-## 5. Events, commands and checkpoints
+## 5. Events, commands and checkpoints (proposed target)
 
 ### `campaign_events`
 
@@ -247,7 +269,7 @@ from_gm_id, target_player_id, text,
 vibration boolean, delivered_at, created_at
 ```
 
-## 6. Transactions
+## 6. Proposed target transaction patterns (not active SQLite behavior)
 
 ### Apply player command
 
@@ -290,7 +312,7 @@ BEGIN
 → broadcast fresh filtered snapshot
 ```
 
-## 7. Drizzle implementation rules
+## 7. Drizzle rules for a future target implementation
 
 - Enums for visibility, scene mode, command status, entity side and outcome.
 - `jsonb` fields have explicit TypeScript `$type`.
@@ -299,9 +321,9 @@ BEGIN
 - Migrations are reviewed; AI cannot apply destructive migration automatically.
 - Schema code is generated/edited only from this document and a Decision Record.
 
-## 8. Current scaffold gap list
+## 8. Future-target implementation checklist (not the active SQLite schema)
 
-The existing `dev/database/schema.ts` is a useful scaffold, but before production it must add or clarify:
+`dev/database/schema.ts` is part of the obsolete `dev/` scaffold and is not connected to the active runtime. The checklist below applies only if the team later chooses to implement this normalized PostgreSQL/Drizzle target. It is not a list of missing pieces in `SqliteSlicePersistence`, and it must not be read as a commitment to PostgreSQL:
 
 1. `eventVersion`, `sceneRevision`, `serverTick`, `serverSequence`, `seed` to events;
 2. unique requestId/idempotency index;
