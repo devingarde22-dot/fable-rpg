@@ -11,7 +11,11 @@
 
 ## Реализация и версионирование
 
-Production template `bind` обновлён с version 1 до **version 2**, так как подтверждённое значение target filter изменилось. Добавлено только `immobilized` в `excludedStatuses`; длительности 12/15 секунд и schema/wire shape не изменены. Существующие test-only templates остались без изменений. В текущем replay version не выбирается по историческому `contentVersion`: reducer проверяет события по `IntentTemplate`, загруженным в переданный initial runtime state. Journal intent events содержат `templateKey`, но не template version/contentVersion. Поэтому replay через изменённый текущий catalog не гарантирует воспроизведение старого catalog; вопрос о глобальном `CONTENT_VERSION` оставлен открытым ниже. Runtime state shape и `stateHash` не менялись.
+Production template `bind` обновлён с version 1 до **version 2**, так как подтверждённое значение target filter изменилось. Добавлено только `immobilized` в `excludedStatuses`; длительности 12/15 секунд и schema/wire shape не изменены. Существующие test-only templates остались без изменений. Изменение каталога повышает глобальный `CONTENT_VERSION` до **`slice.quarantine-gates.v2`** и синхронизирует все visibility projection schemas. Версия различает идентификаторы наборов шаблонов, но сама по себе старые шаблоны не архивирует.
+
+В текущем replay версия не выбирается по историческому `contentVersion`: reducer проверяет события по `IntentTemplate`, загруженным в переданный initial runtime state. Journal intent events содержат `templateKey`, но не template version/contentVersion. Поэтому replay через изменённый текущий catalog не гарантирует воспроизведение старого catalog. **До слоя persistence это не блокирует текущие headless replay tests; перед появлением БД/исторического replay нужно отдельно решить хранение старых templates:** либо сохранять snapshot набора шаблонов вместе с журналом/checkpoint, либо сохранять неизменяемые каталоги по версиям и выбирать нужную версию.
+
+Сравнение версии журнала с текущим каталогом и отказ replay при mismatch в этот PR не входят: это отдельное расширение engine. Его следует оформить отдельным DR вместе с форматом checkpoint. `stateHash` и runtime state shape не меняются.
 
 Когда все допустимые цели для bind заняты контролем, существующий порядок выбора продолжает проверять следующий доступный intent; для одиночного героя в тесте это существующий fallback `hold_position` после того, как `ally_guard` и `move_close` невалидны. Нового fallback или игрового content нет.
 
@@ -32,19 +36,12 @@ Boundary-тест подтверждает порядок фаз: на точн�
 - Исходный failing test подтвердил непрерывный refresh и отсутствие даже 250 ms свободного окна до изменения.
 - Исходные проверки до утверждения изменённого порога показали minimum **150 тиков** во всех **1,801** sliding windows против исходных 200 тиков.
 - Focused uptime integration: **3/3** tests passed, включая expiry-boundary и 4-hero simulation; одиночный diagnostic и каждый из четырёх hero minima подтверждают **1,801** windows и минимум **150 ticks (7.5s)**.
-- `pnpm check`: typecheck, lint и полный test suite прошли; content tests **5/5**, rules tests **162/162**.
-- `pnpm build` прошёл; content catalog validation **5/5** и event/status JSON Schema contract tests **9/9** прошли; `git diff --check` прошёл.
+- `pnpm check`: typecheck, lint и полный test suite прошли; content tests **6/6**, rules tests **162/162**.
+- `pnpm build` прошёл; content catalog/version checks **6/6** и event/status JSON Schema contract tests **9/9** прошли; `git diff --check` прошёл.
 
-## Replay/contentVersion — открытый вопрос
+## Исторический replay и persistence — отдельная задача
 
-Код подтверждает, что replay использует intent templates из supplied initial runtime state, а не подбирает их по версии из journal. `CONTENT_VERSION` и visibility snapshot schema пока остаются `slice.quarantine-gates.v1`; никаких versioning изменений здесь не внесено.
-
-Варианты до persistence:
-
-- **A — поднять contentVersion** до новой версии и синхронно обновить visibility schema/golden snapshots/tests. Это рекомендуется, потому что Step B B-010 требует новую `contentVersion` при изменении templates. Сам bump помечает новую версию, но для настоящего replay старых журналов всё равно потребуется сохранить и выбрать старый content bundle.
-- **B — оставить v1 временно** и явно записать, что до появления persistence исторических journal для replay нет; старые persistent logs в будущем потребуют отдельного совместимого content bundle.
-
-Ни вариант A, ни вариант B не применён; требуется отдельное подтверждение пользователя.
+`CONTENT_VERSION` — идентификатор семантики набора шаблонов, не механизм архивирования. Реальный исторический replay после появления persistence потребует либо сохранять snapshot шаблонов вместе с журналом/checkpoint, либо поддерживать immutable catalogs по версиям. Проверка mismatch версии journal и текущего каталога с отказом replay намеренно не добавлена; её формат/поведение необходимо согласовать отдельным DR одновременно с форматом checkpoint.
 
 ## Rule IDs
 

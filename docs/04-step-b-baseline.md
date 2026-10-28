@@ -100,7 +100,7 @@ Rule IDs: `TIME-001`, `TIME-002`, `INTENT-003`, `RESOURCE-002`, `RESOURCE-003`, 
 | projection schema | `fable.projection.tv.v1`, `fable.projection.player.v1`, `fable.projection.gm.v1` | role-specific DTO shape |
 | `contextVersion` | `fable.context.v1` | AI allow-listed packet shape |
 | `rulesetVersion` | `fable.ruleset.0.1` | confirmed gameplay semantics |
-| `contentVersion` | `slice.quarantine-gates.v1` | immutable template/content bundle |
+| `contentVersion` | `slice.quarantine-gates.v2` | immutable template/content bundle identifier; catalogs are not archived by this identifier alone |
 | checkpoint `snapshotSchemaVersion` | `1` | persisted authoritative snapshot shape |
 
 **Wire consequence:** commands include `protocolVersion`, `schemaVersion`, `commandVersion`; events include `protocolVersion`, `schemaVersion`, `eventVersion`; snapshots include `protocolVersion`, `snapshotSchema`, projection schema, rulesetVersion and contentVersion. Join negotiates supported versions; no intersection yields `UNSUPPORTED_CONTRACT_VERSION`. A version is never silently reused for new semantics.
@@ -260,7 +260,7 @@ The example assumes the visibility/reveal policy explicitly approved this public
   "sceneRevision": 42,
   "serverTick": 9000,
   "rulesetVersion": "fable.ruleset.0.1",
-  "contentVersion": "slice.quarantine-gates.v1",
+  "contentVersion": "slice.quarantine-gates.v2",
   "timePaused": false,
   "state": {}
 }
