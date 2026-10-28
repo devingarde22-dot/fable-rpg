@@ -62,12 +62,16 @@ export function createRuntimeState(config: SimulationEngineConfig): RuntimeState
           hand: cloneAndValidateCardInstances(source.cards.hand, cardTemplates, seenCardInstances, source.id),
           discard: cloneAndValidateCardInstances(source.cards.discard, cardTemplates, seenCardInstances, source.id),
           excludedForMode: cloneAndValidateCardInstances(source.cards.excludedForMode, cardTemplates, seenCardInstances, source.id),
+          defenseSlot: source.cards.defenseSlot
+            ? cloneAndValidateCardInstances([source.cards.defenseSlot], cardTemplates, seenCardInstances, source.id)[0] ?? null
+            : null,
           revision: source.cards.revision,
           nextHandRotationAtTick: source.cards.nextHandRotationAtTick ??
             (source.aliveState === "active" && (source.mode === "melee" || source.mode === "ranged")
               ? initialServerTick + CARD_ROTATION_INTERVAL_TICKS
               : null),
         },
+        protections: source.protections.map((protection) => ({ ...protection })),
         statuses: cloneAndValidateStatusLayers(source.statuses, source.id),
         position: { ...source.position },
         activeIntentId: null,
@@ -85,11 +89,15 @@ export function createRuntimeState(config: SimulationEngineConfig): RuntimeState
   }
 
   const heroIdByActorId = new Map(Object.entries(config.heroIdByActorId));
+  const ownedHeroIds = new Set<string>();
   for (const [actorId, heroId] of heroIdByActorId) {
     const hero = entities.get(heroId);
-    if (!hero || hero.kind !== "hero" || hero.aliveState !== "active") {
-      throw new Error(`Actor ${actorId} is mapped to a non-active hero ${heroId}`);
+    if (!hero || hero.kind !== "hero" ||
+      (hero.aliveState !== "active" && !(hero.aliveState === "critically_injured" && hero.hp.current === 0))) {
+      throw new Error(`Actor ${actorId} is mapped to an invalid hero ${heroId}`);
     }
+    if (ownedHeroIds.has(heroId)) throw new Error(`Hero ${heroId} is mapped to more than one player actor`);
+    ownedHeroIds.add(heroId);
   }
 
   const initialIntentEntries = config.initialIntentByEnemyId === undefined
@@ -212,9 +220,11 @@ export function cloneEntity(entity: EntityRuntime): EntityRuntime {
         hand: entity.cards.hand.map((card) => ({ ...card })),
         discard: entity.cards.discard.map((card) => ({ ...card })),
         excludedForMode: entity.cards.excludedForMode.map((card) => ({ ...card })),
+        defenseSlot: entity.cards.defenseSlot ? { ...entity.cards.defenseSlot } : null,
         revision: entity.cards.revision,
         nextHandRotationAtTick: entity.cards.nextHandRotationAtTick,
       },
+      protections: entity.protections.map((protection) => ({ ...protection })),
       statuses: entity.statuses.map(cloneStatusLayer),
     };
   }
@@ -271,15 +281,18 @@ function buildCardTemplateRegistry(templates: readonly CardTemplate[]): Map<stri
     if (!template.key || registry.has(template.key)) throw new Error(`Duplicate or empty card template key: ${template.key}`);
     if (!Number.isInteger(template.version) || template.version < 1 ||
       !Number.isInteger(template.staminaCost) || template.staminaCost < 0 ||
-      !Number.isInteger(template.range.minInclusive) || template.range.minInclusive < 1 ||
+      !Number.isInteger(template.range.minInclusive) || template.range.minInclusive < 0 ||
       !Number.isInteger(template.range.maxInclusive) || template.range.maxInclusive < template.range.minInclusive ||
-      !Number.isFinite(template.effect.rawDamage) || template.effect.rawDamage <= 0 ||
-      !Number.isFinite(template.effect.multiplier) || template.effect.multiplier <= 0 ||
-      template.effect.kind !== "direct_damage" || template.allowedModes.length === 0 ||
+      template.allowedModes.length === 0 ||
       template.allowedModes.some((mode) => !["movement", "melee", "ranged"].includes(mode)) ||
       new Set(template.allowedModes).size !== template.allowedModes.length ||
       !["required", "not_required"].includes(template.lineOfSight)) {
       throw new Error(`Invalid direct-damage card template ${template.key}`);
+    }
+    if ((template.effect.kind === "direct_damage" && (template.range.minInclusive < 1 || !Number.isFinite(template.effect.rawDamage) || template.effect.rawDamage <= 0 ||
+      !Number.isFinite(template.effect.multiplier) || template.effect.multiplier <= 0)) ||
+      (template.effect.kind === "damage_barrier" && (!Number.isInteger(template.effect.amount) || template.effect.amount <= 0))) {
+      throw new Error(`Invalid card effect template ${template.key}`);
     }
     registry.set(template.key, cloneCardTemplate(template));
   }

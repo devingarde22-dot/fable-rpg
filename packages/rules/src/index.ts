@@ -20,3 +20,4 @@ export * from "./intents/validation.js";
 export * from "./intents/intentEventProjection.js";
 export * from "./combat/damage.js";
 export * from "./resources/stamina.js";
+export * from "./campaign/HeadlessCampaign.js";

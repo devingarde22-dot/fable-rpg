@@ -88,7 +88,9 @@ type PendingCardPlay = {
   eventGroupId: string;
   requestId: string;
   actorId: string;
-  stage: "stamina" | "damage" | "discard";
+  stage: "stamina" | "damage" | "effect" | "protection" | "discard";
+  cardZone: "hand" | "defense_slot";
+  effectKind: string;
 };
 
 type ReplayProgress = {
@@ -120,6 +122,8 @@ type ReplayProgress = {
     eventGroupId: string;
     sceneRevision: number;
   } | null;
+  pendingAbsorption: { heroId: string; source: string; amount: number; remainingDamage: number } | null;
+  checkpoints: Map<string, RuntimeState>;
 };
 
 function createReplayProgress(state: RuntimeState): ReplayProgress {
@@ -134,6 +138,8 @@ function createReplayProgress(state: RuntimeState): ReplayProgress {
     pendingModeDeal: null,
     pendingRotation: null,
     pendingStatusEffect: null,
+    pendingAbsorption: null,
+    checkpoints: new Map(),
   };
 }
 
@@ -145,6 +151,7 @@ function assertReplayTransactionsComplete(state: RuntimeState, progress: ReplayP
     const label = progress.pendingStatusEffect.effectKey === "bind" ? "bind" : "Ally Guard";
     throw new Error(`Replay ended before the ${label} status effect was recorded`);
   }
+  if (progress.pendingAbsorption) throw new Error("Replay ended before protection absorption was matched to HP damage");
   assertNoDueStatuses(state, state.serverTick);
 }
 
@@ -176,11 +183,8 @@ function applyReplayEvent(
     progress.expectedEventIndex = 0;
   }
   if (progress.pendingCardPlay) {
-    const expectedType = progress.pendingCardPlay.stage === "stamina"
-      ? "stamina.changed"
-      : progress.pendingCardPlay.stage === "damage"
-        ? "hp.changed"
-        : "card.discarded";
+    const expectedType = ({ stamina: "stamina.changed", damage: "hp.changed", effect: "card.effect_applied",
+      protection: "protection.applied", discard: "card.discarded" } as const)[progress.pendingCardPlay.stage];
     if (event.eventType !== expectedType || event.eventGroupId !== progress.pendingCardPlay.eventGroupId ||
       event.sceneRevision !== progress.pendingCardPlay.sceneRevision || event.serverTick !== progress.pendingCardPlay.serverTick ||
       event.causedByRequestId !== progress.pendingCardPlay.requestId || event.actorId !== progress.pendingCardPlay.actorId) {
@@ -212,6 +216,27 @@ function applyReplayEvent(
       break;
     case "card.played":
       applyCardPlayed(state, event, progress);
+      break;
+    case "card.effect_applied":
+      applyCardEffect(state, event, progress);
+      break;
+    case "protection.applied":
+      applyProtectionApplied(state, event, progress);
+      break;
+    case "protection.triggered":
+      applyProtectionTriggered(state, event, progress);
+      break;
+    case "protection.expired":
+      applyProtectionExpired(state, event);
+      break;
+    case "checkpoint.created":
+      applyCheckpointCreated(state, event, progress);
+      break;
+    case "rollback.applied":
+      applyRollback(state, event, progress);
+      break;
+    case "campaign.outcome_confirmed":
+      applyCampaignOutcome(state, event);
       break;
     case "card.discarded":
       applyCardDiscarded(state, event, progress);
@@ -260,7 +285,7 @@ function applyReplayEvent(
       break;
   }
 
-  state.phase = "active";
+  state.phase = state.outcome === null ? "active" : "ended";
   state.serverTick = event.serverTick;
   state.scene.inputWindow = { windowId: Math.floor(event.serverTick / 5), commands: [] };
   state.sceneRevision = event.sceneRevision;
@@ -277,16 +302,18 @@ function applyCardPlayed(
 ): void {
   const { heroId, cardInstanceId, mode, staminaCost, targetEntityId, targetCell } = event.payload;
   const hero = state.entities.get(heroId);
-  const card = hero?.kind === "hero"
-    ? hero.cards.hand.find((instance) => instance.instanceId === cardInstanceId)
-    : undefined;
+  const handCard = hero?.kind === "hero" ? hero.cards.hand.find((instance) => instance.instanceId === cardInstanceId) : undefined;
+  const defenseCard = hero?.kind === "hero" && hero.cards.defenseSlot?.instanceId === cardInstanceId ? hero.cards.defenseSlot : undefined;
+  const card = handCard ?? defenseCard;
   const template = card ? state.cardTemplates.get(card.templateKey) : undefined;
   const target = state.entities.get(targetEntityId);
+  const effectKind = template?.effect.kind ?? "";
+  const isDefense = effectKind !== "direct_damage";
   if (progress.pendingCardPlay || !hero || hero.kind !== "hero" || hero.aliveState !== "active" || hero.hp.current <= 0 ||
     event.actorId === null || state.heroIdByActorId.get(event.actorId) !== hero.id || event.causedByRequestId === null ||
-    !card || !template || template.effect.kind !== "direct_damage" || template.staminaCost !== staminaCost ||
+    !card || !template || (!handCard && !defenseCard) || (Boolean(defenseCard) !== isDefense) || template.staminaCost !== staminaCost ||
     hero.mode !== mode || !template.allowedModes.includes(mode) || !canAffordStamina(hero.stamina.current, staminaCost) ||
-    !target || target.kind !== "enemy" || target.aliveState !== "active" || target.hp.current <= 0 ||
+    !target || target.kind !== (isDefense ? "hero" : "enemy") || target.aliveState !== "active" || target.hp.current <= 0 ||
     target.position.x !== targetCell.x || target.position.y !== targetCell.y) {
     throw new Error("Replay card.played references an invalid hero, card, mode, cost, or target");
   }
@@ -309,8 +336,154 @@ function applyCardPlayed(
     eventGroupId: event.eventGroupId,
     requestId: event.causedByRequestId,
     actorId: event.actorId,
-    stage: staminaCost > 0 ? "stamina" : "damage",
+    stage: staminaCost > 0 ? "stamina" : (isDefense ? "effect" : "damage"),
+    cardZone: defenseCard ? "defense_slot" : "hand",
+    effectKind,
   };
+}
+
+function applyCardEffect(
+  state: RuntimeState,
+  event: Extract<DomainEvent, { eventType: "card.effect_applied" }>,
+  progress: ReplayProgress,
+): void {
+  const pending = progress.pendingCardPlay;
+  const hero = state.entities.get(event.payload.heroId);
+  const target = state.entities.get(event.payload.targetEntityId);
+  const card = hero?.kind === "hero" ? hero.cards.defenseSlot : undefined;
+  const template = card ? state.cardTemplates.get(card.templateKey) : undefined;
+  if (!pending || pending.stage !== "effect" || !hero || hero.kind !== "hero" || !target || target.kind !== "hero" ||
+    pending.heroId !== hero.id || pending.cardInstanceId !== event.payload.cardInstanceId || pending.targetEntityId !== target.id ||
+    !card || card.instanceId !== pending.cardInstanceId || !template || template.effect.kind === "direct_damage" ||
+    JSON.stringify(template.effect) !== JSON.stringify(event.payload.effect)) {
+    throw new Error("Replay card.effect_applied does not match a pending defense card");
+  }
+  const effect = template.effect;
+  if (effect.kind === "prevent_one_attack" || effect.kind === "damage_barrier") {
+    const expectedAmount = effect.kind === "damage_barrier" ? effect.amount : 0;
+    if (!event.payload.protectionId || event.payload.amount !== expectedAmount) throw new Error("Replay protection effect metadata is invalid");
+    target.protections.push(effect.kind === "damage_barrier"
+      ? { id: event.payload.protectionId, kind: "damage_barrier", sourceCardInstanceId: card.instanceId, remainingAmount: expectedAmount }
+      : { id: event.payload.protectionId, kind: "prevent_one_attack", sourceCardInstanceId: card.instanceId });
+    pending.stage = "protection";
+    return;
+  }
+  if (effect.kind === "apply_ally_guard") {
+    const status = event.payload.statusLayer;
+    const existing = target.statuses.find((layer) => layer.templateKey === "ally_guard" && layer.expiresAtTick >= event.serverTick);
+    if (!status || status.potency !== ALLY_GUARD_DEFENSE_BONUS_PERCENT || status.expiresAtTick !== event.serverTick + ALLY_GUARD_DURATION_TICKS ||
+      (existing && existing.id !== status.layerId)) throw new Error("Replay card Ally Guard metadata is invalid");
+    if (existing) { existing.appliedAtTick = event.serverTick; existing.expiresAtTick = status.expiresAtTick; }
+    else target.statuses.push({ id: status.layerId, templateKey: "ally_guard", sourceEntityId: hero.id,
+      potency: status.potency, stacks: 1, appliedAtTick: event.serverTick, expiresAtTick: status.expiresAtTick, refreshPolicy: "refresh_duration" });
+    pending.stage = "discard";
+    return;
+  }
+  throw new Error("Unsupported replay defense effect");
+}
+
+function applyProtectionApplied(state: RuntimeState, event: Extract<DomainEvent, { eventType: "protection.applied" }>, progress: ReplayProgress): void {
+  const pending = progress.pendingCardPlay;
+  const hero = state.entities.get(event.payload.heroId);
+  const protection = hero?.kind === "hero" ? hero.protections.find((item) => item.id === event.payload.protectionId) : undefined;
+  if (!pending || pending.stage !== "protection" || pending.targetEntityId !== event.payload.heroId || !hero || hero.kind !== "hero" || !protection ||
+    protection.kind !== event.payload.kind || protection.sourceCardInstanceId !== event.payload.sourceCardInstanceId ||
+    (protection.kind === "damage_barrier" ? protection.remainingAmount !== event.payload.amount : event.payload.amount !== 0)) {
+    throw new Error("Replay protection.applied does not match the pending defense effect");
+  }
+  pending.stage = "discard";
+}
+
+function applyProtectionTriggered(state: RuntimeState, event: Extract<DomainEvent, { eventType: "protection.triggered" }>, progress: ReplayProgress): void {
+  const hero = state.entities.get(event.payload.heroId);
+  const protection = hero?.kind === "hero" ? hero.protections.find((item) => item.id === event.payload.protectionId) : undefined;
+  const sourceKey = JSON.stringify(event.payload.source);
+  const previous = progress.pendingAbsorption;
+  const expectedIncoming = previous?.heroId === event.payload.heroId && previous.source === sourceKey ? previous.remainingDamage : event.payload.incomingDamage;
+  if (!hero || hero.kind !== "hero" || !protection || protection.kind !== event.payload.kind ||
+    event.payload.incomingDamage !== expectedIncoming || event.payload.incomingDamage <= 0) {
+    throw new Error("Replay protection.triggered references an invalid protection or damage sequence");
+  }
+  const expectedAbsorbed = protection.kind === "prevent_one_attack" ? event.payload.incomingDamage
+    : Math.min(event.payload.incomingDamage, protection.remainingAmount);
+  const expectedRemainingAmount = protection.kind === "damage_barrier" ? protection.remainingAmount - expectedAbsorbed : 0;
+  if (event.payload.absorbedDamage !== expectedAbsorbed || event.payload.remainingAmount !== expectedRemainingAmount ||
+    event.payload.remainingDamage !== event.payload.incomingDamage - expectedAbsorbed) {
+    throw new Error("Replay protection absorption amount is inconsistent");
+  }
+  if (protection.kind === "damage_barrier" && expectedRemainingAmount > 0) protection.remainingAmount = expectedRemainingAmount;
+  else hero.protections.splice(hero.protections.indexOf(protection), 1);
+  progress.pendingAbsorption = event.payload.remainingDamage > 0
+    ? { heroId: hero.id, source: sourceKey, amount: (previous?.amount ?? 0) + expectedAbsorbed, remainingDamage: event.payload.remainingDamage }
+    : null;
+}
+
+function applyProtectionExpired(state: RuntimeState, event: Extract<DomainEvent, { eventType: "protection.expired" }>): void {
+  const hero = state.entities.get(event.payload.heroId);
+  if (!hero || hero.kind !== "hero") throw new Error("Replay protection.expired references a missing hero");
+  const index = hero.protections.findIndex((item) => item.id === event.payload.protectionId && item.kind === event.payload.kind);
+  if (event.payload.reason === "battle_ended") {
+    if (index < 0) throw new Error("Replay battle-end protection expiry references a missing layer");
+    hero.protections.splice(index, 1);
+  } else if (event.payload.kind !== "damage_barrier" || index >= 0) {
+    throw new Error("Replay protection depletion event is inconsistent");
+  }
+}
+
+function applyCheckpointCreated(state: RuntimeState, event: Extract<DomainEvent, { eventType: "checkpoint.created" }>, progress: ReplayProgress): void {
+  const { checkpointId, label, snapshotSchemaVersion } = event.payload;
+  if (!checkpointId || !label.trim() || snapshotSchemaVersion !== 1 || progress.checkpoints.has(checkpointId)) {
+    throw new Error("Replay checkpoint.created payload is invalid or duplicated");
+  }
+  const checkpoint = cloneRuntimeState(state);
+  checkpoint.serverTick = event.serverTick;
+  checkpoint.sceneRevision = event.sceneRevision;
+  checkpoint.nextServerSequence = event.serverSequence + 1;
+  checkpoint.phase = "active";
+  checkpoint.scene.inputWindow = { windowId: Math.floor(event.serverTick / 5), commands: [] };
+  progress.checkpoints.set(checkpointId, checkpoint);
+}
+
+function applyRollback(state: RuntimeState, event: Extract<DomainEvent, { eventType: "rollback.applied" }>, progress: ReplayProgress): void {
+  const checkpoint = progress.checkpoints.get(event.payload.checkpointId);
+  if (!checkpoint || event.payload.previousRevision !== state.sceneRevision || event.payload.targetRevision !== checkpoint.sceneRevision ||
+    event.payload.restoredRevision !== event.sceneRevision || event.sceneRevision !== state.sceneRevision + 1 || event.serverTick < checkpoint.serverTick) {
+    throw new Error("Replay rollback.applied references an invalid checkpoint or non-monotonic revision");
+  }
+  const restored = cloneRuntimeState(checkpoint);
+  rebaseReplayTimers(restored, event.serverTick - checkpoint.serverTick);
+  Object.assign(state, restored);
+  state.serverTick = event.serverTick;
+  state.sceneRevision = event.sceneRevision;
+  state.nextServerSequence = event.serverSequence;
+  state.scene.inputWindow = { windowId: Math.floor(event.serverTick / 5), commands: [] };
+}
+
+function applyCampaignOutcome(state: RuntimeState, event: Extract<DomainEvent, { eventType: "campaign.outcome_confirmed" }>): void {
+  const { outcome, rewardUnlocked } = event.payload;
+  const heroes = [...state.entities.values()].filter((entity) => entity.kind === "hero");
+  const enemies = state.scene.enemyEntityIds.map((id) => state.entities.get(id)).filter((entity) => entity?.kind === "enemy");
+  if (state.phase !== "active" || state.outcome !== null || rewardUnlocked !== (outcome === "success") ||
+    (outcome === "success" && enemies.some((enemy) => enemy.aliveState !== "removed")) ||
+    (outcome === "defeat" && (heroes.length === 0 || heroes.some((hero) => hero.aliveState !== "critically_injured")))) {
+    throw new Error("Replay campaign outcome is not eligible or has inconsistent rewards");
+  }
+  state.outcome = outcome;
+  state.phase = "ended";
+}
+
+function rebaseReplayTimers(state: RuntimeState, delta: number): void {
+  if (delta <= 0) return;
+  state.scene.startedAtTick += delta;
+  for (const [heroId, untilTick] of state.scene.contactImmunityUntilTick) state.scene.contactImmunityUntilTick.set(heroId, untilTick + delta);
+  for (const entity of state.entities.values()) {
+    for (const layer of entity.statuses) { layer.appliedAtTick += delta; layer.expiresAtTick += delta; }
+    if (entity.kind === "hero") {
+      if (entity.stamina.nextRegenAtTick !== null) entity.stamina.nextRegenAtTick += delta;
+      if (entity.cards.nextHandRotationAtTick !== null) entity.cards.nextHandRotationAtTick += delta;
+    }
+  }
+  for (const intent of state.activeIntents.values()) { intent.startedAtTick += delta; intent.resolvesAtTick += delta; }
 }
 
 function applyMovement(state: RuntimeState, event: Extract<DomainEvent, { eventType: "scene.entity_moved" }>): void {
@@ -551,7 +724,15 @@ function applyHpChanged(
       throw new Error("Replay hp.changed v2 formula/source payload is inconsistent");
     }
     const calculation = calculateDamage({ rawDamage: payload.rawDamage, defense: payload.defense, multiplier: payload.multiplier });
-    const expectedCurrent = Math.max(0, Math.min(entity.hp.max, entity.hp.current - calculation.finalDamage));
+    const absorbedAmount = payload.absorbedAmount ?? 0;
+    const sourceKey = JSON.stringify(payload.source);
+    const absorption = progress.pendingAbsorption;
+    const expectedAbsorbed = absorption && absorption.heroId === entity.id && absorption.source === sourceKey ? absorption.amount : 0;
+    if (absorbedAmount !== expectedAbsorbed || (absorption && (absorption.heroId !== entity.id || absorption.source !== sourceKey ||
+      absorption.remainingDamage !== calculation.finalDamage - absorbedAmount))) {
+      throw new Error("Replay HP event does not match preceding protection absorption");
+    }
+    const expectedCurrent = Math.max(0, Math.min(entity.hp.max, entity.hp.current - (calculation.finalDamage - absorbedAmount)));
     if (payload.finalDamage !== calculation.finalDamage || payload.current !== expectedCurrent ||
       (payload.publicAmount !== undefined && payload.publicAmount !== calculation.finalDamage)) {
       throw new Error("Replay hp.changed v2 damage calculation does not match the prior state");
@@ -559,6 +740,7 @@ function applyHpChanged(
     validateDamageEventSource(state, payload.source, payload.rawDamage, payload.multiplier, progress.pendingCardPlay);
   }
   entity.hp.current = event.payload.current;
+  if (event.eventVersion === 2 && progress.pendingAbsorption) progress.pendingAbsorption = null;
   if (entity.kind === "hero" && entity.hp.current === 0) {
     entity.aliveState = "critically_injured";
     entity.stamina.nextRegenAtTick = null;
@@ -584,7 +766,7 @@ function applyStaminaChanged(
     }
     hero.stamina.current = event.payload.current;
     hero.stamina.nextRegenAtTick = event.serverTick + STAMINA_REGEN_INTERVAL_TICKS;
-    pending.stage = "damage";
+    pending.stage = pending.effectKind === "direct_damage" ? "damage" : "effect";
     return;
   }
   if (progress.pendingCardPlay) throw new Error("Replay stamina regeneration interrupted a card-play transaction");
@@ -612,12 +794,13 @@ function applyCardDiscarded(
   if (event.payload.reason === "played") {
     const pending = progress.pendingCardPlay;
     const cardIndex = hero.cards.hand.findIndex((instance) => instance.instanceId === event.payload.cardInstanceId);
-    const card = cardIndex >= 0 ? hero.cards.hand[cardIndex] : undefined;
+    const card = pending?.cardZone === "defense_slot" ? hero.cards.defenseSlot : cardIndex >= 0 ? hero.cards.hand[cardIndex] : undefined;
     if (!pending || pending.stage !== "discard" || !card || pending.heroId !== hero.id ||
       pending.cardInstanceId !== card.instanceId || card.templateKey !== pending.cardTemplateKey) {
       throw new Error("Replay card.discarded does not match the completed card play");
     }
-    hero.cards.hand.splice(cardIndex, 1);
+    if (pending.cardZone === "defense_slot") hero.cards.defenseSlot = null;
+    else hero.cards.hand.splice(cardIndex, 1);
     hero.cards.discard.push({ ...card });
     hero.cards.revision = event.payload.discardRevision;
     progress.pendingCardPlay = null;
@@ -947,8 +1130,14 @@ function validateRngAudit(event: DomainEvent, auditRecords: readonly RngAuditRec
   if (event.eventType === "intent.target_selected" && auditRecords.length !== 1) {
     throw new Error("intent.target_selected must have exactly one RNG audit record");
   }
-  if (event.eventType === "intent.cancelled" && auditRecords.length !== 1) {
-    throw new Error("intent.cancelled must have exactly one fallback RNG audit record");
+  if (event.eventType === "intent.cancelled") {
+    const requiresFallbackAudit = event.payload.reason !== "owner_removed";
+    if (requiresFallbackAudit && auditRecords.length !== 1) {
+      throw new Error("Fallback intent.cancelled must have exactly one RNG audit record");
+    }
+    if (!requiresFallbackAudit && auditRecords.length !== 0) {
+      throw new Error("owner_removed intent.cancelled must not have a fallback RNG audit record");
+    }
   }
   if (event.eventType === "deck.shuffled" && auditRecords.length !== 1) {
     throw new Error("deck.shuffled must have exactly one deck_shuffle audit record");

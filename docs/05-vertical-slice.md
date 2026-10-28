@@ -6,6 +6,8 @@
 **Debug party:** 3 героя допускается для быстрой симуляции  
 **Старт:** Миревальт, Аверенн
 
+**Уточнение для Increment 10:** headless acceptance, party 2–4, четыре стартовые клетки, in-memory city-save/rollback, outcomes, TEST_ONLY defense cards и исключение `reposition` определены в [DR-C-010](./25-step-c-increment-10-full-headless-slice.md). Для этого increment DR-C-010 имеет приоритет над устаревшими ограничениями этой reference fixture; более широкий product/UI scope документа остаётся вне headless implementation.
+
 ## 1. Цель среза
 
 Проверить полный сквозной loop от города до завершения сцены, не строя всю кампанию:

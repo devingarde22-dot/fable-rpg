@@ -29,8 +29,9 @@
 23. [DR-C-007 — Mode-filtered Deck & Timed Hand Rotation](./21-step-c-deck-cycle.md) — mode-specific deal, deterministic shuffle, 15-second hand rotation, reshuffle и replay.
 24. [DR-C-008 — Status Layers & Immobilized](./22-step-c-status-immobilized.md) — typed status layers, `bind`, `refresh_duration`, expiry cleanup и replay.
 25. [DR-C-009 — Ally Guard Runtime](./23-step-c-ally-guard.md) — `ally_guard`, fractional effective defense, refresh/expiry, Extinguisher activation and replay.
-26. [Increment 10 — Defense Slot Runtime proposal](./24-step-c-increment-10-proposal.md) — предварительный кандидат scope; не подтверждён и не разрешает реализацию.
-27. [Журнал разработки и AI handoff](./17-development-log-and-handoff.md) — repository routing, выполненные инкременты, DR, тесты и правила продолжения.
+26. [Increment 10 — Full Headless Vertical Slice (DR-C-010)](./25-step-c-increment-10-full-headless-slice.md) — подтверждённый scope и Definition of Done; реализация в работе.
+27. [Предыдущий Increment 10 defense-slot proposal](./24-step-c-increment-10-proposal.md) — superseded исторический кандидат.
+28. [Журнал разработки и AI handoff](./17-development-log-and-handoff.md) — repository routing, выполненные инкременты, DR, тесты и правила продолжения.
 
 ## Правило использования
 
@@ -73,7 +74,7 @@ docs/03-system-contracts.md
 docs/05-vertical-slice.md
 ```
 
-Step C increments 1–9 слиты в `main`; PR [#1](https://github.com/devingarde22-dot/fable-rpg/pull/1)–[#7](https://github.com/devingarde22-dot/fable-rpg/pull/7), merge commit PR #7 — `6423c19`. PR #3–#5 остаются открытыми, хотя их commits содержатся в `main`. Для Increment 10 добавлен только proposal-кандидат по defense slot; он не утверждён и не разрешает реализацию, а scope и DR-C-010 не подтверждены. См. [proposal Increment 10](./24-step-c-increment-10-proposal.md) и [журнал разработки и AI handoff](./17-development-log-and-handoff.md).
+Step C increments 1–9 слиты в `main`; PR [#1](https://github.com/devingarde22-dot/fable-rpg/pull/1)–[#7](https://github.com/devingarde22-dot/fable-rpg/pull/7), merge commit PR #7 — `6423c19`. Increment 10 — подтверждённый полный headless slice по [DR-C-010](./25-step-c-increment-10-full-headless-slice.md); кодирование и проверки выполняются в feature branch. Прежний defense-slot-only proposal superseded. См. [журнал разработки и AI handoff](./17-development-log-and-handoff.md).
 
 ## Machine-readable contracts
 

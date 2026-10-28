@@ -1,6 +1,6 @@
-# Increment 10 — Defense Slot Runtime (proposal)
+# Increment 10 — Defense Slot Runtime (superseded proposal)
 
-**Статус:** `PROPOSAL` — не утверждён; не является каноном и не разрешает реализацию.
+**Статус:** `SUPERSEDED`. Этот узкий кандидат заменён согласованным полным headless vertical slice в [DR-C-010](./25-step-c-increment-10-full-headless-slice.md); дальнейшую реализацию сверять с DR-C-010.
 **Предлагаемая область:** отдельный runtime-слот карты защиты для headless engine в `packages/rules`.
 **Кандидат Decision Record:** DR-C-010 (номер предварительный; не считать подтверждённым до решения пользователя).
 

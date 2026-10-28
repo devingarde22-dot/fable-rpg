@@ -20,8 +20,22 @@ export function activateScene(state: RuntimeState): PendingJournalEvent[] {
   if (state.phase !== "loading") throw new Error("Scene can only activate from loading");
   state.phase = "active";
   const pending: PendingJournalEvent[] = [];
-  const initialIntents = [...state.initialIntentByEnemyId.entries()].sort(([a], [b]) => compareText(a, b));
-  for (const [enemyId, templateKey] of initialIntents) {
+  const initialIntents = new Map(state.initialIntentByEnemyId);
+  for (const enemy of [...state.entities.values()].filter((entity): entity is EnemyRuntime => entity.kind === "enemy" && entity.aliveState === "active")) {
+    if (enemy.templateKey === "extinguisher" && !initialIntents.has(enemy.id)) {
+      const enemyTemplate = state.enemyTemplates.get(enemy.templateKey);
+      const priority = ["bind", "ally_guard", "move_close", "hold_position"];
+      const selected = priority.find((key) => {
+        if (!enemyTemplate?.intentKeys.includes(key)) return false;
+        const candidate = state.intentTemplates.get(key);
+        return Boolean(candidate && candidate.status === "confirmed" && ACTIVE_INTENT_HANDLERS.has(candidate.effect.handler) &&
+          validateIntent(state, enemy, candidate, makeActiveIntentId(state, enemy.id, key, state.serverTick), null).ok);
+      });
+      if (selected) initialIntents.set(enemy.id, selected);
+    }
+  }
+  const orderedInitialIntents = [...initialIntents.entries()].sort(([a], [b]) => compareText(a, b));
+  for (const [enemyId, templateKey] of orderedInitialIntents) {
     const enemy = state.entities.get(enemyId);
     const template = state.intentTemplates.get(templateKey);
     const enemyTemplate = enemy?.kind === "enemy" ? state.enemyTemplates.get(enemy.templateKey) : undefined;
@@ -273,6 +287,7 @@ function applyEffect(
         serverTick,
         causedByRequestId: null,
       });
+      pending.push(...result.protectionEvents);
       if (result.event) pending.push(result.event);
       return;
     }
