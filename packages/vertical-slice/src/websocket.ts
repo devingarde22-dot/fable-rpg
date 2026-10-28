@@ -3,17 +3,23 @@ import { randomUUID } from "node:crypto";
 import { Ajv } from "ajv";
 import { WebSocketServer, WebSocket, type RawData } from "ws";
 import { ENEMY_TEMPLATES, INTENT_TEMPLATES } from "../../content/src/index.js";
-import { PlayerGmVerticalSlice, type SliceCommand, type SliceConnection, type SliceRole, type SliceMessage } from "./index.js";
-import { createSimulationEngineFromSnapshot, type CachedCommandResult, type SimulationEngineRestoreConfig } from "../../rules/src/index.js";
-import { transportMessageSchema } from "./transportSchema.js";
 import {
+  PlayerGmVerticalSlice,
   InMemoryAuthProvider,
   InMemoryCampaignMembershipStore,
-  InMemorySlicePersistence,
-  TokenBucketRateLimiter,
   type AuthIdentity,
   type AuthProvider,
   type CampaignMembershipStore,
+  type SliceCommand,
+  type SliceConnection,
+  type SliceRole,
+  type SliceMessage,
+} from "./index.js";
+import { createSimulationEngineFromSnapshot, type CachedCommandResult, type SimulationEngineRestoreConfig } from "../../rules/src/index.js";
+import { transportMessageSchema } from "./transportSchema.js";
+import {
+  InMemorySlicePersistence,
+  TokenBucketRateLimiter,
   type SlicePersistence,
 } from "./security.js";
 
@@ -75,7 +81,7 @@ function json(data: unknown): string { return JSON.stringify(data); }
 function parseMessage(data: RawData): unknown {
   try { return JSON.parse(data.toString()) as unknown; } catch { return null; }
 }
-function isRole(value: unknown): value is SliceRole { return value === "gm" || value === "player"; }
+function isRole(value: unknown): value is SliceRole { return value === "gm" || value === "player" || value === "tv"; }
 function isSliceCommand(value: unknown): value is SliceCommand {
   if (!value || typeof value !== "object") return false;
   const command = value as Record<string, unknown>;
@@ -240,7 +246,7 @@ export function createVerticalSliceWebSocketServer(options: VerticalSliceWebSock
             rateLimiter: new TokenBucketRateLimiter(options.rateLimit?.capacity ?? 20, options.rateLimit?.refillPerSecond ?? 10),
           };
           clients.set(socket, session);
-          await persistence.saveSession({ resumeToken, campaignId, sessionId, identityId: identity.id, role: message.role, actorId: actorId ?? null, updatedAt: Date.now() });
+          await persistence.saveSession({ resumeToken, campaignId, sessionId, identityId: identity.id, role: message.role as "gm" | "player", actorId: actorId ?? null, updatedAt: Date.now() });
           flush();
         } catch (error) {
           const reason = safeConnectionFailureReason(error);

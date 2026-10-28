@@ -9,7 +9,7 @@ export const transportMessageSchema = {
       properties: {
         type: { const: "hello" },
         campaignId: { type: "string", minLength: 1, maxLength: 120 },
-        role: { enum: ["gm", "player"] },
+        role: { enum: ["gm", "player", "tv"] },
         token: { type: "string", minLength: 1, maxLength: 2_000 },
         actorId: { type: "string", minLength: 1, maxLength: 120 },
         resumeToken: { type: "string", minLength: 1, maxLength: 240 },
