@@ -1,46 +1,60 @@
 import { createServer, type Server as HttpServer } from "node:http";
+import { randomUUID } from "node:crypto";
+import { Ajv } from "ajv";
 import { WebSocketServer, WebSocket, type RawData } from "ws";
 import { PlayerGmVerticalSlice, type SliceCommand, type SliceConnection, type SliceRole, type SliceMessage } from "./index.js";
+import { transportMessageSchema } from "./transportSchema.js";
+import {
+  InMemoryAuthProvider,
+  InMemoryCampaignMembershipStore,
+  InMemorySlicePersistence,
+  TokenBucketRateLimiter,
+  type AuthIdentity,
+  type AuthProvider,
+  type CampaignMembershipStore,
+  type SlicePersistence,
+} from "./security.js";
 
-export type WebSocketHello = { type: "hello"; role: SliceRole; actorId?: string };
+export type WebSocketHello = { type: "hello"; campaignId: string; role: SliceRole; token: string; actorId?: string; resumeToken?: string };
 export type WebSocketCommand = { type: "command"; command: SliceCommand };
 export type WebSocketClientMessage = WebSocketHello | WebSocketCommand;
 export type WebSocketServerMessage = SliceMessage | { type: "transport.error"; reason: string };
 
-type ClientSession = { sessionId: string; connection: SliceConnection };
+type ClientSession = {
+  sessionId: string;
+  connection: SliceConnection;
+  identity: AuthIdentity;
+  resumeToken: string;
+  rateLimiter: TokenBucketRateLimiter;
+};
 
-function json(data: unknown): string {
-  return JSON.stringify(data);
-}
+type TransportOptions = {
+  slice?: PlayerGmVerticalSlice;
+  campaignId?: string;
+  auth?: AuthProvider;
+  membership?: CampaignMembershipStore;
+  persistence?: SlicePersistence;
+  rateLimit?: { capacity?: number; refillPerSecond?: number };
+};
 
+function json(data: unknown): string { return JSON.stringify(data); }
 function parseMessage(data: RawData): unknown {
-  try {
-    return JSON.parse(data.toString()) as unknown;
-  } catch {
-    return null;
-  }
+  try { return JSON.parse(data.toString()) as unknown; } catch { return null; }
 }
-
-function isRole(value: unknown): value is SliceRole {
-  return value === "player" || value === "gm";
-}
-
+function isRole(value: unknown): value is SliceRole { return value === "gm" || value === "player"; }
 function isSliceCommand(value: unknown): value is SliceCommand {
   if (!value || typeof value !== "object") return false;
   const command = value as Record<string, unknown>;
   if (typeof command.kind !== "string" || typeof command.requestId !== "string") return false;
   if (command.kind === "player.move") return ["up", "down", "left", "right"].includes(command.direction as string);
   if (command.kind === "gm.pause") return typeof command.paused === "boolean";
-  if (command.kind === "gm.end_expedition") return ["success", "retreat", "defeat", "gm_abort"].includes(command.outcome as string) && typeof command.reason === "string";
-  return false;
+  return command.kind === "gm.end_expedition" && ["success", "retreat", "defeat", "gm_abort"].includes(command.outcome as string) && typeof command.reason === "string";
 }
-
 function isHello(value: unknown): value is WebSocketHello {
   if (!value || typeof value !== "object") return false;
   const message = value as Record<string, unknown>;
-  return message.type === "hello" && isRole(message.role) && (message.actorId === undefined || typeof message.actorId === "string");
+  return message.type === "hello" && typeof message.campaignId === "string" && isRole(message.role) && typeof message.token === "string" && (message.actorId === undefined || typeof message.actorId === "string") && (message.resumeToken === undefined || typeof message.resumeToken === "string");
 }
-
 function isCommandMessage(value: unknown): value is WebSocketCommand {
   if (!value || typeof value !== "object") return false;
   const message = value as Record<string, unknown>;
@@ -55,11 +69,18 @@ export type VerticalSliceWebSocketServer = {
   close(): Promise<void>;
 };
 
-export function createVerticalSliceWebSocketServer(slice = new PlayerGmVerticalSlice()): VerticalSliceWebSocketServer {
+export function createVerticalSliceWebSocketServer(options: TransportOptions = {}): VerticalSliceWebSocketServer {
+  const slice = options.slice ?? new PlayerGmVerticalSlice();
+  const campaignId = options.campaignId ?? slice.engine.state.campaignId;
+  const auth = options.auth ?? new InMemoryAuthProvider(new Map());
+  const membership = options.membership ?? new InMemoryCampaignMembershipStore([]);
+  const persistence = options.persistence ?? new InMemorySlicePersistence();
+  const ajv = new Ajv({ allErrors: true, strict: true });
+  const validateMessage = ajv.compile(transportMessageSchema);
   const httpServer = createServer((request, response) => {
     if (request.url === "/health") {
       response.writeHead(200, { "content-type": "application/json" });
-      response.end(JSON.stringify({ ok: true }));
+      response.end(JSON.stringify({ ok: true, campaignId }));
       return;
     }
     response.writeHead(404);
@@ -69,39 +90,64 @@ export function createVerticalSliceWebSocketServer(slice = new PlayerGmVerticalS
   const clients = new Map<WebSocket, ClientSession>();
   let sessionCounter = 0;
 
-  const send = (socket: WebSocket, message: WebSocketServerMessage) => {
-    if (socket.readyState === WebSocket.OPEN) socket.send(json(message));
+  const send = (socket: WebSocket, message: WebSocketServerMessage, session?: ClientSession) => {
+    if (socket.readyState !== WebSocket.OPEN) return;
+    const outbound = message.type === "room.ready" && session
+      ? { ...message, campaignId, resumeToken: session.resumeToken }
+      : message;
+    socket.send(json(outbound));
   };
   const flush = () => {
     for (const [socket, session] of clients) {
-      const messages = session.connection.drain();
-      for (const message of messages) send(socket, message);
+      for (const message of session.connection.drain()) send(socket, message, session);
     }
   };
+  const persist = () => {
+    try {
+      void Promise.resolve(persistence.saveSnapshot(campaignId, slice.engine.snapshot())).catch(() => undefined);
+    } catch {
+      // Persistence failure must not crash the authoritative transport loop.
+    }
+  };
+  const validationReason = () => validateMessage.errors?.map((error) => `${error.instancePath || "message"} ${error.message ?? "invalid"}`).join("; ") ?? "invalid message";
 
   httpServer.on("upgrade", (request, socket, head) => {
-    if (request.url !== "/ws") {
-      socket.destroy();
-      return;
-    }
+    if (request.url !== "/ws") { socket.destroy(); return; }
     websocketServer.handleUpgrade(request, socket, head, (client) => websocketServer.emit("connection", client, request));
   });
 
   websocketServer.on("connection", (socket) => {
     let session: ClientSession | null = null;
-    const reject = (reason: string) => send(socket, { type: "transport.error", reason });
-    socket.on("message", (data) => {
+    const reject = (reason: string) => send(socket, { type: "transport.error", reason }, session ?? undefined);
+    socket.on("message", async (data) => {
       const message = parseMessage(data);
+      if (!validateMessage(message)) {
+        reject(`schema_validation_failed: ${validationReason()}`);
+        return;
+      }
       if (!session) {
-        if (!isHello(message)) {
-          reject("first message must be a hello with role and optional actorId");
-          socket.close(1008, "hello required");
-          return;
-        }
-        const sessionId = `ws-session-${++sessionCounter}`;
+        if (!isHello(message)) { reject("first message must be hello"); socket.close(1008, "hello required"); return; }
+        if (message.campaignId !== campaignId) { reject("campaign_not_found"); socket.close(1008, "campaign mismatch"); return; }
         try {
-          session = { sessionId, connection: slice.connect(message.role, sessionId, message.actorId) };
+          const identity = await auth.authenticate(message.token);
+          if (!identity || !identity.roles.includes(message.role)) throw new Error("auth_failed");
+          const resumed = message.resumeToken ? await persistence.loadSession(message.resumeToken) : null;
+          if (resumed && (resumed.campaignId !== campaignId || resumed.identityId !== identity.id || resumed.role !== message.role || resumed.actorId !== (message.actorId ?? null))) throw new Error("resume_not_authorized");
+          const actorId = resumed?.actorId ?? message.actorId;
+          const requestedMembership = actorId === undefined ? { campaignId, role: message.role } : { campaignId, role: message.role, actorId };
+          if (!await membership.canJoin(identity, requestedMembership)) throw new Error("campaign_membership_required");
+          const sessionId = resumed?.sessionId ?? `ws-session-${++sessionCounter}`;
+          if ([...clients.values()].some((candidate) => candidate.sessionId === sessionId)) throw new Error("session_already_connected");
+          const resumeToken = resumed?.resumeToken ?? randomUUID();
+          session = {
+            sessionId,
+            connection: slice.connect(message.role, sessionId, actorId),
+            identity,
+            resumeToken,
+            rateLimiter: new TokenBucketRateLimiter(options.rateLimit?.capacity ?? 20, options.rateLimit?.refillPerSecond ?? 10),
+          };
           clients.set(socket, session);
+          await persistence.saveSession({ resumeToken, campaignId, sessionId, identityId: identity.id, role: message.role, actorId: actorId ?? null, updatedAt: Date.now() });
           flush();
         } catch (error) {
           reject(error instanceof Error ? error.message : "connection rejected");
@@ -109,28 +155,21 @@ export function createVerticalSliceWebSocketServer(slice = new PlayerGmVerticalS
         }
         return;
       }
-      if (!isCommandMessage(message)) {
-        reject("invalid command envelope");
-        return;
-      }
+      if (!isCommandMessage(message)) { reject("invalid command envelope"); return; }
+      if (!session.rateLimiter.consume()) { reject("rate_limited"); return; }
       try {
-        for (const response of session.connection.send(message.command)) send(socket, response);
+        for (const response of session.connection.send(message.command)) send(socket, response, session);
         flush();
+        persist();
       } catch (error) {
         reject(error instanceof Error ? error.message : "command rejected");
       }
     });
     socket.on("close", () => {
-      if (session) {
-        slice.disconnect(session.sessionId);
-        clients.delete(socket);
-      }
+      if (session) { slice.disconnect(session.sessionId); clients.delete(socket); }
     });
     socket.on("error", () => {
-      if (session) {
-        slice.disconnect(session.sessionId);
-        clients.delete(socket);
-      }
+      if (session) { slice.disconnect(session.sessionId); clients.delete(socket); }
     });
   });
 
@@ -140,6 +179,7 @@ export function createVerticalSliceWebSocketServer(slice = new PlayerGmVerticalS
     slice,
     listen: (port, host = "127.0.0.1") => new Promise((resolve) => httpServer.listen(port, host, resolve)),
     close: () => new Promise((resolve, reject) => {
+      for (const socket of clients.keys()) socket.terminate();
       websocketServer.close((error) => {
         if (error) reject(error);
         else httpServer.close((httpError) => httpError ? reject(httpError) : resolve());

@@ -18,6 +18,7 @@
   "dependencies": {
     "@fable/content": "workspace:*",
     "@fable/rules": "workspace:*",
+    "ajv": "^8.20.0",
     "ws": "^8.22.0"
   },
   "devDependencies": {

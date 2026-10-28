@@ -21,10 +21,10 @@ GM command     → role check → pause/outcome control → projections
 
 ## WebSocket transport
 
-`createVerticalSliceWebSocketServer()` поднимает HTTP server с health endpoint `/health` и WebSocket endpoint `/ws`. Первый client message должен быть handshake:
+`createVerticalSliceWebSocketServer()` поднимает HTTP server с health endpoint `/health` и WebSocket endpoint `/ws`. Transport требует auth provider и campaign membership. Первый client message должен быть handshake:
 
 ```json
-{"type":"hello","role":"player","actorId":"player-1"}
+{"type":"hello","campaignId":"campaign-vertical-slice","role":"player","token":"player-token","actorId":"player-1"}
 ```
 
 После handshake клиент отправляет команды в envelope:
@@ -33,14 +33,21 @@ GM command     → role check → pause/outcome control → projections
 {"type":"command","command":{"kind":"player.move","requestId":"move-1","direction":"right"}}
 ```
 
-Сервер отправляет JSON-сообщения `room.ready`, `projection`, `events`, `command.result` и `transport.error`. Projection уже отфильтрован по роли до сериализации.
+Сервер отправляет JSON-сообщения `room.ready`, `projection`, `events`, `command.result` и `transport.error`. Projection уже отфильтрован по роли до сериализации. `room.ready` содержит одноразовый для клиента `resumeToken`; его можно передать в следующем handshake для reconnect.
 
 Минимальный bootstrap:
 
 ```ts
 import { createVerticalSliceWebSocketServer } from "@fable/vertical-slice";
 
-const server = createVerticalSliceWebSocketServer();
+const server = createVerticalSliceWebSocketServer({
+  auth: new InMemoryAuthProvider(new Map([
+    ["player-token", { id: "identity-player-1", roles: ["player"] }],
+  ])),
+  membership: new InMemoryCampaignMembershipStore([
+    { campaignId: "campaign-vertical-slice", identityId: "identity-player-1", role: "player", actorId: "player-1" },
+  ]),
+});
 await server.listen(2567, "0.0.0.0");
 ```
 
@@ -58,4 +65,4 @@ pnpm build
 
 ## Сознательные ограничения
 
-Это не production transport и не UI. Нет авторизации, persistence, reconnect, rate limiting или полной JSON Schema validation внешнего сообщения. Следующим шагом можно добавить auth/session membership и persistence, не перенося gameplay-логику из `HeadlessSimulationEngine`.
+По умолчанию используются deny-by-default auth/membership providers. Встроенные `InMemorySlicePersistence` и `TokenBucketRateLimiter` предназначены для slice; production должен подставить DB/Redis-backed persistence и внешний identity provider. Все входящие envelopes проходят AJV JSON Schema validation до auth/command routing. Полная production hardening (JWT/OIDC verification, TLS termination, distributed rate limiting и durable snapshot restore) остаётся отдельной задачей.

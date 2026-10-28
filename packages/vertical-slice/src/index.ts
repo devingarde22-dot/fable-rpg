@@ -50,7 +50,7 @@ export type GmProjection = Omit<PlayerProjection, "projection" | "subjectPlayerI
 };
 
 export type SliceMessage =
-  | { type: "room.ready"; role: SliceRole; sessionId: string }
+  | { type: "room.ready"; role: SliceRole; sessionId: string; campaignId?: string; resumeToken?: string }
   | { type: "projection"; projection: PlayerProjection | GmProjection }
   | { type: "events"; events: readonly DomainEvent[] }
   | { type: "command.result"; requestId: string; result: SubmitResult | { status: "accepted"; sceneRevision: number } | { status: "rejected"; reason: string } };
@@ -278,3 +278,17 @@ export type {
   WebSocketHello,
   WebSocketServerMessage,
 } from "./websocket.js";
+export {
+  InMemoryAuthProvider,
+  InMemoryCampaignMembershipStore,
+  InMemorySlicePersistence,
+  TokenBucketRateLimiter,
+} from "./security.js";
+export type {
+  AuthIdentity,
+  AuthProvider,
+  CampaignMembership,
+  CampaignMembershipStore,
+  ResumeSession,
+  SlicePersistence,
+} from "./security.js";
