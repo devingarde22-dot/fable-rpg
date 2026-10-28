@@ -38,7 +38,7 @@ docs/                       normative design, decisions, status, and handoff
 packages/contracts/         canonical JSON Schemas (not a workspace package)
 packages/rules/             @fable/rules — authoritative headless simulation engine
 packages/content/           @fable/content — immutable enemy/intent content catalog
-packages/vertical-slice/    @fable/vertical-slice — Player/GM in-memory and WebSocket adapter
+packages/vertical-slice/    @fable/vertical-slice — Player/GM/TV adapter, WebSocket transport, SQLite persistence
 dev/                        obsolete examples/scaffolds; not the active runtime
 reference/gdd-site/         optional explanatory GDD site; not a normative source
 ```
