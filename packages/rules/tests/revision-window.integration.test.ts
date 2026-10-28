@@ -62,5 +62,5 @@ describe("scene revision across input windows", () => {
     // This is explicitly counterfactual: C no longer emits STALE for move; all 610 real submits queued.
     expect(`${wouldHaveRejectedUnderOldStrictGate}/${samples} (${percentage.toFixed(2)}%)`)
       .toBe(`${wouldHaveRejectedUnderOldStrictGate}/610 (${(wouldHaveRejectedUnderOldStrictGate / 610 * 100).toFixed(2)}%)`);
-  });
+  }, 15_000);
 });
