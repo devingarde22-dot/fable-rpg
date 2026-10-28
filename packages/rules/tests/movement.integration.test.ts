@@ -90,6 +90,27 @@ describe("player.move integration", () => {
     expect(engine.snapshot().sceneRevision).toBe(1);
   });
 
+  it("rechecks legality at window close and journals an apply-time rejection as no domain event", () => {
+    const engine = createSimulationEngine(testConfig({ entities: [hero("hero-1", 1, 1, null)] }));
+    const before = engine.snapshot();
+    const beforeEvents = engine.events();
+    const requestId = "apply-time-invalid-mode";
+
+    expect(engine.submit(moveCommand(requestId, "right"))).toMatchObject({ status: "queued" });
+    expect(engine.advanceTicks(5).at(-1)?.commandResults).toMatchObject([
+      { requestId, status: "rejected", code: "INVALID_MODE" },
+    ]);
+
+    expect(gameplayState(engine.snapshot())).toEqual(gameplayState(before));
+    expect(engine.events()).toEqual(beforeEvents);
+    expect(engine.events().some((event) => event.causedByRequestId === requestId)).toBe(false);
+    const records = engine.journalRecords();
+    expect(records.some((record) => record.kind === "input_window" &&
+      record.inputWindow.commands.some((command) => command.requestId === requestId))).toBe(true);
+    expect(records.some((record) => record.kind === "event" && record.event.causedByRequestId === requestId)).toBe(false);
+    expect(engine.snapshot().sceneRevision).toBe(before.sceneRevision);
+  });
+
   it("admits moves independent of scene revision while enforcing actor, mode, and duplicate checks", () => {
     const engine = createSimulationEngine(testConfig({
       entities: [hero("hero-1", 1, 1), hero("hero-2", 4, 4, null)],

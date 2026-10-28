@@ -322,6 +322,7 @@ SCHEMA_INVALID
 ```
 
 Ошибки должны быть безопасными: подробная причина доступна GM и audit, игрок получает только необходимое объяснение.
+`STALE_SCENE_REVISION` остаётся зарезервированным для будущих операций со строгой global-revision проверкой, включая возможные GM-команды. Текущие `player.move`, mode actions и `player.play_card` не возвращают этот код: player legality перепроверяется при применении, а карта использует отдельный `STALE_CARD_REVISION`.
 
 ## 9. Persistence minimum
 

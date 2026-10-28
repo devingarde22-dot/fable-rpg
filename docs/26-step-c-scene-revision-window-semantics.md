@@ -1,13 +1,18 @@
 # DR-C-011 — Scene Revision внутри input window
 
 **Статус:** `APPROVED / IMPLEMENTED`
-**Область:** обработка player-команд в 250 ms input window. Игровые правила не меняются.
+**Область:** обработка player-команд в 250 ms input window. Combat effects и balance formulas не меняются; уточняется confirmed concurrency rule.
 
 ## Решение
 
 Для player-команд `clientRevision` остаётся обязательным transport metadata, но глобальная `sceneRevision` не используется как admission- или apply-time gate. `player.move` и mode actions принимаются с любым валидным transport revision и перепроверяют всю action legality по live state при применении. Карты строго защищены `clientCardRevision` именно при применении; устаревший scene cursor или mode самого snapshot не отменяет этот card revision contract. Все текущие проверки наличия карты, режима карты, цели, дальности, линии видимости, ресурсов, живости/доступности героя, movement mode, immobilized, границ/terrain, занятости и резервирования клеток остаются apply-time checks. Rejected inputs не мутируют gameplay state.
 
 Применён Option C согласно разрешению пользователя: player.move не имеет sceneRevision binding. После измерения ниже доля counterfactual legacy stale выше 1%; поэтому C сохранён. Mode actions следуют тому же правилу отсутствия глобального revision gate, как и остальные player commands, а не строгой admission-проверке. Это не распространяет политику на GM branches.
+
+## Затронутые подтверждённые правила
+
+- `TIME-005` в [Confirmed Rules](./02-confirmed-rules.md#time-005--expired-command) уточнён: старый global scene cursor сам по себе не отклоняет player command; legality проверяется при применении, а незаконное действие не превращается в бесплатную мутацию.
+- `CONTRACT-002` / [Step B B-002](./04-step-b-baseline.md#b-002--scenerevision-и-clientrevision): `clientRevision` остаётся обязательной transport metadata; только card-specific `clientCardRevision` является строгой проверкой для player card command. Возможные GM/server checks остаются отдельной политикой.
 
 ## Детерминированное stress measurement
 
