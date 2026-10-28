@@ -4,6 +4,35 @@
 
 ## Порядок чтения
 
+Этот порядок полностью совпадает с `README.md` в корне репозитория.
+
+1. [README.md](../README.md)
+2. [docs/README.md](./README.md)
+3. [Product Constitution](./00-product-constitution.md)
+4. [Glossary](./01-glossary.md)
+5. [Confirmed Rules](./02-confirmed-rules.md)
+6. [System Contracts](./03-system-contracts.md)
+7. [Step B Baseline](./04-step-b-baseline.md)
+8. [Vertical Slice](./05-vertical-slice.md)
+9. [Step C — Core Engine & State Machine](./14-step-c-core-engine.md)
+10. [Step A — Repository & Monorepo](./12-step-a-repository-and-monorepo.md)
+11. `packages/contracts/*.json`
+12. [DR-C-002 — Enemy Registry + Deterministic Intent Simulation](./15-step-c-intent-simulation.md)
+13. [DR-C-003 — Deterministic Retreat Resolution](./16-step-c-retreat-resolution.md)
+14. [DR-C-004 — HP & Damage Resolution](./18-step-c-hp-damage-resolution.md)
+15. [DR-C-005 — Stamina & Resource Regeneration](./19-step-c-stamina-regeneration.md)
+16. [DR-C-006 — Minimal Card Play](./20-step-c-card-play.md)
+17. [DR-C-007 — Mode-filtered Deck & Timed Hand Rotation](./21-step-c-deck-cycle.md)
+18. [DR-C-008 — Status Layers & Immobilized](./22-step-c-status-immobilized.md)
+19. [DR-C-009 — Ally Guard Runtime](./23-step-c-ally-guard.md)
+20. [Increment 10 — Full Headless Vertical Slice (DR-C-010)](./25-step-c-increment-10-full-headless-slice.md)
+21. [Журнал разработки и AI handoff](./17-development-log-and-handoff.md)
+22. [Step C audit work log — 2026-10-28](./29-step-c-audit-work-log-2026-10-28.md)
+
+## Полный каталог документов
+
+В отличие от краткого порядка чтения выше, полный каталог сохраняет все reference, proposal и исторические документы.
+
 1. [Product Constitution](./00-product-constitution.md) — зачем существует Fable и какие принципы нельзя нарушать.
 2. [Glossary](./01-glossary.md) — единый смысл терминов.
 3. [Confirmed Rules](./02-confirmed-rules.md) — нормативные игровые правила.
@@ -16,22 +45,25 @@
 10. [Database Schema](./09-database-schema.md) — PostgreSQL/Drizzle tables, transactions и migrations.
 11. [AI Developer Guide](./10-ai-developer-guide.md) — context packets, роли агентов и code review.
 12. [Programming Roadmap](./11-programming-roadmap.md) — порядок реализации от simulation до AI.
-13. [Step A — Repository & Monorepo](./12-step-a-repository-and-monorepo.md) — подробная настройка репозитория, пакетов и quality gates.
-14. [Step B Reviews](./step-b-reviews/README.md) — результаты шести агентов по contracts и JSON Schema.
+13. [Step A — Repository & Monorepo](./12-step-a-repository-and-monorepo.md) — подробная настройка пакетов и quality gates.
+14. [Step B Reviews](./step-b-reviews/README.md) — результаты reviews по contracts и JSON Schema.
 15. [Step B Baseline](./04-step-b-baseline.md) — сведённые решения и закрытые технические вопросы.
-16. [AI Task Starter](./13-ai-task-starter.md) — что загрузить AI-разработчику и готовый prompt.
-17. [Step C — Core Engine & State Machine](./14-step-c-core-engine.md) — серверные сущности, tick loop, scheduler, режимы, intents, replay и acceptance tests.
-18. [DR-C-002 — Enemy Registry + Deterministic Intent Simulation](./15-step-c-intent-simulation.md) — подтверждённая схема intent, активный enemy roster, timers, RNG, fallback и golden replay requirements.
-19. [DR-C-003 — Deterministic Retreat Resolution](./16-step-c-retreat-resolution.md) — retreat attacks, mode/contact transitions and replay.
-20. [DR-C-004 — HP & Damage Resolution](./18-step-c-hp-damage-resolution.md) — единый урон, HP=0, removal events, версии hp.changed и replay.
-21. [DR-C-005 — Stamina & Resource Regeneration](./19-step-c-stamina-regeneration.md) — стартовый ресурс, tick-based regeneration, cap behavior, replay и scope.
-22. [DR-C-006 — Minimal Card Play](./20-step-c-card-play.md) — одиночный direct-damage play, стоимость stamina, hand→discard и replay.
-23. [DR-C-007 — Mode-filtered Deck & Timed Hand Rotation](./21-step-c-deck-cycle.md) — mode-specific deal, deterministic shuffle, 15-second hand rotation, reshuffle и replay.
-24. [DR-C-008 — Status Layers & Immobilized](./22-step-c-status-immobilized.md) — typed status layers, `bind`, `refresh_duration`, expiry cleanup и replay.
-25. [DR-C-009 — Ally Guard Runtime](./23-step-c-ally-guard.md) — `ally_guard`, fractional effective defense, refresh/expiry, Extinguisher activation and replay.
-26. [Increment 10 — Full Headless Vertical Slice (DR-C-010)](./25-step-c-increment-10-full-headless-slice.md) — подтверждённый scope и Definition of Done; реализация в работе.
-27. [Предыдущий Increment 10 defense-slot proposal](./24-step-c-increment-10-proposal.md) — superseded исторический кандидат.
-28. [Журнал разработки и AI handoff](./17-development-log-and-handoff.md) — repository routing, выполненные инкременты, DR, тесты и правила продолжения.
+16. [AI Task Starter](./13-ai-task-starter.md) — контекст и prompt для задач.
+17. [Step C — Core Engine & State Machine](./14-step-c-core-engine.md) — tick loop, scheduler, modes, intents, replay и tests.
+18. [DR-C-002 — Enemy Registry + Deterministic Intent Simulation](./15-step-c-intent-simulation.md)
+19. [DR-C-003 — Deterministic Retreat Resolution](./16-step-c-retreat-resolution.md)
+20. [DR-C-004 — HP & Damage Resolution](./18-step-c-hp-damage-resolution.md)
+21. [DR-C-005 — Stamina & Resource Regeneration](./19-step-c-stamina-regeneration.md)
+22. [DR-C-006 — Minimal Card Play](./20-step-c-card-play.md)
+23. [DR-C-007 — Mode-filtered Deck & Timed Hand Rotation](./21-step-c-deck-cycle.md)
+24. [DR-C-008 — Status Layers & Immobilized](./22-step-c-status-immobilized.md)
+25. [DR-C-009 — Ally Guard Runtime](./23-step-c-ally-guard.md)
+26. [Increment 10 — Full Headless Vertical Slice (DR-C-010)](./25-step-c-increment-10-full-headless-slice.md)
+27. [Previous Increment 10 defense-slot proposal](./24-step-c-increment-10-proposal.md) — superseded.
+28. [Журнал разработки и AI handoff](./17-development-log-and-handoff.md)
+29. [Step C audit work log — 2026-10-28](./29-step-c-audit-work-log-2026-10-28.md)
+30. [DR-C-011 — Scene Revision внутри input window](./26-step-c-scene-revision-window-semantics.md)
+31. [DR-C-012 — Extinguisher bind uptime](./27-step-c-extinguisher-bind-uptime.md)
 
 ## Правило использования
 
@@ -74,7 +106,7 @@ docs/03-system-contracts.md
 docs/05-vertical-slice.md
 ```
 
-Step C increments 1–9 слиты в `main`; PR [#1](https://github.com/devingarde22-dot/fable-rpg/pull/1)–[#7](https://github.com/devingarde22-dot/fable-rpg/pull/7), merge commit PR #7 — `6423c19`. Increment 10 — подтверждённый полный headless slice по [DR-C-010](./25-step-c-increment-10-full-headless-slice.md); кодирование и проверки выполняются в feature branch. Прежний defense-slot-only proposal superseded. См. [журнал разработки и AI handoff](./17-development-log-and-handoff.md).
+Step C increments 1–10 слиты в `main`; Increment 10 принят через [PR #8](https://github.com/devingarde22-dot/fable-rpg/pull/8), merge commit `b619c77`. [PR #9](https://github.com/devingarde22-dot/fable-rpg/pull/9) — открытый follow-up по idempotency команд. Прежний defense-slot-only proposal superseded. См. [журнал разработки и AI handoff](./17-development-log-and-handoff.md).
 
 ## Machine-readable contracts
 

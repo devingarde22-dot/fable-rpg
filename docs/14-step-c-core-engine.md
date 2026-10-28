@@ -212,16 +212,17 @@ export type StaminaRuntime = {
 
 ```ts
 export type DeckRuntime = {
-  drawPile: CardInstanceId[];
-  hand: CardInstanceId[];       // максимум 5
-  discard: CardInstanceId[];
-  excludedForMode: CardInstanceId[]; // карта другого режима не теряется
+  drawPile: CardInstance[];
+  hand: CardInstance[];         // максимум 5
+  discard: CardInstance[];
+  excludedForMode: CardInstance[]; // карта другого режима не теряется
+  defenseSlot: CardInstance | null; // ровно один отдельный слот на героя
   revision: number;
   nextHandRotationAtTick: number | null;
 };
 ```
 
-Каждый instance находится ровно в одном из четырёх контейнеров. В Increment 7 при каждом входе/переключении в `melee` или `ranged` server собирает все instances, фильтрует по `allowedModes`, детерминированно перемешивает eligible pool и выдаёт до пяти карт; не подходящие для текущего режима идут в `excludedForMode`. Успешный play переносит карту из hand в `discard` без немедленного добора. Defense slot и production card catalog пока не реализованы. Канонические правила ротации, empty piles, RNG и replay заданы [DR-C-007](./21-step-c-deck-cycle.md).
+Каждый instance находится ровно в одном из пяти контейнеров: `drawPile`, `hand`, `defenseSlot`, `discard` или `excludedForMode`. `defenseSlot` — отдельное поле с не более чем одной картой защиты на героя; он не входит в лимит обычной руки. В Increment 7 при каждом входе/переключении в `melee` или `ranged` server собирает eligible instances, фильтрует по `allowedModes`, детерминированно перемешивает пул и выдаёт до пяти обычных карт; не подходящие для текущего режима идут в `excludedForMode`. Increment 10 добавляет test-only defense cards/slot, но не production card catalog; scope — [DR-C-010](./25-step-c-increment-10-full-headless-slice.md). Успешный play переносит карту из hand или defense slot в `discard` без немедленного добора. Канонические правила ротации, empty piles, RNG и replay заданы [DR-C-007](./21-step-c-deck-cycle.md).
 
 ---
 
@@ -253,7 +254,7 @@ ended → ended                    (только idempotent reads)
 3. В одной cell не более одного `occupantId`.
 4. Каждая активная entity имеет ровно одну позицию внутри grid.
 5. `0 <= hp.current <= hp.max`; `0 <= stamina.current <= stamina.max`.
-6. Все deck card instance IDs уникальны между draw, hand, defense и discard.
+6. Все deck card instance IDs уникальны между `drawPile`, `hand`, `defenseSlot`, `discard` и `excludedForMode`; один instance не занимает два контейнера.
 7. Hero hand содержит максимум 5 карт; defense slot содержит только `cardType=defense`.
 8. Каждый active intent ссылается на одного существующего enemy.
 9. `resolvesAtTick >= startedAtTick`.
@@ -300,12 +301,12 @@ const windowId = Math.floor(serverTick / INPUT_WINDOW_TICKS);
 
 Transport adapter передаёт уже schema-validated `InternalCommand` с server receive sequence. Engine:
 
-- выполняет idempotency lookup для request;
+- выполняет idempotency lookup по `(sessionId, actorId, requestId)`; повтор этой тройки возвращает сохранённый результат, а одинаковый `requestId` у другого actor/session независим;
 - проверяет фазу сцены, роль/session и ownership actor → hero;
 - отклоняет команды завершённой сцены и неподходящих actors;
-- не отклоняет player-команду только из-за старого `clientRevision`;
+- не отклоняет player-команду только из-за старого `clientRevision`; legality повторно проверяется по live state при apply-time;
 - помещает валидную command в текущую inbox;
-- сохраняет receive sequence, actor id и request id как input-window journal metadata (не как domain event).
+- сохраняет receive sequence, session id, actor id и request id как input-window journal metadata (не как domain event).
 
 В headless тесте внешняя authentication заменена trusted fixture identity; engine всё равно проверяет session/role и server-resolved ownership. Структурная проверка команды повторяется внутри engine.
 
@@ -403,6 +404,8 @@ raw transport message
 → revision increment
 → filtered projection
 ```
+
+Idempotency key — `(sessionId, actorId, requestId)`, согласованный с B-001: `actorId` — authenticated session actor, а не выбранный клиентом hero ID. Повтор той же тройки возвращает сохранённый первоначальный/финальный результат и не добавляет игровые события; одинаковая строка `requestId` у другого actor или session не является duplicate.
 
 ### Rejection rules
 
@@ -853,7 +856,7 @@ Pure formulas (`damage.ts`, `targeting.ts`, `pathing.ts`) должны имет�
 2. Two players targeting the same cell resolve deterministically; only one succeeds.
 3. Player and enemy due in same window resolve players first.
 4. Устаревший global `clientRevision` сам по себе не отклоняет player move/mode; при закрытии окна legality проверяется по live state. Apply-time rejection leaves gameplay state, `sceneRevision` and domain-event journal unchanged (tick/window bookkeeping may still advance); `input_window` records остаются metadata. Stale `clientCardRevision` returns `STALE_CARD_REVISION` without card/HP/stamina mutation.
-5. Duplicate request creates no additional gameplay mutation or event and returns the idempotent duplicate result.
+5. Duplicate `(sessionId, actorId, requestId)` creates no additional gameplay mutation/event and returns the saved result; equal `requestId` values for different actors/sessions remain independent.
 6. DR-C-003 retreat resolves one ordered free attack per eligible surrounding enemy and grants immunity; no duplicate `hp.changed` on unchanged HP.
 7. Contact starts melee; ranged mode requires authoritative `hero.canEnterRangedMode === true`.
 8. Melee magic halves damage but preserves status potency.

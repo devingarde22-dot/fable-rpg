@@ -177,7 +177,7 @@ scene_id uuid nullable FK
 event_type varchar
 event_version integer
 actor_user_id uuid nullable FK
-request_id uuid nullable
+request_id varchar nullable
 scene_revision bigint
 server_tick bigint
 server_sequence bigint
@@ -188,16 +188,17 @@ confirmed_by_gm boolean
 created_at timestamptz
 ```
 
-Indexes: `(campaign_id, created_at)`, `(scene_id, server_sequence)`, unique `(campaign_id, request_id)` when requestId exists.
+Indexes: `(campaign_id, created_at)`, `(scene_id, server_sequence)`, and a **non-unique** `(campaign_id, request_id)` lookup index when requestId exists. One command may produce several campaign events, so event rows must not use requestId as a unique key. Idempotency is enforced in `command_requests`.
 
 ### `command_requests`
 
 ```text
 id uuid PK
-request_id varchar unique
+request_id varchar NOT NULL
 campaign_id uuid FK
-session_id uuid nullable FK
+session_id uuid NOT NULL FK
 scene_id uuid nullable FK
+actor_id varchar NOT NULL
 requested_by uuid FK
 confirmed_by uuid nullable FK
 command varchar
@@ -208,6 +209,8 @@ result_json jsonb nullable
 error_code varchar nullable
 created_at, updated_at
 ```
+
+Unique idempotency key: `(session_id, actor_id, request_id)`, matching B-001 and the authenticated session actor semantics. `requested_by` remains the user/audit foreign key; it is not a substitute for `actor_id` because an actor may represent an authenticated user/device principal. A repeated key returns the stored command result; the same requestId under another actor or session is independent.
 
 ### `checkpoints`
 

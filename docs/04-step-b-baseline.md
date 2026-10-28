@@ -168,7 +168,7 @@ Rule IDs: `DECK-001`—`DECK-006`, `INTENT-001`—`INTENT-005`, `STATUS-001`.
 
 Canonical first-slice journal events:
 
-`scene.created`, `scene.entity_moved`, `scene.entity_removed`, `card.drawn`, `card.played`, `card.discarded`, `stamina.changed`, `hp.changed`, `status.applied`, `status.refreshed`, `status.expired`, `mode.changed`, `intent.started`, `intent.cancelled`, `intent.resolved`, `intent.target_selected`, `hint.sent`, `scene.ended`, `expedition.ended`, `checkpoint.created`, `checkpoint.restored` (audit/internal alias only), `rollback.applied`, `scene.transferred`, `scene.pause_changed`.
+`scene.created`, `scene.entity_moved`, `scene.entity_removed`, `deck.shuffled`, `card.drawn`, `card.played`, `card.discarded`, `deck.rotation_resolved`, `stamina.changed`, `hp.changed`, `status.applied`, `status.refreshed`, `status.expired`, `mode.changed`, `intent.started`, `intent.cancelled`, `intent.resolved`, `intent.target_selected`, `hint.sent`, `scene.ended`, `expedition.ended`, `checkpoint.created`, `checkpoint.restored` (audit/internal alias only), `rollback.applied`, `scene.transferred`, `scene.pause_changed`.
 
 Step C Increment 4 defines `hp.changed` v2 for new damage events and keeps v1 readable by replay. `scene.entity_removed` v1 records enemy cleanup and cell release; `intent.cancelled` reason `owner_removed` precedes removal when applicable. See [DR-C-004](./18-step-c-hp-damage-resolution.md).
 
@@ -274,7 +274,7 @@ Before battle, `hand` and `defenseSlot` are absent, not null. In battle they are
 {
   "id":"enemy_03",
   "kind":"enemy",
-  "templateKey":"quarantine_silencer",
+  "templateKey":"extinguisher",
   "position":{"x":7,"y":3},
   "hp":350,
   "maxHp":350,
