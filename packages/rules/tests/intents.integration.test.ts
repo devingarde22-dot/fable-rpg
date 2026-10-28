@@ -111,6 +111,32 @@ describe("deterministic enemy intent simulation", () => {
     ]);
   });
 
+  it("ranks every eligible candidate before selecting highest threat and keeps equal-score ties deterministic", () => {
+    const lowThreat = { ...hero("hero-a", 2, 2), threat: 10 };
+    const highThreat = { ...hero("hero-z", 6, 2), threat: 100 };
+    const config = testConfig({
+      entities: [lowThreat, highThreat, enemy("shooter-1", 0, 2, "slag_shooter")],
+      heroIdByActorId: { "actor-a": "hero-a", "actor-z": "hero-z" },
+      initialIntentByEnemyId: { "shooter-1": "ranged_shot" },
+    });
+    const highThreatEngine = createSimulationEngine(config);
+    const highThreatSelection = getEvents(highThreatEngine, "intent.target_selected").find((event) => event.eventType === "intent.target_selected");
+    expect(highThreatSelection?.eventType === "intent.target_selected" ? highThreatSelection.payload.targetEntityId : undefined).toBe("hero-z");
+
+    const tieConfig = testConfig({
+      entities: [{ ...hero("hero-a", 2, 2), threat: 20 }, { ...hero("hero-z", 6, 2), threat: 20 }, enemy("shooter-1", 0, 2, "slag_shooter")],
+      heroIdByActorId: { "actor-a": "hero-a", "actor-z": "hero-z" },
+      initialIntentByEnemyId: { "shooter-1": "ranged_shot" },
+    });
+    const firstTie = getEvents(createSimulationEngine(tieConfig), "intent.target_selected").find((event) => event.eventType === "intent.target_selected");
+    const secondTie = getEvents(createSimulationEngine(tieConfig), "intent.target_selected").find((event) => event.eventType === "intent.target_selected");
+    if (!firstTie || firstTie.eventType !== "intent.target_selected" || !secondTie || secondTie.eventType !== "intent.target_selected") {
+      throw new Error("expected deterministic tie selections");
+    }
+    expect(firstTie.payload.tieBreak).toBe("seeded_random");
+    expect(secondTie.payload.targetEntityId).toBe(firstTie.payload.targetEntityId);
+  });
+
   it("filters inactive, out-of-range, and line-of-sight-blocked targets before threat ranking", () => {
     const inactiveHighThreat = { ...hero("hero-inactive", 2, 2), aliveState: "critically_injured" as const, threat: 100 };
     const blockedHighThreat = { ...hero("hero-blocked", 0, 5), threat: 90 };
