@@ -284,6 +284,7 @@ export {
   InMemorySlicePersistence,
   TokenBucketRateLimiter,
 } from "./security.js";
+export { createVerticalSliceWebSocketServerFromPersistence } from "./websocket.js";
 export type {
   AuthIdentity,
   AuthProvider,
@@ -292,3 +293,4 @@ export type {
   ResumeSession,
   SlicePersistence,
 } from "./security.js";
+export type { VerticalSliceWebSocketOptions } from "./websocket.js";

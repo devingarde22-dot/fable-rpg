@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { Ajv } from "ajv";
 import { WebSocketServer, WebSocket, type RawData } from "ws";
 import { PlayerGmVerticalSlice, type SliceCommand, type SliceConnection, type SliceRole, type SliceMessage } from "./index.js";
+import { createSimulationEngineFromSnapshot, type SimulationEngineRestoreConfig } from "../../rules/src/index.js";
 import { transportMessageSchema } from "./transportSchema.js";
 import {
   InMemoryAuthProvider,
@@ -28,7 +29,7 @@ type ClientSession = {
   rateLimiter: TokenBucketRateLimiter;
 };
 
-type TransportOptions = {
+export type VerticalSliceWebSocketOptions = {
   slice?: PlayerGmVerticalSlice;
   campaignId?: string;
   auth?: AuthProvider;
@@ -69,7 +70,7 @@ export type VerticalSliceWebSocketServer = {
   close(): Promise<void>;
 };
 
-export function createVerticalSliceWebSocketServer(options: TransportOptions = {}): VerticalSliceWebSocketServer {
+export function createVerticalSliceWebSocketServer(options: VerticalSliceWebSocketOptions = {}): VerticalSliceWebSocketServer {
   const slice = options.slice ?? new PlayerGmVerticalSlice();
   const campaignId = options.campaignId ?? slice.engine.state.campaignId;
   const auth = options.auth ?? new InMemoryAuthProvider(new Map());
@@ -186,4 +187,18 @@ export function createVerticalSliceWebSocketServer(options: TransportOptions = {
       });
     }),
   };
+}
+
+export async function createVerticalSliceWebSocketServerFromPersistence(
+  options: Omit<VerticalSliceWebSocketOptions, "slice" | "campaignId"> & {
+    campaignId: string;
+    restoreConfig: SimulationEngineRestoreConfig;
+  },
+): Promise<VerticalSliceWebSocketServer> {
+  const persistence = options.persistence ?? new InMemorySlicePersistence();
+  const snapshot = await persistence.loadSnapshot(options.campaignId);
+  const slice = snapshot
+    ? new PlayerGmVerticalSlice(createSimulationEngineFromSnapshot(snapshot, options.restoreConfig))
+    : new PlayerGmVerticalSlice();
+  return createVerticalSliceWebSocketServer({ ...options, persistence, slice });
 }

@@ -542,3 +542,11 @@ export type SimulationEngineConfig = {
   initialSceneRevision?: number;
   initialServerSequence?: number;
 };
+
+/** Static content required to hydrate a persisted RuntimeSnapshot without duplicating catalogs in the snapshot. */
+export type SimulationEngineRestoreConfig = {
+  cardTemplates?: readonly CardTemplate[];
+  terrain?: readonly { cell: Cell; terrain: Terrain }[];
+  enemyTemplates: readonly EnemyTemplate[];
+  intentTemplates: readonly IntentTemplate[];
+};

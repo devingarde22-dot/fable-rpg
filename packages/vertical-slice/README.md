@@ -65,4 +65,22 @@ pnpm build
 
 ## Сознательные ограничения
 
-По умолчанию используются deny-by-default auth/membership providers. Встроенные `InMemorySlicePersistence` и `TokenBucketRateLimiter` предназначены для slice; production должен подставить DB/Redis-backed persistence и внешний identity provider. Все входящие envelopes проходят AJV JSON Schema validation до auth/command routing. Полная production hardening (JWT/OIDC verification, TLS termination, distributed rate limiting и durable snapshot restore) остаётся отдельной задачей.
+По умолчанию используются deny-by-default auth/membership providers. Встроенные `InMemorySlicePersistence` и `TokenBucketRateLimiter` предназначены для slice; production должен подставить DB/Redis-backed persistence и внешний identity provider. Все входящие envelopes проходят AJV JSON Schema validation до auth/command routing. Полная production hardening (JWT/OIDC verification, TLS termination и distributed rate limiting) остаётся отдельной задачей.
+
+Если persistence store уже содержит snapshot, server можно поднять с восстановленным authoritative engine:
+
+```ts
+const server = await createVerticalSliceWebSocketServerFromPersistence({
+  campaignId: "campaign-vertical-slice",
+  persistence,
+  restoreConfig: {
+    enemyTemplates,
+    intentTemplates,
+    cardTemplates,
+  },
+  auth,
+  membership,
+});
+```
+
+На уровне rules package тот же механизм доступен напрямую через `HeadlessSimulationEngine.fromSnapshot(snapshot, restoreConfig)` или `createSimulationEngineFromSnapshot(...)`. Restore восстанавливает entities, active intents, input window, scene revision, server tick, sequence, phase, pause state, outcome и deterministic seed. Immutable catalogs и terrain передаются отдельно намеренно: snapshot не может подменить правила кампании.

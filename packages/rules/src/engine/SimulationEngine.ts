@@ -16,7 +16,7 @@ import { resolveDueHandRotations, resolveModeEntryDeck, stopHandRotation } from 
 import { hasActiveStatus, resolveDueStatusExpirations } from "../statuses/statusSystem.js";
 import { cleanupDeadEnemies } from "./cleanup.js";
 import { assertRuntimeInvariants } from "./invariants.js";
-import { cloneRuntimeState, createRuntimeState, snapshotState } from "./createRuntimeState.js";
+import { cloneRuntimeState, createRuntimeState, createRuntimeStateFromSnapshot, snapshotState } from "./createRuntimeState.js";
 import type {
   DomainEvent,
   EngineErrorCode,
@@ -29,6 +29,7 @@ import type {
   JournalRecord,
   RuntimeSnapshot,
   RuntimeState,
+  SimulationEngineRestoreConfig,
   SimulationEngineConfig,
   SubmitResult,
   TickResult,
@@ -69,18 +70,27 @@ export class HeadlessSimulationEngine implements SimulationEngine {
   private readonly checkpoints = new Map<string, RuntimeState>();
   private readonly options: SimulationEngineOptions;
 
-  constructor(config: SimulationEngineConfig, options: SimulationEngineOptions = {}) {
-    this.runtime = createRuntimeState(config);
+  constructor(config: SimulationEngineConfig, options?: SimulationEngineOptions);
+  constructor(runtime: RuntimeState, options: SimulationEngineOptions, restored: true);
+  constructor(input: SimulationEngineConfig | RuntimeState, options: SimulationEngineOptions = {}, restored = false) {
+    this.runtime = restored ? input as RuntimeState : createRuntimeState(input as SimulationEngineConfig);
     this.initialState = cloneRuntimeState(this.runtime);
     this.clock = new TickClock(this.runtime.serverTick);
     this.options = options;
 
-    const initialPending = activateScene(this.runtime);
-    initialPending.push(...withDeckModeTransitions(this.runtime, detectContactTransitions(this.runtime, this.runtime.serverTick)));
-    const initialBatch = groupEvents(this.runtime, initialPending);
-    this.journal.appendBatch(initialBatch.events, initialBatch.auditByEventId);
-    this.journal.appendTick(this.runtime.serverTick, this.runtime.sceneRevision, this.runtime.scene.inputWindow);
+    if (!restored) {
+      const initialPending = activateScene(this.runtime);
+      initialPending.push(...withDeckModeTransitions(this.runtime, detectContactTransitions(this.runtime, this.runtime.serverTick)));
+      const initialBatch = groupEvents(this.runtime, initialPending);
+      this.journal.appendBatch(initialBatch.events, initialBatch.auditByEventId);
+      this.journal.appendTick(this.runtime.serverTick, this.runtime.sceneRevision, this.runtime.scene.inputWindow);
+    }
     assertRuntimeInvariants(this.runtime);
+  }
+
+  /** Restore an engine without replaying scene-start effects or resetting the persisted clock/revisions. */
+  static fromSnapshot(snapshot: RuntimeSnapshot, config: SimulationEngineRestoreConfig, options: SimulationEngineOptions = {}): HeadlessSimulationEngine {
+    return new HeadlessSimulationEngine(createRuntimeStateFromSnapshot(snapshot, config), options, true);
   }
 
   get state(): Readonly<RuntimeState> {
@@ -443,6 +453,14 @@ function requestKey(command: InternalCommand): string {
 
 export function createSimulationEngine(config: SimulationEngineConfig, options?: SimulationEngineOptions): SimulationEngine {
   return new HeadlessSimulationEngine(config, options);
+}
+
+export function createSimulationEngineFromSnapshot(
+  snapshot: RuntimeSnapshot,
+  config: SimulationEngineRestoreConfig,
+  options?: SimulationEngineOptions,
+): SimulationEngine {
+  return HeadlessSimulationEngine.fromSnapshot(snapshot, config, options);
 }
 
 function cloneCommand(command: InternalCommand): InternalCommand {
