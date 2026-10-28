@@ -1,6 +1,8 @@
 # Step C — read-only audit (2026-10-28)
 
-**Статус:** аудит без изменений gameplay-кода, content и тестов. Отчёт подготовлен по состоянию `fable-rpg/main` на `b619c77`.
+**Статус:** исторический read-only snapshot без изменений gameplay-кода, content и тестов. Отчёт подготовлен по состоянию `fable-rpg/main` на `b619c77`; он не описывает audited current baseline `7770d04`.
+
+> **Current-status note.** PR #9–#13 были интегрированы PR #14, а PR #15–#18 затем merged. Поэтому выводы ниже нельзя переносить на current main без повторной проверки. Для проверенного статуса ranged/cards/hit/damage см. [verified combat-rules inventory](./30-verified-combat-rules-inventory.md); для текущего handoff — [docs/17](./17-development-log-and-handoff.md). В частности, pause mechanics теперь реализованы, а campaign-global sequence, card taxonomy/magic, hit/miss/critical и float-version policy остаются отдельными вопросами.
 
 ## 1. Campaign-global `serverSequence` и несколько сцен — PARTIAL
 

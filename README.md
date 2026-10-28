@@ -1,65 +1,52 @@
 # Fable — RPG Engine Repository
 
-This public repository contains the active Fable codebase. The separate public context pack is [`devingarde22-dot/fable-context`](https://github.com/devingarde22-dot/fable-context); it is a reference for project context, not the code remote. Its overview and reading order predate the current implementation and may lag. For current rules, contracts, code, and implementation status, treat `fable-rpg` as the source of truth.
+`fable-rpg` is the active source repository for Fable. The separate public context pack, [`devingarde22-dot/fable-context`](https://github.com/devingarde22-dot/fable-context), is a synchronized planning aid; it must not override the current code, tests, contracts, or merged Git history here.
 
-## How an AI developer should read this repository
+## Verified current baseline
 
-Read in this order:
+The audited `main` baseline is [`7770d04`](https://github.com/devingarde22-dot/fable-rpg/commit/7770d04), the merge commit for PR #18 on 2026-10-28. It contains:
 
-1. `README.md`
-2. `docs/README.md`
-3. `docs/00-product-constitution.md`
-4. `docs/01-glossary.md`
-5. `docs/02-confirmed-rules.md`
-6. `docs/03-system-contracts.md`
-7. `docs/04-step-b-baseline.md`
-8. `docs/05-vertical-slice.md`
-9. `docs/14-step-c-core-engine.md`
-10. `docs/12-step-a-repository-and-monorepo.md`
-11. `packages/contracts/*.json`
-12. `docs/15-step-c-intent-simulation.md`
-13. `docs/16-step-c-retreat-resolution.md`
-14. `docs/18-step-c-hp-damage-resolution.md`
-15. `docs/19-step-c-stamina-regeneration.md`
-16. `docs/20-step-c-card-play.md`
-17. `docs/21-step-c-deck-cycle.md`
-18. `docs/22-step-c-status-immobilized.md`
-19. `docs/23-step-c-ally-guard.md`
-20. `docs/25-step-c-increment-10-full-headless-slice.md`
-21. `docs/17-development-log-and-handoff.md`
-22. `docs/29-step-c-audit-work-log-2026-10-28.md`
+- Step C increments 1–10 and the headless Quarantine Gates vertical slice;
+- the PR #9–#13 integration through PR #14;
+- the Player/GM WebSocket vertical slice from PR #15;
+- role-filtered domain-event projection (PR #16), corrected enemy candidate ranking (PR #17), and authoritative pause/restore/outcome lifecycle work (PR #18).
 
-Markdown contracts and JSON Schemas are the source of truth. If a document conflicts with a confirmed rule or schema, stop and report the conflict instead of inventing behavior.
+In the verified maintenance worktree, `pnpm check` passed with **189 tests in 43 files** (6 content, 175 rules, 8 vertical-slice), followed by `pnpm build` and `git diff --check`. The focused vertical-slice regression suite also passed after the role-projection fan-out fix recorded in the current branch.
 
-## Current project status
+PR #4 remains open on GitHub, but its head commit `55119c` is already an ancestor of `main`; it is a legacy stacked PR, not pending implementation work. Do not merge it as new work.
 
-Step C — Core Engine & State Machine increments 1–10 are implemented and merged into `main`. Increment 10 — Full Headless Vertical Slice (DR-C-010) was merged by [PR #8](https://github.com/devingarde22-dot/fable-rpg/pull/8) at merge commit `b619c77` on 2026-10-28. Its full headless Quarantine Gates scenario covers the city-to-scene-to-outcome loop, a 2–4 hero fixture, deterministic replay, rollback, and outcome eligibility. Fresh verification on this commit passed `pnpm check` (164 tests: 5 in `content`, 159 in `rules`) and `pnpm build`.
+## Read this repository in order
 
-[PR #9](https://github.com/devingarde22-dot/fable-rpg/pull/9) remains an open follow-up for command idempotency hardening. Step C audit follow-ups are also published separately: [PR #10](https://github.com/devingarde22-dot/fable-rpg/pull/10) (A1 revision/window semantics), [PR #11](https://github.com/devingarde22-dot/fable-rpg/pull/11) (A2 Extinguisher bind eligibility), [PR #12](https://github.com/devingarde22-dot/fable-rpg/pull/12) (documentation sync and detailed work log), and [PR #13](https://github.com/devingarde22-dot/fable-rpg/pull/13) (read-only audit report). These PRs are not merged; `main` remains at `b619c77`. Verification details are recorded in [`docs/29-step-c-audit-work-log-2026-10-28.md`](docs/29-step-c-audit-work-log-2026-10-28.md).
+1. [`docs/README.md`](docs/README.md) — reading order and full document catalog.
+2. [`docs/17-development-log-and-handoff.md`](docs/17-development-log-and-handoff.md) — current runtime, verified history, open decisions, and next work.
+3. [`docs/30-verified-combat-rules-inventory.md`](docs/30-verified-combat-rules-inventory.md) — implementation-backed inventory of ranged availability, cards/magic, hit/miss/critical, and damage.
+4. The applicable confirmed rule, JSON Schema, Decision Record, source, and test for the task.
 
-The confirmed Increment 10 scope and Definition of Done are documented in [`docs/25-step-c-increment-10-full-headless-slice.md`](docs/25-step-c-increment-10-full-headless-slice.md). The earlier defense-slot-only proposal in [`docs/24-step-c-increment-10-proposal.md`](docs/24-step-c-increment-10-proposal.md) is superseded. See [`docs/17-development-log-and-handoff.md`](docs/17-development-log-and-handoff.md) for implementation history and continuation notes.
+Markdown contracts and JSON Schemas define intended behavior. The current `main` source, tests, and merged history establish what is implemented. If two confirmed sources conflict, resolve only the affected behavior through an explicit Decision Record; do not silently invent a rule.
 
-## Project rules
-
-- The authoritative game state lives on the server.
-- A client command is an intention; only the server creates domain events.
-- Gameplay rules must not be invented without a Decision Record.
-- Visibility is filtered on the backend before serialization.
-- `packages/contracts` contains closed discriminated unions with `additionalProperties: false`.
-- Preserve deterministic simulation and exact replay/state-hash parity.
-- Never commit API keys or secrets.
-
-## Repository layout
+## Active runtime and repository layout
 
 ```text
-docs/                  normative design, decision records, and implementation handoff
-packages/contracts/    JSON Schema contracts
-packages/rules/        headless Core Engine and pure rules
-packages/content/      validated immutable content catalog
-dev/                   existing TypeScript/Drizzle/room examples
-reference/gdd-site/    optional visual GDD overview
+docs/                       normative design, decisions, status, and handoff
+packages/contracts/         canonical JSON Schemas (not a workspace package)
+packages/rules/             @fable/rules — authoritative headless simulation engine
+packages/content/           @fable/content — immutable enemy/intent content catalog
+packages/vertical-slice/    @fable/vertical-slice — Player/GM in-memory and WebSocket adapter
+dev/                        obsolete examples/scaffolds; not the active runtime
+reference/gdd-site/         optional explanatory GDD site; not a normative source
 ```
 
-## Starter material
+The workspace requires Node.js `>=22 <23` and pnpm 11. `packages/rules` owns authoritative gameplay state; the adapter must not duplicate movement, combat, targeting, cards, or outcomes.
 
-[`docs/13-ai-task-starter.md`](docs/13-ai-task-starter.md) is a reusable starter for an early Step A repository/bootstrap task. For the current implementation state and continuation instructions, read [`docs/17-development-log-and-handoff.md`](docs/17-development-log-and-handoff.md) instead.
+## Project invariants
+
+- The server-side engine is authoritative; clients submit intentions, never outcomes.
+- Rejected commands do not create gameplay mutations or domain events.
+- Visibility is filtered before serialization; a session receives only its own role projection and permitted event fields.
+- Preserve deterministic simulation, replay, state-hash parity, and versioned contracts.
+- Never add gameplay rules, balance values, production content, or dependencies without an explicit decision and scope.
+- Never commit API keys or secrets.
+
+## Current next priority
+
+The current executable Step C subset is documented and tested. Before widening the browser-facing command set or production card/content work, obtain narrow decisions for the unresolved product mechanics in the combat inventory: card taxonomy/magic, hit/miss/critical resolution, and the float-stability/version policy for damage. Keep campaign-wide sequencing and rollback-confirmation design as separate integration gates.

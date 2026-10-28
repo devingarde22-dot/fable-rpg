@@ -1,8 +1,8 @@
 # Fable — Step C: Core Engine & State Machine
 
-**Версия:** 0.1  
-**Статус:** BASELINE / IMPLEMENTATION-READY FOR HEADLESS CORE  
-**Дата:** 2026-10-27  
+**Версия:** 0.1
+**Статус:** BASELINE / IMPLEMENTATION-READY FOR HEADLESS CORE
+**Дата:** 2026-10-27
 **Scope:** headless simulation engine для первого vertical slice `Quarantine Gates`.
 
 > Этот документ определяет серверную логику симуляции. Он не описывает React, Colyseus room, PostgreSQL или AI Copilot. Эти слои подключаются после того, как headless engine проходит acceptance tests. Wire-контракты из [`04-step-b-baseline.md`](./04-step-b-baseline.md) имеют приоритет при расхождении.
@@ -455,14 +455,14 @@ MOVEMENT
 └─ scene end → OUT_OF_COMBAT
 
 RANGED_COMBAT
-├─ allowed ranged/universal card → RANGED_COMBAT
+├─ `CardTemplate.allowedModes` contains `ranged` → eligible current card play
 ├─ player.enter_movement_mode → MOVEMENT; then contact check
 ├─ contact → MELEE_COMBAT (no immunity and no retreat)
 └─ scene end → OUT_OF_COMBAT
 
 MELEE_COMBAT
-├─ allowed melee/universal/magic card → MELEE_COMBAT
-├─ magic card → MELEE_COMBAT with damage multiplier 0.5
+├─ `CardTemplate.allowedModes` contains `melee` → eligible current card play
+├─ no magic/category modifier in the current Step C runtime
 ├─ player.enter_movement_mode → RETREAT_RESOLUTION → MOVEMENT
 └─ scene end → OUT_OF_COMBAT
 ```
@@ -611,32 +611,23 @@ locate card instance
 - карта не исчезает: после play она находится в discard.
 
 ### Range/LoS
-
 - 1 клетка = 1 метр;
+- Chebyshev distance `max(|dx|, |dy|)` используется для current player-card и enemy-intent range checks; template bounds inclusive;
 - diagonal считается melee contact;
-- thrown weapon и potion — до 3 метров;
-- wall/statue blocking LoS запрещает ranged attack через объект;
-- союзники не блокируют projectile LoS и не получают direct projectile damage;
-- AOE может задеть союзников с 30% damage;
-- non-AOE при нескольких допустимых врагах требует `targetEntityId`;
-- magic в melee уменьшает только damage на 50%; status potency не уменьшается.
-
+- `wall`/`statue` blocking LoS запрещает current ranged action через объект, когда template требует LoS;
+- current `player.play_card` поддерживает single-target direct damage и self/ally defense effects; AOE, projectile ally damage, thrown/potion and skill semantics не реализованы;
+- current templates не имеют magic/category marker; magic-melee modifier и status-potency rule DEFERRED до отдельного DR.
 ### Damage formula
-
 ```text
 mitigation = 100 / (100 + targetDefense)
-baseFinal = ceil(rawDamage * mitigation)
-modeFinal = ceil(baseFinal * modeDamageMultiplier)
-criticalFinal = ceil(modeFinal * 1.5)
+mitigatedDamage = ceil(rawDamage * mitigation)
+finalDamage = ceil(mitigatedDamage * multiplier)
 ```
-
-Для miss применяется отдельный `missMultiplier`, зависящий от stat карты; число miss coefficient не показывается player. Итоговые значения и formula version доступны GM projection.
+Это `fable.damage.v1`. Для current Step C valid action не делает hit/miss/critical roll; отдельные probability, RNG, event и replay semantics отсутствуют и DEFERRED. Formula inputs/results находятся в authoritative/GM event view, а Player projection получает только allowlisted public data.
 
 ### Card mode filter
-
-- `melee` карты разрешены в melee;
-- `ranged` карты разрешены в ranged;
-- `universal` карты разрешены в обоих;
+- карта допустима в режиме, когда `allowedModes` содержит текущий `melee` или `ranged`;
+- `allowedModes` не определяет product category, magic или universal semantics;
 - в movement mode обычная combat card не разыгрывается;
 - при смене battle mode текущая hand возвращается в соответствующие deck containers и выдаётся новая разрешённая hand;
 - если draw pile текущего режима исчерпан, его discard перемешивается deterministic RNG и становится draw pile;

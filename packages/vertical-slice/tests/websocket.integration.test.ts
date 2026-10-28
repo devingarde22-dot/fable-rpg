@@ -238,6 +238,14 @@ describe("WebSocket transport", () => {
       expect(gmEvents?.type).toBe("events");
       if (playerEvents?.type !== "events" || gmEvents?.type !== "events") throw new Error("Expected events on both role sockets");
 
+      const playerProjections = playerMessages.filter((message) => message.type === "projection");
+      const gmProjections = gmMessages.filter((message) => message.type === "projection");
+      expect(playerProjections).toHaveLength(1);
+      expect(gmProjections).toHaveLength(1);
+      expect(playerProjections[0]?.type === "projection" ? playerProjections[0].projection.projection : undefined).toBe("player");
+      expect(gmProjections[0]?.type === "projection" ? gmProjections[0].projection.projection : undefined).toBe("gm");
+      expect(playerMessages.some((message) => message.type === "projection" && message.projection.projection === "gm")).toBe(false);
+
       expect(playerEvents.events.some((event) => event.eventType === "intent.target_selected")).toBe(false);
       const playerHp = playerEvents.events.find((event) => event.eventId === "visibility-hp-change");
       expect(playerHp).toBeDefined();

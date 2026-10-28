@@ -221,7 +221,7 @@ export class PlayerGmVerticalSlice {
     if (command.kind === "gm.pause") {
       if (session.role !== "gm") return this.reject(session, command.requestId, "gm_role_required");
       this.engine.setPaused(command.paused);
-      this.broadcast({ type: "projection", projection: this.projectionFor(sessionId) });
+      this.broadcastAllProjections();
       this.broadcast({ type: "command.result", requestId: command.requestId, result: { status: "accepted", sceneRevision: this.engine.snapshot().sceneRevision } });
       return this.drainOnly(session);
     }
@@ -229,7 +229,7 @@ export class PlayerGmVerticalSlice {
       if (session.role !== "gm") return this.reject(session, command.requestId, "gm_role_required");
       const result = this.engine.confirmOutcome(command.outcome, command.reason);
       this.broadcastEvents(beforeEvents);
-      this.broadcast({ type: "projection", projection: this.projectionFor(sessionId) });
+      this.broadcastAllProjections();
       this.broadcast({ type: "command.result", requestId: command.requestId, result: { status: "accepted", sceneRevision: result.snapshot.sceneRevision } });
       return this.drainOnly(session);
     }
@@ -271,7 +271,9 @@ export class PlayerGmVerticalSlice {
   }
 
   private broadcastAllProjections(): void {
-    for (const [sessionId] of this.sessions) this.broadcast({ type: "projection", projection: this.projectionFor(sessionId) });
+    for (const [sessionId, session] of this.sessions) {
+      session.outbox.push({ type: "projection", projection: this.projectionFor(sessionId) });
+    }
   }
 
   private broadcast(message: SliceMessage): void {
