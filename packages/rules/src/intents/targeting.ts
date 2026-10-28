@@ -31,8 +31,8 @@ export function selectIntentTarget(
     if (policy === "none") continue;
     const candidates = rankedCandidatesForPolicy(state, enemy, template, policy, currentTargetId);
     if (candidates.length === 0) continue;
-    const topScore = scoreForPolicy(policy, enemy, candidates[0]!);
-    const tied = candidates.filter((candidate) => scoreForPolicy(policy, enemy, candidate) === topScore);
+    const bestScore = Math.min(...candidates.map((candidate) => scoreForPolicy(policy, enemy, candidate)));
+    const tied = candidates.filter((candidate) => scoreForPolicy(policy, enemy, candidate) === bestScore);
     const tieBreak = tied.length > 1 ? "seeded_random" : "single_candidate";
     const target = tied.length > 1 ? tied[rng.nextInt(tied.length)]! : tied[0]!;
     return { target, policy, targetCell: { ...target.position }, tieBreak };
