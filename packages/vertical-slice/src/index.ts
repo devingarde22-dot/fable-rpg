@@ -49,10 +49,17 @@ export type GmProjection = Omit<PlayerProjection, "projection" | "subjectPlayerI
   availableCommands: readonly ["player.move", "gm.pause", "gm.end_expedition"];
 };
 
+export type PlayerDomainEvent = Omit<DomainEvent, "actorId" | "payload" | "replay"> & {
+  actorId: null;
+  payload: Record<string, unknown>;
+  replay: null;
+};
+export type ProjectedDomainEvent = DomainEvent | PlayerDomainEvent;
+
 export type SliceMessage =
   | { type: "room.ready"; role: SliceRole; sessionId: string; campaignId?: string; resumeToken?: string }
   | { type: "projection"; projection: PlayerProjection | GmProjection }
-  | { type: "events"; events: readonly DomainEvent[] }
+  | { type: "events"; events: readonly ProjectedDomainEvent[] }
   | { type: "command.result"; requestId: string; result: SubmitResult | { status: "accepted"; sceneRevision: number } | { status: "rejected"; reason: string } };
 
 export type SliceConnection = {
@@ -254,7 +261,14 @@ export class PlayerGmVerticalSlice {
 
   private broadcastEvents(beforeEvents: number): void {
     const events = this.engine.events().slice(beforeEvents);
-    if (events.length > 0) this.broadcast({ type: "events", events });
+    if (events.length === 0) return;
+    const snapshot = this.engine.snapshot();
+    for (const session of this.sessions.values()) {
+      const projected = session.role === "gm" ? events : events
+        .map((event) => projectEventForPlayer(event, snapshot, session.actorId))
+        .filter((event): event is PlayerDomainEvent => event !== null);
+      if (projected.length > 0) session.outbox.push({ type: "events", events: projected });
+    }
   }
 
   private broadcastAllProjections(): void {
@@ -267,6 +281,73 @@ export class PlayerGmVerticalSlice {
 
   private drainOnly(session: Session): SliceMessage[] {
     return session.outbox.splice(0);
+  }
+}
+
+function projectEventForPlayer(event: DomainEvent, snapshot: RuntimeSnapshot, actorId: string | null): PlayerDomainEvent | null {
+  const subjectHeroId = snapshot.heroIdByActorId.find(([candidate]) => candidate === actorId)?.[1] ?? null;
+  const publicEntity = (entityId: string): boolean => snapshot.entities.some((entity) => entity.id === entityId && (entity.kind === "enemy" || entity.id === subjectHeroId));
+  const ownerEvent = (heroId: string): boolean => heroId === subjectHeroId;
+  const redact = (payload: Record<string, unknown>): PlayerDomainEvent => ({ ...event, actorId: null, replay: null, payload });
+
+  switch (event.eventType) {
+    case "scene.entity_moved":
+      return publicEntity(event.payload.entityId) ? redact(event.payload) : null;
+    case "card.played":
+      if (ownerEvent(event.payload.heroId)) return redact(event.payload);
+      return publicEntity(event.payload.targetEntityId)
+        ? redact({ heroId: event.payload.heroId, mode: event.payload.mode, targetCell: event.payload.targetCell })
+        : null;
+    case "card.effect_applied":
+    case "protection.applied":
+    case "protection.triggered":
+    case "protection.expired":
+    case "card.drawn":
+    case "card.discarded":
+    case "deck.shuffled":
+    case "deck.rotation_resolved":
+    case "mode.changed":
+    case "stamina.changed":
+      return ownerEvent(event.payload.heroId) ? redact(event.payload) : null;
+    case "status.applied":
+    case "status.refreshed":
+    case "status.expired":
+      return publicEntity(event.payload.entityId) ? redact(event.payload) : null;
+    case "intent.started":
+      return publicEntity(event.payload.enemyId) ? redact({
+        enemyId: event.payload.enemyId,
+        activeIntentId: event.payload.activeIntentId,
+        timer: event.payload.timer,
+        icon: event.payload.icon,
+        ...(event.payload.publicTargetCell ? { publicTargetCell: event.payload.publicTargetCell } : {}),
+      }) : null;
+    case "intent.cancelled":
+      return publicEntity(event.payload.enemyId) ? redact({ enemyId: event.payload.enemyId, activeIntentId: event.payload.activeIntentId }) : null;
+    case "intent.resolved":
+      return publicEntity(event.payload.enemyId) ? redact({ enemyId: event.payload.enemyId, activeIntentId: event.payload.activeIntentId }) : null;
+    case "intent.target_selected":
+      return null;
+    case "hp.changed": {
+      if (!publicEntity(event.payload.entityId)) return null;
+      const payload = {
+        entityId: event.payload.entityId,
+        current: event.payload.current,
+        maximum: event.payload.maximum,
+        kind: event.payload.kind,
+        ...(event.payload.publicAmount === undefined ? {} : { publicAmount: event.payload.publicAmount }),
+      };
+      return redact(payload);
+    }
+    case "checkpoint.created":
+      return null;
+    case "rollback.applied":
+      return redact({ restoredRevision: event.payload.restoredRevision });
+    case "campaign.outcome_confirmed":
+      return redact({ outcome: event.payload.outcome, rewardUnlocked: event.payload.rewardUnlocked });
+    case "scene.entity_removed":
+      return publicEntity(event.payload.entityId) ? redact(event.payload) : null;
+    default:
+      return null;
   }
 }
 
