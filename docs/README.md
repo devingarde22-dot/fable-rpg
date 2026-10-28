@@ -45,9 +45,8 @@
 8. [QA & Acceptance](./07-qa-and-acceptance.md) — golden scenarios, replay, leakage и Definition of Done.
 9. [API Specification](./08-api-specification.md) — HTTP, WebSocket, commands, events и Copilot API.
 10. [Database Schema](./09-database-schema.md) — future PostgreSQL/Drizzle relational target; current runtime uses SQLite.
-12. [DR-INFRA-001 — SQLite persistence decision](./31-database-persistence-decision.md) — выбранный путь для текущего slice и условия пересмотра.
-12. [DR-INFRA-001 — SQLite persistence decision](./31-database-persistence-decision.md) — active persistence choice and review triggers.
-13. [AI Developer Guide](./10-ai-developer-guide.md) — context packets, роли агентов и code review.
+11. [DR-INFRA-001 — SQLite persistence decision](./31-database-persistence-decision.md) — active persistence choice and review triggers.
+12. [AI Developer Guide](./10-ai-developer-guide.md) — context packets, роли агентов и code review.
 13. [Programming Roadmap](./11-programming-roadmap.md) — порядок реализации от simulation до AI.
 14. [Step A — Repository & Monorepo](./12-step-a-repository-and-monorepo.md) — подробная настройка пакетов и quality gates.
 15. [Step B Reviews](./step-b-reviews/README.md) — результаты reviews по contracts и JSON Schema.
