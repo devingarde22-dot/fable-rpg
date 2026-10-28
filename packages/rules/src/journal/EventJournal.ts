@@ -39,6 +39,12 @@ export class EventJournal {
     this.lastSceneRevision = sceneRevision;
   }
 
+  appendPause(paused: boolean, serverTick: number, sceneRevision: number): void {
+    if (!Number.isInteger(serverTick) || serverTick < 0) throw new Error("Journal pause tick must be a non-negative integer");
+    if (!Number.isInteger(sceneRevision) || sceneRevision < 0) throw new Error("Journal pause revision must be a non-negative integer");
+    this.recordsStore.push({ kind: "pause", paused, serverTick, sceneRevision });
+  }
+
   events(): readonly DomainEvent[] {
     return this.recordsStore.flatMap((record) => record.kind === "event" ? [cloneEvent(record.event)] : []);
   }
@@ -51,6 +57,7 @@ export class EventJournal {
       if (record.kind === "tick") {
         return { ...record, inputWindow: cloneInputWindow(record.inputWindow) };
       }
+      if (record.kind === "pause") return { ...record };
       return { ...record, inputWindow: cloneInputWindow(record.inputWindow) };
     });
   }

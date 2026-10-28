@@ -56,6 +56,13 @@ export function replayJournalRecords(initialState: RuntimeState, records: readon
       state.scene.inputWindow = cloneInputWindow(record.inputWindow);
       continue;
     }
+    if (record.kind === "pause") {
+      if (record.serverTick !== state.serverTick || record.sceneRevision !== state.sceneRevision) {
+        throw new Error("Replay pause record does not match runtime state");
+      }
+      state.paused = record.paused;
+      continue;
+    }
     if (lastTickMark === null) {
       if (record.serverTick !== state.serverTick) throw new Error("Replay first tick mark does not match initial serverTick");
     } else if (record.serverTick !== lastTickMark + 1) {
@@ -468,6 +475,19 @@ function applyCampaignOutcome(state: RuntimeState, event: Extract<DomainEvent, {
     (outcome === "defeat" && (heroes.length === 0 || heroes.some((hero) => hero.aliveState !== "critically_injured")))) {
     throw new Error("Replay campaign outcome is not eligible or has inconsistent rewards");
   }
+  for (const entity of state.entities.values()) {
+    if (entity.kind === "hero") {
+      entity.statuses = [];
+      entity.protections = [];
+      entity.cards.nextHandRotationAtTick = null;
+      entity.mode = null;
+    } else {
+      entity.activeIntentId = null;
+    }
+  }
+  state.scene.contactImmunityUntilTick.clear();
+  state.activeIntents.clear();
+  state.paused = false;
   state.outcome = outcome;
   state.phase = "ended";
 }

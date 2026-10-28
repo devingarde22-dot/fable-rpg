@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { PlayerGmVerticalSlice } from "../src/index.js";
+import { ENEMY_TEMPLATES, INTENT_TEMPLATES } from "../../content/src/index.js";
+import { createSimulationEngineFromSnapshot } from "../../rules/src/index.js";
 
 describe("player/GM vertical slice", () => {
   it("keeps GM and player projections separated", () => {
@@ -45,6 +47,27 @@ describe("player/GM vertical slice", () => {
 
     expect(messages).toContainEqual({ type: "command.result", requestId: "move-paused", result: { status: "rejected", reason: "scene_paused" } });
     expect(player.projection().timePaused).toBe(true);
+  });
+
+  it("restores a paused snapshot and keeps a reconnecting player in the same paused state", () => {
+    const original = new PlayerGmVerticalSlice();
+    const gm = original.connect("gm", "session-gm");
+    gm.drain();
+    gm.send({ kind: "gm.pause", requestId: "pause-restore", paused: true });
+
+    const snapshot = original.engine.snapshot();
+    const restored = new PlayerGmVerticalSlice(createSimulationEngineFromSnapshot(snapshot, {
+      enemyTemplates: ENEMY_TEMPLATES.filter((template) => template.key === "quarantine_chaser"),
+      intentTemplates: INTENT_TEMPLATES.filter((template) => ["move_close", "melee_strike", "hold_position"].includes(template.key)),
+      terrain: [{ cell: { x: 4, y: 2 }, terrain: "wall" }, { cell: { x: 4, y: 3 }, terrain: "wall" }],
+    }));
+    const player = restored.connect("player", "reconnected-player", "player-1");
+    expect(player.projection().timePaused).toBe(true);
+    expect(player.send({ kind: "player.move", requestId: "move-after-restore", direction: "right" })).toContainEqual({
+      type: "command.result",
+      requestId: "move-after-restore",
+      result: { status: "rejected", reason: "scene_paused" },
+    });
   });
 
   it("prevents a player from using GM controls and lets GM close the expedition", () => {
