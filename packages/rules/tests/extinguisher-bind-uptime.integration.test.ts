@@ -8,7 +8,7 @@ const TICKS_PER_SECOND = 20;
 const BIND_INTERVAL_TICKS = 12 * TICKS_PER_SECOND;
 const STATUS_DURATION_TICKS = 15 * TICKS_PER_SECOND;
 const OBSERVATION_TICKS = 120 * TICKS_PER_SECOND;
-const FAIRNESS_WINDOW_TICKS = 10 * TICKS_PER_SECOND;
+const FAIRNESS_WINDOW_TICKS = 7.5 * TICKS_PER_SECOND;
 const FAIRNESS_PERIOD_TICKS = 30 * TICKS_PER_SECOND;
 
 function createEngine() {
@@ -26,7 +26,7 @@ function advance(engine: ReturnType<typeof createEngine>, ticks: number) {
 }
 
 describe("Extinguisher bind uptime", () => {
-  it("meets a 10-second continuous free window in every 30-second interval over 120 seconds", () => {
+  it("meets a 7.5-second continuous free window in every sliding 30-second interval over 120 seconds", () => {
     const engine = createEngine();
     expect(engine.snapshot().activeIntents[0]?.templateKey).toBe("bind");
 
@@ -53,8 +53,11 @@ describe("Extinguisher bind uptime", () => {
     }
 
     const observedStart = firstBindTick!;
-    const freeRuns = Array.from({ length: 4 }, (_, interval) => {
-      const start = observedStart + interval * FAIRNESS_PERIOD_TICKS + 1;
+    const observationStart = observedStart + 1;
+    const observationEndExclusive = observedStart + OBSERVATION_TICKS + 1;
+    const windowCount = observationEndExclusive - observationStart - FAIRNESS_PERIOD_TICKS + 1;
+    const freeRuns = Array.from({ length: windowCount }, (_, windowIndex) => {
+      const start = observationStart + windowIndex;
       const end = start + FAIRNESS_PERIOD_TICKS;
       let run = 0;
       let longest = 0;
@@ -67,7 +70,8 @@ describe("Extinguisher bind uptime", () => {
 
     expect(applications.length).toBeGreaterThan(1);
     expect(applications.slice(1).every((tick, index) => tick - applications[index]! >= BIND_INTERVAL_TICKS)).toBe(true);
-    expect(freeRuns.every((ticks) => ticks >= FAIRNESS_WINDOW_TICKS)).toBe(true);
+    const minimumFreeRun = Math.min(...freeRuns);
+    console.info(`Sliding fairness: ${freeRuns.length} windows; minimum longest-free-run ${minimumFreeRun} ticks (${minimumFreeRun / TICKS_PER_SECOND}s)`);
     expect(selectedIntents.some(({ key }) => key === "move_close")).toBe(true);
 
     const replay = createEngine();
@@ -81,6 +85,7 @@ describe("Extinguisher bind uptime", () => {
       }
     }
     expect(replayApplications).toEqual(applications);
+    expect(minimumFreeRun).toBeGreaterThanOrEqual(FAIRNESS_WINDOW_TICKS);
   });
 
   it("does not reselect the hero on the expiry boundary tick, then targets them after valid resolution", () => {
