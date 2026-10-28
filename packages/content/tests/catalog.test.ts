@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { Ajv2020 } from "ajv/dist/2020.js";
 import { describe, expect, it } from "vitest";
-import { ACTIVE_RUNTIME_ENEMY_TEMPLATE_KEYS, ACTIVE_RUNTIME_INTENT_KEYS_BY_ENEMY, ENEMY_TEMPLATES, INTENT_TEMPLATES } from "../src/index.js";
+import { ACTIVE_RUNTIME_ENEMY_TEMPLATE_KEYS, ACTIVE_RUNTIME_INTENT_KEYS_BY_ENEMY, CONTENT_VERSION, ENEMY_TEMPLATES, INTENT_TEMPLATES } from "../src/index.js";
 
 const intentSchema = JSON.parse(
   readFileSync(new URL("../../contracts/intent.schema.json", import.meta.url), "utf8"),
@@ -9,17 +9,48 @@ const intentSchema = JSON.parse(
 const enemySchema = JSON.parse(
   readFileSync(new URL("../../contracts/enemy.schema.json", import.meta.url), "utf8"),
 ) as object;
+const visibilitySchema = JSON.parse(
+  readFileSync(new URL("../../contracts/visibility.schema.json", import.meta.url), "utf8"),
+) as Record<string, unknown>;
 const ajv = new Ajv2020({ allErrors: true, strict: false });
 const validateIntent = ajv.compile(intentSchema);
 const validateEnemy = ajv.compile(enemySchema);
 
 describe("validated content catalog", () => {
+  it("versions the catalog and every visibility projection together", () => {
+    expect(CONTENT_VERSION).toBe("slice.quarantine-gates.v2");
+    const projectionContentVersions: string[] = [];
+    const visit = (value: unknown): void => {
+      if (!value || typeof value !== "object") return;
+      if (Array.isArray(value)) {
+        value.forEach(visit);
+        return;
+      }
+      for (const [key, child] of Object.entries(value)) {
+        if (key === "contentVersion" && child && typeof child === "object" &&
+          "const" in child && typeof child.const === "string") {
+          projectionContentVersions.push(child.const);
+        } else {
+          visit(child);
+        }
+      }
+    };
+    visit(visibilitySchema);
+    expect(projectionContentVersions).toEqual(Array(4).fill(CONTENT_VERSION));
+    expect(projectionContentVersions).not.toContain("slice.quarantine-gates.v1");
+  });
+
   it("validates all catalog intent templates against the canonical JSON Schema", () => {
     for (const template of INTENT_TEMPLATES) {
       expect(validateIntent(template), JSON.stringify(validateIntent.errors)).toBe(true);
       expect(template.durationMs).toBeGreaterThanOrEqual(3000);
       expect(template.durationMs % 50).toBe(0);
     }
+    const bind = INTENT_TEMPLATES.find((template) => template.key === "bind");
+    expect(bind?.version).toBe(2);
+    expect(bind?.durationMs).toBe(12_000);
+    expect(bind?.effect.parameters.durationMs).toBe(15_000);
+    expect(bind?.targetRules.filters.excludedStatuses).toContain("immobilized");
   });
 
   it("rejects durations that are below the minimum or not aligned to 50 ms", () => {

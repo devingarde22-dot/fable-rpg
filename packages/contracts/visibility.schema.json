@@ -106,7 +106,7 @@
           "const": "fable.ruleset.0.1"
         },
         "contentVersion": {
-          "const": "slice.quarantine-gates.v1"
+          "const": "slice.quarantine-gates.v2"
         },
         "data": {
           "type": "object"
@@ -179,7 +179,7 @@
           "const": "fable.ruleset.0.1"
         },
         "contentVersion": {
-          "const": "slice.quarantine-gates.v1"
+          "const": "slice.quarantine-gates.v2"
         },
         "data": {
           "type": "object"
@@ -255,7 +255,7 @@
           "const": "fable.ruleset.0.1"
         },
         "contentVersion": {
-          "const": "slice.quarantine-gates.v1"
+          "const": "slice.quarantine-gates.v2"
         },
         "data": {
           "type": "object"
@@ -329,7 +329,7 @@
           "const": "fable.ruleset.0.1"
         },
         "contentVersion": {
-          "const": "slice.quarantine-gates.v1"
+          "const": "slice.quarantine-gates.v2"
         },
         "data": {
           "type": "object"
