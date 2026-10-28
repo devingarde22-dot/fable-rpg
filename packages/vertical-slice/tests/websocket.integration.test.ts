@@ -163,6 +163,14 @@ async function closeClient(socket: WebSocket): Promise<void> {
   });
 }
 
+async function dropClient(socket: WebSocket): Promise<void> {
+  if (socket.readyState === WebSocket.CLOSED) return;
+  await new Promise<void>((resolve) => {
+    socket.once("close", () => resolve());
+    socket.terminate();
+  });
+}
+
 async function closeServer(server: ReturnType<typeof createVerticalSliceWebSocketServer>): Promise<void> {
   const index = servers.indexOf(server);
   if (index !== -1) servers.splice(index, 1);
@@ -226,7 +234,7 @@ async function expectSessionRecoveryAfterRestart(
     expect(updatedProjection?.type).toBe("projection");
     if (updatedProjection?.type !== "projection") throw new Error("Expected updated projection");
 
-    await closeClient(originalSocket);
+    await dropClient(originalSocket);
     originalSocket = null;
     await closeServer(server);
 
