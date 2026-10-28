@@ -51,9 +51,8 @@ export function assertRuntimeInvariants(state: RuntimeState): void {
           ? ALLY_GUARD_DEFENSE_BONUS_PERCENT
           : null;
       if (!status.id || statusIds.has(status.id) ||
-        (status.sourceEntityId !== null && (!sourceEntity || sourceEntity.kind !== "enemy")) ||
+        (status.sourceEntityId !== null && !sourceEntity) ||
         (status.templateKey === "immobilized" && entity.kind !== "hero") ||
-        (status.templateKey === "ally_guard" && entity.kind !== "enemy") ||
         expectedPotency === null || statusKeys.has(status.templateKey) || status.potency !== expectedPotency || status.stacks !== 1 ||
         !Number.isInteger(status.appliedAtTick) || status.appliedAtTick < 0 ||
         !Number.isInteger(status.expiresAtTick) || status.expiresAtTick <= status.appliedAtTick ||
@@ -69,11 +68,28 @@ export function assertRuntimeInvariants(state: RuntimeState): void {
         throw new Error(`Hero ${entity.id} has an invalid card revision`);
       }
       if (entity.cards.hand.length > CARD_HAND_LIMIT) throw new Error(`Hero ${entity.id} exceeds the hand limit`);
-      for (const card of [...entity.cards.drawPile, ...entity.cards.hand, ...entity.cards.discard, ...entity.cards.excludedForMode]) {
+      for (const card of [...entity.cards.drawPile, ...entity.cards.hand, ...entity.cards.discard, ...entity.cards.excludedForMode,
+        ...(entity.cards.defenseSlot ? [entity.cards.defenseSlot] : [])]) {
         if (!card.instanceId || seenCardInstances.has(card.instanceId) || !state.cardTemplates.has(card.templateKey)) {
           throw new Error(`Hero ${entity.id} has a duplicate or invalid card instance ${card.instanceId}`);
         }
         seenCardInstances.add(card.instanceId);
+      }
+      if (entity.cards.defenseSlot) {
+        const template = state.cardTemplates.get(entity.cards.defenseSlot.templateKey);
+        if (!template || template.effect.kind === "direct_damage") throw new Error(`Hero ${entity.id} has an invalid defense-slot card`);
+      }
+      const protectionIds = new Set<string>();
+      for (const protection of entity.protections) {
+        const sourceCard = [...state.entities.values()].flatMap((owner) => owner.kind === "hero"
+          ? [...owner.cards.drawPile, ...owner.cards.hand, ...owner.cards.discard, ...owner.cards.excludedForMode,
+            ...(owner.cards.defenseSlot ? [owner.cards.defenseSlot] : [])]
+          : []).find((card) => card.instanceId === protection.sourceCardInstanceId);
+        if (!protection.id || protectionIds.has(protection.id) || !sourceCard ||
+          (protection.kind === "damage_barrier" && (!Number.isInteger(protection.remainingAmount) || protection.remainingAmount <= 0))) {
+          throw new Error(`Hero ${entity.id} has an invalid protection ${protection.id}`);
+        }
+        protectionIds.add(protection.id);
       }
       const inCombatMode = entity.mode === "melee" || entity.mode === "ranged";
       if (inCombatMode && entity.aliveState === "active" &&

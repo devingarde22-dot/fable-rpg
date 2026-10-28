@@ -15,6 +15,7 @@ export type Terrain = "floor" | "wall" | "statue";
 export type RuntimeEntityKind = "hero" | "enemy";
 export type RuntimeFaction = "party" | "enemy" | "neutral";
 export type AliveState = "active" | "unconscious" | "critically_injured" | "removed";
+export type CampaignOutcome = "success" | "retreat" | "defeat" | "gm_abort";
 export type ResourceValue = { current: number; max: number };
 export type StaminaRuntime = ResourceValue & { nextRegenAtTick: number | null };
 export type HeroMode = "movement" | "melee" | "ranged";
@@ -36,6 +37,11 @@ export const IMMOBILIZED_DURATION_TICKS = IMMOBILIZED_DURATION_MS / TICK_DURATIO
 export const ALLY_GUARD_DURATION_MS = 15_000 as const;
 export const ALLY_GUARD_DURATION_TICKS = ALLY_GUARD_DURATION_MS / TICK_DURATION_MS;
 export const ALLY_GUARD_DEFENSE_BONUS_PERCENT = 20 as const;
+export type CardEffect =
+  | { kind: "direct_damage"; rawDamage: number; multiplier: number }
+  | { kind: "prevent_one_attack" }
+  | { kind: "damage_barrier"; amount: number }
+  | { kind: "apply_ally_guard" };
 export type CardTemplate = {
   key: string;
   version: number;
@@ -43,9 +49,12 @@ export type CardTemplate = {
   staminaCost: number;
   range: { minInclusive: number; maxInclusive: number };
   lineOfSight: "required" | "not_required";
-  effect: { kind: "direct_damage"; rawDamage: number; multiplier: number };
+  effect: CardEffect;
 };
 export type CardInstance = { instanceId: string; templateKey: string };
+export type ProtectionRuntime =
+  | { id: string; kind: "prevent_one_attack"; sourceCardInstanceId: string }
+  | { id: string; kind: "damage_barrier"; sourceCardInstanceId: string; remainingAmount: number };
 export const CARD_HAND_LIMIT = 5 as const;
 export const CARD_ROTATION_INTERVAL_TICKS = 300 as const;
 export type HeroCardsRuntime = {
@@ -53,6 +62,7 @@ export type HeroCardsRuntime = {
   hand: CardInstance[];
   discard: CardInstance[];
   excludedForMode: CardInstance[];
+  defenseSlot: CardInstance | null;
   revision: number;
   nextHandRotationAtTick: number | null;
 };
@@ -138,6 +148,7 @@ export type HeroRuntime = RuntimeEntityBase & {
   faction: "party";
   stamina: StaminaRuntime;
   cards: HeroCardsRuntime;
+  protections: ProtectionRuntime[];
   mode: HeroMode | null;
   canEnterRangedMode: boolean;
   activeIntentId: null;
@@ -267,9 +278,9 @@ export type RuntimeState = {
   sceneRevision: number;
   nextServerSequence: number;
   rootSeed: string;
-  phase: "loading" | "active";
+  phase: "loading" | "active" | "ended";
   paused: false;
-  outcome: null;
+  outcome: CampaignOutcome | null;
 };
 
 type EventBase = {
@@ -297,6 +308,28 @@ export type DomainEvent =
   | (EventBase & {
       eventType: "card.played";
       payload: { heroId: EntityId; cardInstanceId: string; mode: HeroMode; staminaCost: number; targetEntityId: EntityId; targetCell: Cell };
+    })
+  | (EventBase & {
+      eventType: "card.effect_applied";
+      payload: {
+        heroId: EntityId; cardInstanceId: string; targetEntityId: EntityId; effect: CardEffect;
+        protectionId?: string; amount?: number; statusLayer?: { layerId: string; potency: number; expiresAtTick: number };
+      };
+    })
+  | (EventBase & {
+      eventType: "protection.applied";
+      payload: { heroId: EntityId; protectionId: string; kind: "prevent_one_attack" | "damage_barrier"; sourceCardInstanceId: string; amount: number };
+    })
+  | (EventBase & {
+      eventType: "protection.triggered";
+      payload: {
+        heroId: EntityId; protectionId: string; kind: "prevent_one_attack" | "damage_barrier";
+        source: Exclude<DamageSource, { kind: "card" }>; incomingDamage: number; absorbedDamage: number; remainingDamage: number; remainingAmount: number;
+      };
+    })
+  | (EventBase & {
+      eventType: "protection.expired";
+      payload: { heroId: EntityId; protectionId: string; kind: "prevent_one_attack" | "damage_barrier"; reason: "barrier_depleted" | "battle_ended" };
     })
   | (EventBase & {
       eventType: "card.discarded";
@@ -412,7 +445,20 @@ export type DomainEvent =
         defense: number;
         multiplier: number;
         finalDamage: number;
+        absorbedAmount?: number;
       };
+    })
+  | (EventBase & {
+      eventType: "checkpoint.created";
+      payload: { checkpointId: string; label: string; snapshotSchemaVersion: 1 };
+    })
+  | (EventBase & {
+      eventType: "rollback.applied";
+      payload: { checkpointId: string; previousRevision: number; targetRevision: number; restoredRevision: number };
+    })
+  | (EventBase & {
+      eventType: "campaign.outcome_confirmed";
+      payload: { outcome: CampaignOutcome; rewardUnlocked: boolean; reason?: string };
     })
   | (EventBase & {
       eventType: "scene.entity_removed";
@@ -435,9 +481,9 @@ export type RuntimeSnapshot = {
   sceneRevision: number;
   nextServerSequence: number;
   rootSeed: string;
-  phase: "loading" | "active";
+  phase: "loading" | "active" | "ended";
   paused: false;
-  outcome: null;
+  outcome: CampaignOutcome | null;
 };
 
 export type EngineErrorCode =

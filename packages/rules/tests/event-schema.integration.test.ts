@@ -3,7 +3,7 @@ import { Ajv2020 } from "ajv/dist/2020.js";
 import { describe, expect, it } from "vitest";
 import { createSimulationEngine } from "../src/engine/SimulationEngine.js";
 import { enemy, hero, playCardCommand, testConfig } from "./createTestEngine.js";
-import { testCostedRangedStrike } from "./fixtures/testCards.js";
+import { testCostedRangedStrike, testPreventOneAttack } from "./fixtures/testCards.js";
 
 const schema = JSON.parse(readFileSync(new URL("../../contracts/event.schema.json", import.meta.url), "utf8")) as object;
 const validateEvent = new Ajv2020({ allErrors: true, strict: false }).compile(schema);
@@ -147,5 +147,25 @@ describe("canonical event contract", () => {
     const invalidShuffle = structuredClone(shuffle);
     invalidShuffle.payload.orderedCardInstanceIds.push("deck-card");
     expect(validateEvent(invalidShuffle)).toBe(false);
+  });
+
+  it("validates defense effects, battle-end expiry, checkpoints, rollback and manual outcomes", () => {
+    const engine = createSimulationEngine(testConfig({
+      entities: [hero("hero-defense", 1, 1, "movement", false, 3, {
+        defenseSlot: { instanceId: "defense-card", templateKey: testPreventOneAttack.key },
+      })],
+      heroIdByActorId: { "actor-defense": "hero-defense" },
+    }));
+    engine.submit(playCardCommand("play-defense", "defense-card", "hero-defense", "movement", { actorId: "actor-defense" }));
+    engine.advanceTicks(5);
+    const checkpoint = engine.createCheckpoint("city-save-test");
+    engine.confirmOutcome("success");
+    engine.rollback(checkpoint.checkpointId);
+    const emitted = engine.events().filter((event) => [
+      "card.effect_applied", "protection.applied", "protection.expired", "checkpoint.created", "rollback.applied", "campaign.outcome_confirmed",
+    ].includes(event.eventType));
+    expect(emitted.map((event) => event.eventType)).toContain("protection.expired");
+    expect(emitted.map((event) => event.eventType)).toContain("campaign.outcome_confirmed");
+    for (const event of emitted) expect(validateEvent(event), JSON.stringify(validateEvent.errors)).toBe(true);
   });
 });

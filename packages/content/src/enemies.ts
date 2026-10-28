@@ -34,7 +34,7 @@ export const ENEMY_TEMPLATES: readonly EnemyTemplate[] = [
     defense: 15,
     basicAttack: { handler: "melee_strike", rawDamage: 100 },
     role: "control_support",
-    intentKeys: ["bind", "ally_guard", "move_close"],
+    intentKeys: ["bind", "ally_guard", "move_close", "hold_position"],
   },
 ];
 
@@ -43,5 +43,5 @@ export const ACTIVE_RUNTIME_ENEMY_TEMPLATE_KEYS = ["quarantine_chaser", "slag_sh
 export const ACTIVE_RUNTIME_INTENT_KEYS_BY_ENEMY = {
   quarantine_chaser: ["move_close", "melee_strike", "hold_position"],
   slag_shooter: ["ranged_shot", "hold_position"],
-  extinguisher: ["bind", "ally_guard", "move_close"],
+  extinguisher: ["bind", "ally_guard", "move_close", "hold_position"],
 } as const;

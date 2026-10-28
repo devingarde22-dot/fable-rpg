@@ -52,7 +52,7 @@ describe("validated content catalog", () => {
     expect(ACTIVE_RUNTIME_ENEMY_TEMPLATE_KEYS).toEqual(["quarantine_chaser", "slag_shooter", "extinguisher"]);
     expect(ACTIVE_RUNTIME_INTENT_KEYS_BY_ENEMY.quarantine_chaser).toEqual(["move_close", "melee_strike", "hold_position"]);
     expect(ACTIVE_RUNTIME_INTENT_KEYS_BY_ENEMY.slag_shooter).toEqual(["ranged_shot", "hold_position"]);
-    expect(ACTIVE_RUNTIME_INTENT_KEYS_BY_ENEMY.extinguisher).toEqual(["bind", "ally_guard", "move_close"]);
+    expect(ACTIVE_RUNTIME_INTENT_KEYS_BY_ENEMY.extinguisher).toEqual(["bind", "ally_guard", "move_close", "hold_position"]);
     expect(ACTIVE_RUNTIME_INTENT_KEYS_BY_ENEMY.extinguisher).not.toContain("reposition");
   });
 

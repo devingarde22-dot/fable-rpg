@@ -47,6 +47,7 @@ export function canonicalizeSnapshot(snapshot: RuntimeSnapshot): string {
               hand: entity.cards.hand.map((card) => ({ instanceId: card.instanceId, templateKey: card.templateKey })),
               discard: entity.cards.discard.map((card) => ({ instanceId: card.instanceId, templateKey: card.templateKey })),
               excludedForMode: entity.cards.excludedForMode.map((card) => ({ instanceId: card.instanceId, templateKey: card.templateKey })),
+              defenseSlot: entity.cards.defenseSlot ? { ...entity.cards.defenseSlot } : null,
               revision: entity.cards.revision,
               nextHandRotationAtTick: entity.cards.nextHandRotationAtTick,
             },

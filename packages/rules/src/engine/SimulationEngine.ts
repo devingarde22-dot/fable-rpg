@@ -7,7 +7,7 @@ import { orderCommands, phaseOrder, type SchedulerPhase } from "../scheduler/ord
 import { validateMove } from "../movement/playerMove.js";
 import { cellIndex, isInBounds } from "../grid/Grid.js";
 import { activateScene, resolveDueIntents } from "../intents/intentSystem.js";
-import { groupEvents, type PendingJournalEvent } from "../intents/events.js";
+import { eventBase, groupEvents, type PendingJournalEvent } from "../intents/events.js";
 import { detectContactTransitions, modeChangedEvent } from "../combat/heroModes.js";
 import { resolveRetreat } from "../combat/retreatResolution.js";
 import { resolveStaminaRegeneration } from "../resources/stamina.js";
@@ -31,6 +31,7 @@ import type {
   SimulationEngineConfig,
   SubmitResult,
   TickResult,
+  CampaignOutcome,
 } from "./types.js";
 
 export interface SimulationEngine {
@@ -43,6 +44,9 @@ export interface SimulationEngine {
   journalRecords(): readonly JournalRecord[];
   replay(events: readonly DomainEvent[]): RuntimeSnapshot;
   replayJournal(): RuntimeSnapshot;
+  createCheckpoint(label: string): { checkpointId: string; snapshot: RuntimeSnapshot; event: DomainEvent };
+  rollback(checkpointId: string): { snapshot: RuntimeSnapshot; event: DomainEvent };
+  confirmOutcome(outcome: CampaignOutcome, reason?: string): { snapshot: RuntimeSnapshot; event: DomainEvent; rewardUnlocked: boolean };
 }
 
 export type SimulationEngineOptions = {
@@ -58,9 +62,10 @@ type AppliedCommand = {
 export class HeadlessSimulationEngine implements SimulationEngine {
   private runtime: RuntimeState;
   private readonly initialState: RuntimeState;
-  private readonly clock: TickClock;
+  private clock: TickClock;
   private readonly journal = new EventJournal();
   private readonly requestResults = new Map<string, SubmitResult>();
+  private readonly checkpoints = new Map<string, RuntimeState>();
   private readonly options: SimulationEngineOptions;
 
   constructor(config: SimulationEngineConfig, options: SimulationEngineOptions = {}) {
@@ -92,6 +97,7 @@ export class HeadlessSimulationEngine implements SimulationEngine {
     };
 
     if (!this.isValidCommand(command)) return rejected("SCHEMA_INVALID");
+    if (this.runtime.phase === "ended") return rejected("STATE_LOCKED");
     if (this.runtime.phase !== "active" || command.role !== "player" || command.sessionId !== this.runtime.sessionId) return rejected("AUTH_FORBIDDEN");
     const heroId = this.runtime.heroIdByActorId.get(command.actorId);
     const hero = heroId ? this.runtime.entities.get(heroId) : undefined;
@@ -112,6 +118,10 @@ export class HeadlessSimulationEngine implements SimulationEngine {
   }
 
   advanceOneTick(): TickResult {
+    if (this.runtime.phase === "ended") return {
+      serverTick: this.runtime.serverTick, closedWindowId: null, events: [], commandResults: [],
+      sceneRevision: this.runtime.sceneRevision, stateHash: stateHash(this.runtime),
+    };
     const commandsInOpenWindow = this.runtime.scene.inputWindow.commands;
     this.runtime.serverTick = this.clock.advance();
     const closedWindowId = closedWindowIdAtTick(this.runtime.serverTick);
@@ -204,6 +214,78 @@ export class HeadlessSimulationEngine implements SimulationEngine {
 
   replayJournal(): RuntimeSnapshot {
     return replayJournalRecords(this.initialState, this.journal.records());
+  }
+
+  createCheckpoint(label: string): { checkpointId: string; snapshot: RuntimeSnapshot; event: DomainEvent } {
+    if (!label.trim()) throw new Error("Checkpoint label must not be empty");
+    if (this.runtime.phase !== "active") throw new Error("Checkpoint can only be created in an active scene");
+    const checkpointId = `checkpoint:${this.runtime.campaignId}:${this.runtime.scene.id}:${this.runtime.nextServerSequence}`;
+    const pending: PendingJournalEvent = { event: { ...eventBase(this.runtime, this.runtime.serverTick, null, null),
+      eventType: "checkpoint.created", payload: { checkpointId, label, snapshotSchemaVersion: 1 }, replay: null } };
+    const committed = groupEvents(this.runtime, [pending]);
+    const event = committed.events[0];
+    if (!event) throw new Error("Checkpoint event was not committed");
+    this.journal.appendBatch(committed.events, committed.auditByEventId);
+    this.checkpoints.set(checkpointId, cloneRuntimeState(this.runtime));
+    assertRuntimeInvariants(this.runtime);
+    return { checkpointId, snapshot: this.snapshot(), event: structuredClone(event) };
+  }
+
+  rollback(checkpointId: string): { snapshot: RuntimeSnapshot; event: DomainEvent } {
+    const checkpoint = this.checkpoints.get(checkpointId);
+    if (!checkpoint) throw new Error(`Unknown checkpoint ${checkpointId}`);
+    const previousRevision = this.runtime.sceneRevision;
+    const currentTick = this.runtime.serverTick;
+    const nextSequence = this.runtime.nextServerSequence;
+    const restored = cloneRuntimeState(checkpoint);
+    if (currentTick < restored.serverTick) throw new Error("Rollback cannot move the server clock backwards");
+    rebaseTimers(restored, currentTick - restored.serverTick);
+    restored.serverTick = currentTick;
+    restored.sceneRevision = previousRevision;
+    restored.nextServerSequence = nextSequence;
+    restored.scene.inputWindow = { windowId: Math.floor(currentTick / 5), commands: [] };
+    this.runtime = restored;
+    this.clock = new TickClock(currentTick);
+    const pending: PendingJournalEvent = { event: { ...eventBase(this.runtime, currentTick, null, null),
+      eventType: "rollback.applied", payload: { checkpointId, previousRevision, targetRevision: checkpoint.sceneRevision,
+        restoredRevision: previousRevision + 1 }, replay: null } };
+    const committed = groupEvents(this.runtime, [pending]);
+    const event = committed.events[0];
+    if (!event) throw new Error("Rollback event was not committed");
+    this.journal.appendBatch(committed.events, committed.auditByEventId);
+    assertRuntimeInvariants(this.runtime);
+    return { snapshot: this.snapshot(), event: structuredClone(event) };
+  }
+
+  confirmOutcome(outcome: CampaignOutcome, reason?: string): { snapshot: RuntimeSnapshot; event: DomainEvent; rewardUnlocked: boolean } {
+    if (this.runtime.phase !== "active" || this.runtime.outcome !== null) throw new Error("Outcome can only be confirmed once in an active scene");
+    const heroes = [...this.runtime.entities.values()].filter((entity) => entity.kind === "hero");
+    const enemies = this.runtime.scene.enemyEntityIds.map((id) => this.runtime.entities.get(id)).filter((entity) => entity?.kind === "enemy");
+    if (outcome === "success" && enemies.some((enemy) => enemy.aliveState !== "removed")) throw new Error("Success requires every active enemy to be removed");
+    if (outcome === "defeat" && (heroes.length === 0 || heroes.some((hero) => hero.aliveState !== "critically_injured"))) {
+      throw new Error("Defeat requires every hero to be critically injured");
+    }
+    const rewardUnlocked = outcome === "success";
+    const pendingEvents: PendingJournalEvent[] = [];
+    for (const candidate of heroes.sort((a, b) => a.id.localeCompare(b.id))) {
+      if (candidate.kind !== "hero") continue;
+      const hero = candidate;
+      for (const protection of [...hero.protections].sort((a, b) => a.id.localeCompare(b.id))) {
+        pendingEvents.push({ event: { ...eventBase(this.runtime, this.runtime.serverTick, null, null), eventType: "protection.expired",
+          payload: { heroId: hero.id, protectionId: protection.id, kind: protection.kind, reason: "battle_ended" }, replay: null } });
+      }
+      hero.protections = [];
+    }
+    this.runtime.outcome = outcome;
+    this.runtime.phase = "ended";
+    pendingEvents.push({ event: { ...eventBase(this.runtime, this.runtime.serverTick, null, null),
+      eventType: "campaign.outcome_confirmed", payload: { outcome, rewardUnlocked, ...(reason?.trim() ? { reason: reason.trim() } : {}) }, replay: null } });
+    const committed = groupEvents(this.runtime, pendingEvents);
+    const event = committed.events.find((candidate) => candidate.eventType === "campaign.outcome_confirmed");
+    if (!event) throw new Error("Campaign outcome event was not committed");
+    this.journal.appendBatch(committed.events, committed.auditByEventId);
+    assertRuntimeInvariants(this.runtime);
+    return { snapshot: this.snapshot(), event: structuredClone(event), rewardUnlocked };
   }
 
   private applyMove(command: InternalPlayerMoveCommand, reservations: ReadonlySet<number>): AppliedCommand {
@@ -364,4 +446,24 @@ function withDeckModeTransitions(state: RuntimeState, events: readonly PendingJo
     }
   }
   return result;
+}
+
+function rebaseTimers(state: RuntimeState, delta: number): void {
+  if (delta <= 0) return;
+  state.scene.startedAtTick += delta;
+  for (const [heroId, untilTick] of state.scene.contactImmunityUntilTick) state.scene.contactImmunityUntilTick.set(heroId, untilTick + delta);
+  for (const entity of state.entities.values()) {
+    for (const status of entity.statuses) {
+      status.appliedAtTick += delta;
+      status.expiresAtTick += delta;
+    }
+    if (entity.kind === "hero") {
+      if (entity.stamina.nextRegenAtTick !== null) entity.stamina.nextRegenAtTick += delta;
+      if (entity.cards.nextHandRotationAtTick !== null) entity.cards.nextHandRotationAtTick += delta;
+    }
+  }
+  for (const intent of state.activeIntents.values()) {
+    intent.startedAtTick += delta;
+    intent.resolvesAtTick += delta;
+  }
 }

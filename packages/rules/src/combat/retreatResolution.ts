@@ -62,6 +62,7 @@ export function resolveRetreat(
       hpBefore: result.hpBefore,
       hpAfter: result.hpAfter,
     });
+    events.push(...result.protectionEvents);
     if (result.event) events.push(result.event);
   });
 
