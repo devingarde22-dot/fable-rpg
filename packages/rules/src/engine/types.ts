@@ -219,6 +219,7 @@ export type InternalPlayerMoveCommand = {
   role: "player";
   command: "player.move";
   payload: { direction: Direction };
+  /** Required transport cursor; player.move does not gate admission on it. */
   clientRevision: number;
   serverReceiveSequence: number;
 };
@@ -507,13 +508,15 @@ export type EngineErrorCode =
   | "CONFLICTING_BATCH_STATE"
   | "INVALID_STATE";
 
-export type SubmitResult =
+export type InitialSubmitResult =
   | { status: "queued"; requestId: string; windowId: number }
-  | { status: "rejected"; requestId: string; code: EngineErrorCode; sceneRevision: number }
-  | { status: "duplicate"; requestId: string; original: SubmitResult };
+  | { status: "rejected"; requestId: string; code: EngineErrorCode; sceneRevision: number };
 export type FinalCommandResult =
   | { requestId: string; status: "accepted"; eventIds: string[]; sceneRevision: number }
   | { requestId: string; status: "rejected"; code: EngineErrorCode; sceneRevision: number };
+export type CachedCommandResult = InitialSubmitResult | FinalCommandResult;
+export type SubmitResult = InitialSubmitResult
+  | { status: "duplicate"; requestId: string; original: CachedCommandResult };
 export type TickResult = {
   serverTick: number;
   closedWindowId: number | null;

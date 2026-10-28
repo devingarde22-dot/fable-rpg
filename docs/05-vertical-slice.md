@@ -182,7 +182,8 @@ criticalDamage = ceil(finalDamage × 1.5)
 - [ ] headless-сцена проходит без браузера;
 - [ ] fixed seed воспроизводит одинаковые результаты;
 - [ ] команды сортируются игроки → враги → окружение;
-- [ ] stale revision не меняет state;
+- [ ] устаревший `clientRevision` сам по себе не отклоняет player move/mode; право на действие проверяется при закрытии input window по актуальному state, а незаконное действие не меняет gameplay state и не пишет domain event;
+- [ ] карта с устаревшим `clientCardRevision` отклоняется без изменения HP/stamina/cards;
 - [ ] повторный requestId не дублирует event;
 - [ ] клетки резервируются в одном batch;
 - [ ] невозможный intent сбивается с причиной;

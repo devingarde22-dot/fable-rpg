@@ -90,23 +90,140 @@ describe("player.move integration", () => {
     expect(engine.snapshot().sceneRevision).toBe(1);
   });
 
-  it("rejects stale revision, unauthorized actor, invalid mode, and duplicate request", () => {
+  it("rechecks legality at window close and journals an apply-time rejection as no domain event", () => {
+    const engine = createSimulationEngine(testConfig({ entities: [hero("hero-1", 1, 1, null)] }));
+    const before = engine.snapshot();
+    const beforeEvents = engine.events();
+    const requestId = "apply-time-invalid-mode";
+
+    expect(engine.submit(moveCommand(requestId, "right"))).toMatchObject({ status: "queued" });
+    expect(engine.advanceTicks(5).at(-1)?.commandResults).toMatchObject([
+      { requestId, status: "rejected", code: "INVALID_MODE" },
+    ]);
+
+    expect(gameplayState(engine.snapshot())).toEqual(gameplayState(before));
+    expect(engine.events()).toEqual(beforeEvents);
+    expect(engine.events().some((event) => event.causedByRequestId === requestId)).toBe(false);
+    const records = engine.journalRecords();
+    expect(records.some((record) => record.kind === "input_window" &&
+      record.inputWindow.commands.some((command) => command.requestId === requestId))).toBe(true);
+    expect(records.some((record) => record.kind === "event" && record.event.causedByRequestId === requestId)).toBe(false);
+    expect(engine.snapshot().sceneRevision).toBe(before.sceneRevision);
+  });
+
+  it("admits moves independent of scene revision while enforcing actor, mode, and duplicate checks", () => {
     const engine = createSimulationEngine(testConfig({
       entities: [hero("hero-1", 1, 1), hero("hero-2", 4, 4, null)],
       heroIdByActorId: { "actor-1": "hero-1", "actor-2": "hero-2" },
     }));
-    const beforeStale = engine.snapshot();
-    expect(engine.submit(moveCommand("stale", "right", { revision: 99 }))).toMatchObject({ status: "rejected", code: "STALE_SCENE_REVISION" });
-    expect(gameplayState(engine.snapshot())).toEqual(gameplayState(beforeStale));
+    expect(engine.submit(moveCommand("stale", "right", { revision: 99 }))).toMatchObject({ status: "queued" });
     expect(engine.events()).toHaveLength(0);
     expect(engine.submit(moveCommand("unauth", "right", { actorId: "unknown" }))).toMatchObject({ status: "rejected", code: "AUTH_FORBIDDEN" });
-    expect(engine.submit(moveCommand("mode", "right", { actorId: "actor-2" }))).toMatchObject({ status: "rejected", code: "INVALID_MODE" });
+    expect(engine.submit(moveCommand("mode", "right", { actorId: "actor-2" }))).toMatchObject({ status: "queued" });
     const accepted = engine.submit(moveCommand("same", "right"));
     expect(accepted.status).toBe("queued");
     expect(engine.submit(moveCommand("same", "right"))).toMatchObject({ status: "duplicate", requestId: "same" });
-    engine.advanceTicks(5);
-    expect(engine.events()).toHaveLength(1);
+    const applied = engine.advanceTicks(5).at(-1);
+    expect(applied?.commandResults.find((result) => result.requestId === "mode"))
+      .toMatchObject({ status: "rejected", code: "INVALID_MODE" });
+    expect(applied?.commandResults.find((result) => result.requestId === "same"))
+      .toMatchObject({ status: "accepted" });
+    expect(engine.events()).toHaveLength(2);
     expect(engine.snapshot().sceneRevision).toBe(1);
+  });
+
+  it("scopes request IDs per actor and replays the finalized result on retry", () => {
+    const engine = createSimulationEngine(testConfig({
+      entities: [hero("hero-1", 1, 1), hero("hero-2", 4, 4)],
+      heroIdByActorId: { "actor-1": "hero-1", "actor-2": "hero-2" },
+    }));
+
+    const queued = engine.submit(moveCommand("local-1", "right", { actorId: "actor-1" }));
+    expect(queued).toMatchObject({ status: "queued" });
+    if (queued.status === "queued") queued.windowId = 99;
+    expect(engine.submit(moveCommand("local-1", "right", { actorId: "actor-1" }))).toMatchObject({
+      status: "duplicate", original: { status: "queued", windowId: 0 },
+    });
+    expect(engine.submit(moveCommand("local-1", "right", { actorId: "actor-2" }))).toMatchObject({ status: "queued" });
+
+    const tick = engine.advanceTicks(5).at(-1);
+    expect(tick?.commandResults.map(({ status }) => status)).toEqual(["accepted", "accepted"]);
+    expect(engine.snapshot().entities.find(({ id }) => id === "hero-1")?.position).toEqual({ x: 2, y: 1 });
+    expect(engine.snapshot().entities.find(({ id }) => id === "hero-2")?.position).toEqual({ x: 5, y: 4 });
+    const firstTickResult = tick?.commandResults[0];
+    if (firstTickResult?.status === "accepted") firstTickResult.eventIds.push("caller-mutated");
+
+    const duplicate = engine.submit(moveCommand("local-1", "right", { actorId: "actor-1" }));
+    expect(duplicate).toMatchObject({
+      status: "duplicate",
+      original: { status: "accepted", requestId: "local-1", eventIds: ["evt-1"], sceneRevision: 1 },
+    });
+    expect(engine.submit(moveCommand("local-1", "right", { actorId: "actor-2" }))).toMatchObject({
+      status: "duplicate",
+      original: { status: "accepted", requestId: "local-1", eventIds: ["evt-2"], sceneRevision: 1 },
+    });
+    expect(engine.events()).toHaveLength(2);
+  });
+
+  it("rejects malformed command envelopes safely without state or journal mutation", () => {
+    const engine = createSimulationEngine(testConfig());
+    const before = gameplayState(engine.snapshot());
+    const invalidCommands = [
+      null as never,
+      { ...moveCommand("", "right"), requestId: "" },
+      { ...moveCommand("x".repeat(121), "right") },
+      { ...moveCommand("empty-session", "right"), sessionId: "" },
+      { ...moveCommand("empty-actor", "right"), actorId: "" },
+    ];
+
+    for (const invalid of invalidCommands) {
+      expect(engine.submit(invalid)).toMatchObject({ status: "rejected", code: "SCHEMA_INVALID" });
+    }
+    expect(gameplayState(engine.snapshot())).toEqual(before);
+    expect(engine.events()).toHaveLength(0);
+  });
+
+  it("keeps event IDs distinct for same-requestId retreats whose damage events name enemy actors", () => {
+    const engine = createSimulationEngine(testConfig({
+      entities: [hero("hero-1", 3, 3, "melee"), hero("hero-2", 5, 3, "melee"), enemy("enemy-1", 4, 3)],
+      heroIdByActorId: { "actor-1": "hero-1", "actor-2": "hero-2" },
+    }));
+    const revision = engine.snapshot().sceneRevision;
+    engine.submit(modeCommand("player.enter_movement_mode", "retreat-local", { actorId: "actor-1", revision, sequence: 1 }));
+    engine.submit(modeCommand("player.enter_movement_mode", "retreat-local", { actorId: "actor-2", revision, sequence: 2 }));
+
+    const result = engine.advanceTicks(5).at(-1);
+    const first = result?.commandResults[0];
+    const second = result?.commandResults[1];
+    if (!first || first.status !== "accepted" || !second || second.status !== "accepted") {
+      throw new Error("both retreat commands should be accepted");
+    }
+    expect(first.eventIds).toHaveLength(2);
+    expect(second.eventIds).toHaveLength(2);
+    expect(first.eventIds).not.toEqual(second.eventIds);
+    expect(first.eventIds.map((id) => result?.events.find((event) => event.eventId === id)?.eventType)).toEqual([
+      "hp.changed", "mode.changed",
+    ]);
+    expect(second.eventIds.map((id) => result?.events.find((event) => event.eventId === id)?.eventType)).toEqual([
+      "hp.changed", "mode.changed",
+    ]);
+  });
+
+  it("returns the cached final rejection for a retried command that failed during resolution", () => {
+    const engine = createSimulationEngine(testConfig({
+      terrain: [{ cell: { x: 2, y: 1 }, terrain: "wall" }],
+    }));
+    engine.submit(moveCommand("blocked-retry", "right"));
+    const tick = engine.advanceTicks(5).at(-1);
+    expect(tick?.commandResults[0]).toMatchObject({ status: "rejected", code: "CELL_BLOCKED" });
+    const beforeRetry = gameplayState(engine.snapshot());
+
+    expect(engine.submit(moveCommand("blocked-retry", "right"))).toMatchObject({
+      status: "duplicate",
+      original: { status: "rejected", requestId: "blocked-retry", code: "CELL_BLOCKED", sceneRevision: 0 },
+    });
+    expect(gameplayState(engine.snapshot())).toEqual(beforeRetry);
+    expect(engine.events()).toHaveLength(0);
   });
 
   it("resolves three simultaneous players reserving one target cell deterministically", () => {

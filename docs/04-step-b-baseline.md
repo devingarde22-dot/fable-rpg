@@ -26,7 +26,7 @@ Rule IDs: `PARTY-001`, `PARTY-002`, `PARTY-003`, `TIME-001`, `GM-001`.
 
 ### B-002 — sceneRevision и clientRevision
 
-`sceneRevision` — authoritative revision сцены. `clientRevision` — копия последней известной `sceneRevision`, присланная client для optimistic concurrency. Для каждой state-changing command требуется точное равенство `clientRevision === current sceneRevision` на момент принятия в scheduler. Stale command не становится бесплатным действием. Одна atomic command/batch увеличивает revision ровно один раз; все события этой группы получают одну post-commit `sceneRevision`, а порядок внутри группы задаётся `eventIndex`.
+`sceneRevision` — authoritative revision сцены. `clientRevision` — копия последней известной `sceneRevision`, присланная client для optimistic concurrency. `clientRevision` остаётся transport metadata и не gate-ит player commands. `player.move` и mode actions проверяются по актуальному состоянию при применении; `player.play_card` при применении строго требует точную `clientCardRevision`. Stale command не становится бесплатным действием. Одна atomic command/batch увеличивает revision ровно один раз; все события этой группы получают одну post-commit `sceneRevision`, а порядок внутри группы задаётся `eventIndex`.
 
 `clientCardRevision` остаётся отдельной revision player card projection и не заменяет `clientRevision`.
 
@@ -100,7 +100,7 @@ Rule IDs: `TIME-001`, `TIME-002`, `INTENT-003`, `RESOURCE-002`, `RESOURCE-003`, 
 | projection schema | `fable.projection.tv.v1`, `fable.projection.player.v1`, `fable.projection.gm.v1` | role-specific DTO shape |
 | `contextVersion` | `fable.context.v1` | AI allow-listed packet shape |
 | `rulesetVersion` | `fable.ruleset.0.1` | confirmed gameplay semantics |
-| `contentVersion` | `slice.quarantine-gates.v1` | immutable template/content bundle |
+| `contentVersion` | `slice.quarantine-gates.v2` | immutable template/content bundle identifier; catalogs are not archived by this identifier alone |
 | checkpoint `snapshotSchemaVersion` | `1` | persisted authoritative snapshot shape |
 
 **Wire consequence:** commands include `protocolVersion`, `schemaVersion`, `commandVersion`; events include `protocolVersion`, `schemaVersion`, `eventVersion`; snapshots include `protocolVersion`, `snapshotSchema`, projection schema, rulesetVersion and contentVersion. Join negotiates supported versions; no intersection yields `UNSUPPORTED_CONTRACT_VERSION`. A version is never silently reused for new semantics.
@@ -168,7 +168,7 @@ Rule IDs: `DECK-001`—`DECK-006`, `INTENT-001`—`INTENT-005`, `STATUS-001`.
 
 Canonical first-slice journal events:
 
-`scene.created`, `scene.entity_moved`, `scene.entity_removed`, `card.drawn`, `card.played`, `card.discarded`, `stamina.changed`, `hp.changed`, `status.applied`, `status.refreshed`, `status.expired`, `mode.changed`, `intent.started`, `intent.cancelled`, `intent.resolved`, `intent.target_selected`, `hint.sent`, `scene.ended`, `expedition.ended`, `checkpoint.created`, `checkpoint.restored` (audit/internal alias only), `rollback.applied`, `scene.transferred`, `scene.pause_changed`.
+`scene.created`, `scene.entity_moved`, `scene.entity_removed`, `deck.shuffled`, `card.drawn`, `card.played`, `card.discarded`, `deck.rotation_resolved`, `stamina.changed`, `hp.changed`, `status.applied`, `status.refreshed`, `status.expired`, `mode.changed`, `intent.started`, `intent.cancelled`, `intent.resolved`, `intent.target_selected`, `hint.sent`, `scene.ended`, `expedition.ended`, `checkpoint.created`, `checkpoint.restored` (audit/internal alias only), `rollback.applied`, `scene.transferred`, `scene.pause_changed`.
 
 Step C Increment 4 defines `hp.changed` v2 for new damage events and keeps v1 readable by replay. `scene.entity_removed` v1 records enemy cleanup and cell release; `intent.cancelled` reason `owner_removed` precedes removal when applicable. See [DR-C-004](./18-step-c-hp-damage-resolution.md).
 
@@ -260,7 +260,7 @@ The example assumes the visibility/reveal policy explicitly approved this public
   "sceneRevision": 42,
   "serverTick": 9000,
   "rulesetVersion": "fable.ruleset.0.1",
-  "contentVersion": "slice.quarantine-gates.v1",
+  "contentVersion": "slice.quarantine-gates.v2",
   "timePaused": false,
   "state": {}
 }
@@ -274,7 +274,7 @@ Before battle, `hand` and `defenseSlot` are absent, not null. In battle they are
 {
   "id":"enemy_03",
   "kind":"enemy",
-  "templateKey":"quarantine_silencer",
+  "templateKey":"extinguisher",
   "position":{"x":7,"y":3},
   "hp":350,
   "maxHp":350,

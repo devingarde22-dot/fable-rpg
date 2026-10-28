@@ -138,6 +138,8 @@ client command
 
 ## 5. Error response
 
+`STALE_SCENE_REVISION` в примере ниже — зарезервированный протокольный код для операций со строгой global-revision проверкой (например, будущих GM/server-команд). Текущие player move, mode и card commands не отклоняются из-за одного только устаревшего `clientRevision`; карты отдельно проверяют `clientCardRevision` при применении.
+
 ```json
 {
   "ok": false,

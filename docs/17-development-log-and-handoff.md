@@ -1,7 +1,7 @@
 # Fable — журнал разработки и handoff для AI
 
-**Обновлено:** 2026-10-28 (Increment 10 implemented and verified; PR review pending)
-**Статус:** Increment 1–9 находятся в `fable-rpg/main`; PR #7 слит в commit `6423c19`. PR #3–#5 для increments 5–7 остаются открытыми, хотя их commits вошли в main через PR #6. Scope и реализация Increment 10 зафиксированы в [DR-C-010](./25-step-c-increment-10-full-headless-slice.md); изменения реализованы и проверены в `feat/full-headless-vertical-slice`, [PR #8](https://github.com/devingarde22-dot/fable-rpg/pull/8) ожидает review. Старый defense-slot-only proposal [`docs/24-step-c-increment-10-proposal.md`](./24-step-c-increment-10-proposal.md) помечен superseded. PR #1–#2 — исторические merges; актуальные детали приведены ниже.
+**Обновлено:** 2026-10-28 (Increment 10 merged; PR #9 open)
+**Статус:** Increments 1–10 находятся в `fable-rpg/main`; PR #8 с Increment 10 слит в merge commit `b619c77`. PR #9 — отдельный follow-up по idempotency команд, открыт для review. PR #3–#5 для increments 5–7 остаются открытыми, хотя их commits вошли в main через PR #6; их можно закрыть как избыточные, не удаляя уже слитые изменения. Scope Increment 10 зафиксирован в [DR-C-010](./25-step-c-increment-10-full-headless-slice.md). Старый defense-slot-only proposal [`docs/24-step-c-increment-10-proposal.md`](./24-step-c-increment-10-proposal.md) помечен superseded. PR #1–#2 — исторические merges; актуальные детали приведены ниже.
 
 Этот документ — краткая карта проекта для продолжения работы другой нейросетью. Он не заменяет нормативные документы и не вводит новых игровых правил. При любом расхождении приоритет имеют подтверждённые документы `docs/` и машинно-читаемые контракты.
 
@@ -17,7 +17,9 @@
 - Increment 7 (Mode-filtered Deck & Timed Hand Rotation) реализован в commit `f175a1b` и опубликован в PR [#5](https://github.com/devingarde22-dot/fable-rpg/pull/5). Подтверждённые правила — [DR-C-007](./21-step-c-deck-cycle.md).
 - Increment 8 (Status Layers & Immobilized) реализован в commit `24ca60e` и опубликован в PR [#6](https://github.com/devingarde22-dot/fable-rpg/pull/6) в `main`; PR включает ancestry increments 5–7. Правила и typed-layer contracts — [DR-C-008](./22-step-c-status-immobilized.md).
 - Increment 9 (Ally Guard Runtime) реализован в commit `226f654` и слит в `main` через PR [#7](https://github.com/devingarde22-dot/fable-rpg/pull/7), merge commit `6423c19`; правила — [DR-C-009](./23-step-c-ally-guard.md).
-- Increment 10 (Full Headless Vertical Slice) — реализован в `feat/full-headless-vertical-slice`; `pnpm check` и `pnpm build` проходят, [PR #8](https://github.com/devingarde22-dot/fable-rpg/pull/8) ожидает review. Golden Quarantine Gates проверяет полный цикл, outcomes, rollback и replay; подробности в [DR-C-010](./25-step-c-increment-10-full-headless-slice.md).
+- Increment 10 (Full Headless Vertical Slice) — реализован и слит через [PR #8](https://github.com/devingarde22-dot/fable-rpg/pull/8) в `main` (merge commit `b619c77`). Golden Quarantine Gates проверяет полный цикл, outcomes, rollback и replay; подробности в [DR-C-010](./25-step-c-increment-10-full-headless-slice.md).
+- Follow-up audit — commit `970e993` опубликован в [PR #9](https://github.com/devingarde22-dot/fable-rpg/pull/9): idempotency key scoped по session/actor/request, сохранение финального результата и регрессионные тесты; PR ожидает review.
+- Step C audit follow-ups опубликованы раздельно: [PR #10](https://github.com/devingarde22-dot/fable-rpg/pull/10) — DR-C-011/A1, revision/window semantics; [PR #11](https://github.com/devingarde22-dot/fable-rpg/pull/11) — DR-C-012/A2, `bind` eligibility; [PR #12](https://github.com/devingarde22-dot/fable-rpg/pull/12) — документационная синхронизация и этот work log; [PR #13](https://github.com/devingarde22-dot/fable-rpg/pull/13) — read-only audit report. Все PR остаются вне `main`; результаты и точные проверки — в [подробном журнале](./29-step-c-audit-work-log-2026-10-28.md).
 
 ### Маршрутизация репозиториев
 
@@ -62,9 +64,10 @@
 | `f175a1b` — `feat(rules): add mode-filtered deck cycle` | Increment 7 / DR-C-007; PR [#5](https://github.com/devingarde22-dot/fable-rpg/pull/5) открыт. |
 | `24ca60e` — `feat(rules): implement immobilized status lifecycle` | Increment 8 / DR-C-008: typed status layers, test-backed bind/immobilized, refresh/expiry/replay; опубликован в PR [#6](https://github.com/devingarde22-dot/fable-rpg/pull/6) в `main`. |
 | `226f654` — `feat(rules): implement ally guard runtime` | Increment 9 / DR-C-009: Ally Guard, активный Extinguisher handler, replay/schema/golden transcript; опубликован в PR [#7](https://github.com/devingarde22-dot/fable-rpg/pull/7) в `main`. |
-| `feat/full-headless-vertical-slice` | Increment 10 / DR-C-010: campaign wrapper, test-only defense slot/effects, rollback/outcomes, Quarantine Gates fixture 2–4 heroes; implementation verified, [PR #8](https://github.com/devingarde22-dot/fable-rpg/pull/8) review pending. |
+| `feat/full-headless-vertical-slice` | Increment 10 / DR-C-010: campaign wrapper, test-only defense slot/effects, rollback/outcomes, Quarantine Gates fixture 2–4 heroes; merged by [PR #8](https://github.com/devingarde22-dot/fable-rpg/pull/8) (`b619c77`). |
+| `970e993` | Idempotency audit follow-up: `(sessionId, actorId, requestId)`, final cached results and scoped-request regressions; [PR #9](https://github.com/devingarde22-dot/fable-rpg/pull/9) open. |
 
-PR [#1](https://github.com/devingarde22-dot/fable-rpg/pull/1) включал Increment 1–3 и DR-C-001–003; PR [#2](https://github.com/devingarde22-dot/fable-rpg/pull/2) включал Increment 4 и DR-C-004 и слит в `main`; PR [#6](https://github.com/devingarde22-dot/fable-rpg/pull/6) также слит в `main` и содержит ancestry increments 5–7. PR [#3](https://github.com/devingarde22-dot/fable-rpg/pull/3), [#4](https://github.com/devingarde22-dot/fable-rpg/pull/4) и [#5](https://github.com/devingarde22-dot/fable-rpg/pull/5) остаются открытыми, хотя их commits включены в main через PR #6. PR #7 с Increment 9 слит в `main` (`6423c19`).
+PR [#1](https://github.com/devingarde22-dot/fable-rpg/pull/1) включал Increment 1–3 и DR-C-001–003; PR [#2](https://github.com/devingarde22-dot/fable-rpg/pull/2) включал Increment 4 и DR-C-004 и слит в `main`; PR [#6](https://github.com/devingarde22-dot/fable-rpg/pull/6) также слит в `main` и содержит ancestry increments 5–7. PR [#3](https://github.com/devingarde22-dot/fable-rpg/pull/3), [#4](https://github.com/devingarde22-dot/fable-rpg/pull/4) и [#5](https://github.com/devingarde22-dot/fable-rpg/pull/5) остаются открытыми, хотя их commits включены в main через PR #6; их можно закрыть как избыточные. PR #7 с Increment 9 и PR #8 с Increment 10 слиты в `main` (`6423c19`, `b619c77`); PR #9 с idempotency follow-up открыт.
 
 ## 4. Архитектура и инварианты
 
@@ -181,7 +184,7 @@ PR [#1](https://github.com/devingarde22-dot/fable-rpg/pull/1) включал Inc
 - В новой damage/cleanup gameplay logic нет `Math.random()`/`Date.now()`; HP mutations находятся в damage pipeline и replay reducer.
 - `pnpm install --frozen-lockfile` был проверен в предыдущем Step C acceptance; повторять при изменении lockfile/dependencies.
 
-При любом новом изменении повторно запустить как минимум `pnpm check` и `pnpm build`, затем сообщить точные результаты. PR #3 (Increment 5), #4 (Increment 6) и #5 (Increment 7) открыты. Следующий increment не начинать без отдельного запроса пользователя и предварительно одобренного плана.
+При любом новом изменении повторно запустить как минимум `pnpm check` и `pnpm build`, затем сообщить точные результаты. PR #3–#5 формально остаются открытыми, хотя их commits уже входят в `main` через PR #6; их можно закрыть как redundant. PR #9 — follow-up поверх текущего `main`, ожидает review. Не начинать следующий increment без отдельного запроса пользователя и предварительно одобренного плана.
 
 Для Increment 5 (`d237616`; 2026-10-27; ветка `step-c-increment-5-stamina`, PR #3 открыт):
 
@@ -221,21 +224,31 @@ PR [#1](https://github.com/devingarde22-dot/fable-rpg/pull/1) включал Inc
 
 Для Increment 10 / DR-C-010 (`feat/full-headless-vertical-slice`, implemented and verified):
 
-- `pnpm check` — PASS: typecheck, lint и полный workspace suite; **159 тестов прошли** (5 в `content`, 154 в `rules`), 36 rules test files.
+- `pnpm check` — PASS: typecheck, lint и полный workspace suite; **164 теста прошли** (5 в `content`, 159 в `rules`), 36 rules test files.
 - `pnpm build` — PASS для `@fable/content` и `@fable/rules`; `git diff --check`, event/command JSON parse и внутренние ссылки обновлённых docs — PASS.
-- Добавлены 2–4 party Quarantine Gates fixture, полный golden-бой `city → route → node → scene → success → city checkpoint`, детерминированный повтор/replay parity, Extinguisher priority chain, defense-card и rollback/outcome/schema tests. Отдельные тесты покрывают self-status, barrier cleanup при завершении сцены и defeat replay parity. Increment 10 ещё не слит в `main`; ветка готова к PR review.
+- Добавлены 2–4 party Quarantine Gates fixture, полный golden-бой `city → route → node → scene → success → city checkpoint`, детерминированный повтор/replay parity, Extinguisher priority chain, defense-card и rollback/outcome/schema tests. Отдельные тесты покрывают self-status, barrier cleanup при завершении сцены и defeat replay parity. Increment 10 слит через [PR #8](https://github.com/devingarde22-dot/fable-rpg/pull/8) в `main` (merge commit `b619c77`).
 
 ## 8. Что ещё не реализовано / ограничения scope
+
+### Step C audit follow-up — 2026-10-28
+
+Пользователь утвердил A1: принимать допустимую при постановке команду при изменившейся scene revision, если её фактическое действие всё ещё законно; затем измерить stale-rate при 100–250 ms. Измерение пересекло разрешённый порог 1%, поэтому A1 применяет условный вариант C с `clientCardRevision` для строгой проверки карт. Пользователь также выбрал A2: исключать `immobilized` из целей текущего Extinguisher `bind`, не меняя интервал/длительность; проверен expiry boundary и критерий свободных окон.
+
+Подробные решения, синтетическая latency-метрика, результаты тестов, read-only audit findings и список нерешённых вопросов записаны в [Step C audit work log](./29-step-c-audit-work-log-2026-10-28.md). PR #10–#13 открыты и не слиты; `main` остаётся на `b619c77`.
 
 В Increment 10 разрешены только scope и решения из [DR-C-010](./25-step-c-increment-10-full-headless-slice.md): headless campaign wrapper, in-memory city saves/rollback, test-only defense cards, outcome checks и Quarantine Gates fixture. Production card catalog/balance, UI, network, PostgreSQL/persistence, authentication, deployment и AI Copilot остаются вне scope. `reposition` и reward items не реализуются. Mode-filtered deal, timed hand rotation и empty-pile reshuffle реализованы Increment 7 в рамках DR-C-007.
 
 В частности, существующий `extinguisher` активен в runtime для `bind`, `ally_guard` и `move_close`; `reposition` остаётся deferred/draft и не является active handler или fallback. Increment 9 не добавлял и не балансировал production content. Не расширять scope молча.
 
+### Открытый вопрос: состояние узла после retreat
+
+Не разрешать этот конфликт редакторским предположением. [Vertical Slice, шаг 8](./05-vertical-slice.md#шаг-8--исход) говорит, что после `retreat` узел закрыт; [DR-C-010, решение об исходах](./25-step-c-increment-10-full-headless-slice.md) говорит, что узел остаётся открытым и повторяемым. Требуется выбор пользователя до синхронизации этих документов.
+
 ## 9. Инструкция следующему AI
 
 1. Убедиться, что открыт репозиторий `fable-rpg`, ветка и `git status` соответствуют задаче; `fable-context` — context pack, не code target.
 2. Прочитать normative документы в порядке выше и соответствующие Decision Records/JSON Schemas.
-3. Для Increment 10 проверить опубликованный PR и дождаться review/merge; не считать feature branch слитой в `main` до фактического merge.
+3. Проверить состояние открытых [PR #9](https://github.com/devingarde22-dot/fable-rpg/pull/9)–[#13](https://github.com/devingarde22-dot/fable-rpg/pull/13); ни один из audit PR #10–#13 не считать частью `main`, пока он отдельно не будет reviewed/merged.
 4. Не расширять DR-C-010 молча. При конфликте успеха и поражения оставить outcome на ручное подтверждение GM; новые rules выносить пользователю/в Decision Record.
 5. Сохранять deterministic replay, state hash parity, строгую валидацию contracts и чистое разделение headless rules от UI/network/database.
 6. Для code changes использовать feature branch в `fable-rpg`, проверять diff/status, не force-push и открывать PR только по просьбе пользователя.

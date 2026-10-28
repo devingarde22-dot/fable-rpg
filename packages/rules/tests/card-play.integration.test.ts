@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createSimulationEngine } from "../src/engine/SimulationEngine.js";
-import { enemy, gameplayState, hero, playCardCommand, testConfig } from "./createTestEngine.js";
+import { enemy, gameplayState, hero, playCardCommand, testConfig, testIntentTemplates } from "./createTestEngine.js";
 import { testCostedRangedStrike, testFreeRangedStrike } from "./fixtures/testCards.js";
 
 function makeEngine(options: {
@@ -156,6 +156,39 @@ describe("player.play_card integration", () => {
       kind: "hero",
       stamina: { current: 2, max: 5, nextRegenAtTick: 600 },
     });
+  });
+
+  it("ignores a stale scene cursor at card apply but strictly checks clientCardRevision", () => {
+    const shortHoldTemplates = testIntentTemplates.map((template) =>
+      template.key === "hold_position" ? { ...template, durationMs: 3_050 } : template,
+    );
+    const staleScene = createSimulationEngine(testConfig({
+      entities: [
+        hero("hero-1", 1, 1, "ranged", false, 3, { hand: [{ instanceId: "card-1", templateKey: testCostedRangedStrike.key }], discard: [], revision: 0 }),
+        enemy("enemy-1", 3, 1),
+      ],
+      initialIntentByEnemyId: { "enemy-1": "hold_position" },
+      intentTemplates: shortHoldTemplates,
+    }));
+    staleScene.advanceTicks(62);
+    const now = currentRevisions(staleScene);
+    expect(now.scene).toBeGreaterThan(0);
+    expect(staleScene.submit(playCardCommand("stale-scene-card", "card-1", "enemy-1", "ranged", {
+      revision: 0, cardRevision: now.cards,
+    }))).toMatchObject({ status: "queued" });
+    const applied = staleScene.advanceTicks(3).at(-1);
+    expect(applied?.commandResults).toMatchObject([{ requestId: "stale-scene-card", status: "accepted" }]);
+
+    const staleCard = makeEngine();
+    const before = gameplayState(staleCard.snapshot());
+    const revisions = currentRevisions(staleCard);
+    staleCard.submit(playCardCommand("stale-card-only", "card-1", "enemy-1", "ranged", {
+      revision: revisions.scene + 99, cardRevision: revisions.cards + 1,
+    }));
+    const rejected = staleCard.advanceTicks(5).at(-1);
+    expect(rejected?.commandResults).toMatchObject([{ status: "rejected", code: "STALE_CARD_REVISION" }]);
+    expect(rejected?.events).toEqual([]);
+    expect(gameplayState(staleCard.snapshot())).toEqual(before);
   });
 
   it("rejects a stale card revision without mutation and does not double-play a duplicate requestId", () => {

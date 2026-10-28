@@ -113,7 +113,7 @@ export const INTENT_TEMPLATES = [
   {
     kind: "intent_template",
     key: "bind",
-    version: 1,
+    version: 2,
     status: "confirmed",
     icon: "bind",
     durationMs: 12_000,
@@ -124,7 +124,7 @@ export const INTENT_TEMPLATES = [
       fallbackPolicies: [],
       range: { minInclusive: 1, maxInclusive: 5 },
       lineOfSight: "required",
-      filters: playerTargets,
+      filters: { ...playerTargets, excludedStatuses: ["immobilized"] },
     },
     fallbackKeys: ["move_close"],
     visibility: "public",

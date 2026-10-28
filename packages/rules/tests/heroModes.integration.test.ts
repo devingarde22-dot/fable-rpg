@@ -33,8 +33,12 @@ describe("hero modes and automatic melee contact", () => {
       entities: [hero("hero-1", 1, 1, "movement", false)],
     }));
     expect(unavailable.submit(modeCommand("player.enter_ranged_mode", "no-ranged-card")))
-      .toMatchObject({ status: "rejected", code: "CARD_NOT_AVAILABLE" });
-    expect(unavailable.advanceTicks(5).at(-1)?.events).toEqual([]);
+      .toMatchObject({ status: "queued" });
+    const unavailableResult = unavailable.advanceTicks(5).at(-1);
+    expect(unavailableResult?.commandResults).toMatchObject([
+      { requestId: "no-ranged-card", status: "rejected", code: "CARD_NOT_AVAILABLE" },
+    ]);
+    expect(unavailableResult?.events).toEqual([]);
 
     const available = createSimulationEngine(testConfig({
       entities: [hero("hero-1", 1, 1, "movement", true)],
