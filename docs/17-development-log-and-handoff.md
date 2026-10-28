@@ -223,7 +223,7 @@ PR [#1](https://github.com/devingarde22-dot/fable-rpg/pull/1) включал Inc
 
 Для Increment 10 / DR-C-010 (`feat/full-headless-vertical-slice`, implemented and verified):
 
-- `pnpm check` — PASS: typecheck, lint и полный workspace suite; **159 тестов прошли** (5 в `content`, 154 в `rules`), 36 rules test files.
+- `pnpm check` — PASS: typecheck, lint и полный workspace suite; **164 теста прошли** (5 в `content`, 159 в `rules`), 36 rules test files.
 - `pnpm build` — PASS для `@fable/content` и `@fable/rules`; `git diff --check`, event/command JSON parse и внутренние ссылки обновлённых docs — PASS.
 - Добавлены 2–4 party Quarantine Gates fixture, полный golden-бой `city → route → node → scene → success → city checkpoint`, детерминированный повтор/replay parity, Extinguisher priority chain, defense-card и rollback/outcome/schema tests. Отдельные тесты покрывают self-status, barrier cleanup при завершении сцены и defeat replay parity. Increment 10 слит через [PR #8](https://github.com/devingarde22-dot/fable-rpg/pull/8) в `main` (merge commit `b619c77`).
 

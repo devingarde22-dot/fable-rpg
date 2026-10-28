@@ -32,7 +32,7 @@ Markdown contracts and JSON Schemas are the source of truth. If a document confl
 
 ## Current project status
 
-Step C — Core Engine & State Machine increments 1–10 are implemented and merged into `main`. Increment 10 — Full Headless Vertical Slice (DR-C-010) was merged by [PR #8](https://github.com/devingarde22-dot/fable-rpg/pull/8) at merge commit `b619c77` on 2026-10-28. Its full headless Quarantine Gates scenario covers the city-to-scene-to-outcome loop, a 2–4 hero fixture, deterministic replay, rollback, and outcome eligibility. The merged Increment 10 verification passed `pnpm check` (159 tests: 5 in `content`, 154 in `rules`) and `pnpm build`.
+Step C — Core Engine & State Machine increments 1–10 are implemented and merged into `main`. Increment 10 — Full Headless Vertical Slice (DR-C-010) was merged by [PR #8](https://github.com/devingarde22-dot/fable-rpg/pull/8) at merge commit `b619c77` on 2026-10-28. Its full headless Quarantine Gates scenario covers the city-to-scene-to-outcome loop, a 2–4 hero fixture, deterministic replay, rollback, and outcome eligibility. Fresh verification on this commit passed `pnpm check` (164 tests: 5 in `content`, 159 in `rules`) and `pnpm build`.
 
 [PR #9](https://github.com/devingarde22-dot/fable-rpg/pull/9) is an open follow-up for command idempotency hardening: request keys are scoped by session, authenticated actor, and request ID, with saved final results and regression tests. It is separate from the already-merged Increment 10 implementation and awaits review.
 
