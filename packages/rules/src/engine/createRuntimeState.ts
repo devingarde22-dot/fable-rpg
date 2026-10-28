@@ -12,6 +12,7 @@ import {
   type EntityRuntime,
   type RuntimeState,
   type RuntimeSnapshot,
+  type SimulationEngineRestoreConfig,
   type SimulationEngineConfig,
   type StatusLayer,
 } from "./types.js";
@@ -159,6 +160,58 @@ export function createRuntimeState(config: SimulationEngineConfig): RuntimeState
   };
   assertRuntimeInvariants(state);
   return state;
+}
+
+/**
+ * Hydrates a persisted snapshot using the current immutable content catalogs.
+ * Catalogs stay outside the snapshot so a restore cannot silently invent or alter rules.
+ */
+export function createRuntimeStateFromSnapshot(snapshot: RuntimeSnapshot, config: SimulationEngineRestoreConfig): RuntimeState {
+  if (!snapshot.campaignId.trim() || !snapshot.sessionId.trim() || !snapshot.scene.id.trim()) {
+    throw new Error("A persisted snapshot must have campaign, session and scene ids");
+  }
+  const terrain = config.terrain ?? snapshot.scene.cells
+    .filter((cell) => cell.terrain !== "floor")
+    .map((cell) => ({ cell: { x: cell.x, y: cell.y }, terrain: cell.terrain }));
+  const entities = snapshot.entities.map((entity) => entity.kind === "enemy"
+    ? { ...entity, activeIntentId: null }
+    : { ...entity, stamina: { ...entity.stamina, current: INITIAL_STAMINA, nextRegenAtTick: null } });
+  const base = createRuntimeState({
+    campaignId: snapshot.campaignId,
+    sessionId: snapshot.sessionId,
+    sceneId: snapshot.scene.id,
+    rootSeed: snapshot.rootSeed,
+    ...(config.cardTemplates ? { cardTemplates: config.cardTemplates } : {}),
+    terrain,
+    entities,
+    enemyTemplates: config.enemyTemplates,
+    intentTemplates: config.intentTemplates,
+    initialIntentByEnemyId: {},
+    heroIdByActorId: Object.fromEntries(snapshot.heroIdByActorId),
+  });
+  base.scene = {
+    ...snapshot.scene,
+    cells: snapshot.scene.cells.map((cell) => ({ ...cell })),
+    playerEntityIds: [...snapshot.scene.playerEntityIds],
+    enemyEntityIds: [...snapshot.scene.enemyEntityIds],
+    contactImmunityUntilTick: new Map(snapshot.scene.contactImmunityUntilTick),
+    inputWindow: {
+      windowId: snapshot.scene.inputWindow.windowId,
+      commands: snapshot.scene.inputWindow.commands.map((command) => structuredClone(command)),
+    },
+  };
+  base.entities = new Map(snapshot.entities.map((entity) => [entity.id, cloneEntity(entity)]));
+  base.activeIntents = new Map(snapshot.activeIntents.map((intent) => [intent.activeIntentId, cloneActiveIntent(intent)]));
+  base.heroIdByActorId = new Map(snapshot.heroIdByActorId);
+  base.serverTick = snapshot.serverTick;
+  base.sceneRevision = snapshot.sceneRevision;
+  base.nextServerSequence = snapshot.nextServerSequence;
+  base.rootSeed = snapshot.rootSeed;
+  base.phase = snapshot.phase;
+  base.paused = snapshot.paused;
+  base.outcome = snapshot.outcome;
+  assertRuntimeInvariants(base);
+  return base;
 }
 
 export function cloneRuntimeState(state: RuntimeState): RuntimeState {

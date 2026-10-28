@@ -1,0 +1,27 @@
+{
+  "name": "@fable/vertical-slice",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc --target ES2022 --module NodeNext --moduleResolution NodeNext --strict --noUncheckedIndexedAccess --exactOptionalPropertyTypes --noImplicitOverride --noFallthroughCasesInSwitch --isolatedModules --declaration --sourceMap --skipLibCheck --types node --rootDir ../.. --outDir dist src/index.ts",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "lint": "eslint src tests",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@fable/content": "workspace:*",
+    "@fable/rules": "workspace:*",
+    "ajv": "^8.20.0",
+    "ws": "^8.22.0"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.18.2"
+  }
+}
