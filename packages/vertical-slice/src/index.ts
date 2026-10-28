@@ -269,3 +269,12 @@ export class PlayerGmVerticalSlice {
     return session.outbox.splice(0);
   }
 }
+
+export { createVerticalSliceWebSocketServer } from "./websocket.js";
+export type {
+  VerticalSliceWebSocketServer,
+  WebSocketClientMessage,
+  WebSocketCommand,
+  WebSocketHello,
+  WebSocketServerMessage,
+} from "./websocket.js";

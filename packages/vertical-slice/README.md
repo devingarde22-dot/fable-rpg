@@ -19,6 +19,33 @@ GM command     → role check → pause/outcome control → projections
 - event broadcast и command result;
 - integration tests на role checks, visibility, movement, pause и outcome.
 
+## WebSocket transport
+
+`createVerticalSliceWebSocketServer()` поднимает HTTP server с health endpoint `/health` и WebSocket endpoint `/ws`. Первый client message должен быть handshake:
+
+```json
+{"type":"hello","role":"player","actorId":"player-1"}
+```
+
+После handshake клиент отправляет команды в envelope:
+
+```json
+{"type":"command","command":{"kind":"player.move","requestId":"move-1","direction":"right"}}
+```
+
+Сервер отправляет JSON-сообщения `room.ready`, `projection`, `events`, `command.result` и `transport.error`. Projection уже отфильтрован по роли до сериализации.
+
+Минимальный bootstrap:
+
+```ts
+import { createVerticalSliceWebSocketServer } from "@fable/vertical-slice";
+
+const server = createVerticalSliceWebSocketServer();
+await server.listen(2567, "0.0.0.0");
+```
+
+Transport использует стандартный пакет `ws`; Colyseus намеренно не добавлен, потому что его текущая dependency tree требует exotic git dependency `uWebSockets.js`, запрещённую policy этого repository.
+
 ## Локальная проверка
 
 Из корня monorepo:
@@ -31,4 +58,4 @@ pnpm build
 
 ## Сознательные ограничения
 
-Это не production transport и не UI. Нет авторизации, WebSocket/Colyseus wiring, persistence, reconnect, rate limiting или schema validation внешнего сообщения. Следующим шагом можно заменить in-memory `SliceConnection` на transport adapter, не перенося gameplay-логику из `HeadlessSimulationEngine`.
+Это не production transport и не UI. Нет авторизации, persistence, reconnect, rate limiting или полной JSON Schema validation внешнего сообщения. Следующим шагом можно добавить auth/session membership и persistence, не перенося gameplay-логику из `HeadlessSimulationEngine`.
