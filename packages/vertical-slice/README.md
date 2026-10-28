@@ -51,6 +51,8 @@ const server = createVerticalSliceWebSocketServer({
 await server.listen(2567, "0.0.0.0");
 ```
 
+Transport пишет ошибки подключения и исключения выполнения команд как однострочные JSON-записи в `console.error`. Опция `logger` позволяет передать structured records в приложение. Записи содержат allowlisted reason codes и безопасную контекстную информацию (campaign, role, session, command kind); auth/resume tokens, raw payload, request ID и исходный `Error.message` не включаются. Непредвиденные ошибки handshake и command execution возвращают клиенту обобщённый reason code.
+
 Transport использует стандартный пакет `ws`; Colyseus намеренно не добавлен, потому что его текущая dependency tree требует exotic git dependency `uWebSockets.js`, запрещённую policy этого repository.
 
 ## Локальная проверка
