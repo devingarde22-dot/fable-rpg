@@ -27,16 +27,16 @@ The adapter includes indexes for campaign/request lookups and event sequence/tim
 
 This SQLite schema supports the current vertical slice. It does not yet implement the full normalized campaign/lore model described in the target-design sections below.
 
-## 1. Правила хранения
+## 1. Правила хранения для будущей PostgreSQL-модели
 
-- PostgreSQL хранит campaign/lore/content metadata, sessions, events, commands и checkpoints.
+- В целевой PostgreSQL-модели PostgreSQL будет хранить campaign/lore/content metadata, sessions, events, commands и checkpoints.
 - Быстро меняющееся authoritative scene state живёт в simulation room и периодически фиксируется snapshot/checkpoint.
 - Event journal append-only.
 - JSONB разрешён для versioned state payload, но ключевые связи и idempotency должны быть нормализованы.
 - Все content records имеют `version` и `status`.
 - Удаление campaign cascades только там, где это безопасно; audit/event history не удаляется обычным GM действием.
 
-## 2. Core tables
+## 2. Core tables (proposed target)
 
 ### `users`
 
@@ -187,7 +187,7 @@ scene_revision, payload jsonb, generated_at
 
 It is a cache, not source of truth.
 
-## 5. Events, commands and checkpoints
+## 5. Events, commands and checkpoints (proposed target)
 
 ### `campaign_events`
 
@@ -269,7 +269,7 @@ from_gm_id, target_player_id, text,
 vibration boolean, delivered_at, created_at
 ```
 
-## 6. Transactions
+## 6. Proposed target transaction patterns (not active SQLite behavior)
 
 ### Apply player command
 
@@ -312,7 +312,7 @@ BEGIN
 → broadcast fresh filtered snapshot
 ```
 
-## 7. Drizzle implementation rules
+## 7. Drizzle rules for a future target implementation
 
 - Enums for visibility, scene mode, command status, entity side and outcome.
 - `jsonb` fields have explicit TypeScript `$type`.
